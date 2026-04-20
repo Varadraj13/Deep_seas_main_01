@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Market Screen</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #050505;
+    color: #e0e0e0;
+    font-family: 'IBM Plex Mono', monospace;
+    height: 100vh;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+  }
+
+  /* HEADER */
+  header {
+    padding: 18px 28px 14px;
+    border-bottom: 1px solid #1a1a1a;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  .contract-q {
+    font-size: 11px;
+    font-weight: 400;
+    color: #888;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    max-width: 600px;
+  }
+  .contract-q span {
+    color: #e0e0e0;
+  }
+  .vol-label {
+    font-size: 10px;
+    color: #444;
+    letter-spacing: 0.1em;
+  }
+  .vol-label span { color: #888; }
+
+  /* MAIN GRID */
+  main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: #111;
+    overflow: hidden;
+  }
+
+  .side {
+    background: #050505;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    padding: 20px 24px 16px;
+    overflow: hidden;
+  }
+
+  .side-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .side-label {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .yes .side-label { color: #22c55e; }
+  .no .side-label { color: #ef4444; }
+
+  .side-price {
+    font-size: 28px;
+    font-weight: 300;
+    letter-spacing: -0.02em;
+  }
+  .yes .side-price { color: #22c55e; }
+  .no .side-price { color: #ef4444; }
+
+  .side-sub {
+    font-size: 9px;
+    color: #333;
+    letter-spacing: 0.1em;
+  }
+
+  /* CHART */
+  .chart-wrap {
+    position: relative;
+    overflow: hidden;
+  }
+  canvas.chart {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* PLAYER TABLE */
+  .player-table {
+    margin-top: 12px;
+    border-top: 1px solid #111;
+    padding-top: 10px;
+  }
+  .player-row {
+    display: grid;
+    grid-template-columns: 16px 1fr 60px 52px;
+    gap: 8px;
+    align-items: center;
+    padding: 3px 0;
+    font-size: 9px;
+    letter-spacing: 0.06em;
+  }
+  .player-row .pid {
+    color: #333;
+    font-size: 8px;
+  }
+  .player-row .pname { color: #666; }
+  .player-row .pamt { text-align: right; }
+  .player-row .ppnl {
+    text-align: right;
+    font-weight: 500;
+  }
+  .ppnl.pos { color: #22c55e; }
+  .ppnl.neg { color: #ef4444; }
+  .ppnl.neu { color: #444; }
+
+  .col-labels {
+    display: grid;
+    grid-template-columns: 16px 1fr 60px 52px;
+    gap: 8px;
+    font-size: 8px;
+    color: #333;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding-bottom: 4px;
+    margin-bottom: 2px;
+    border-bottom: 1px solid #111;
+  }
+  .col-labels span:nth-child(3),
+  .col-labels span:nth-child(4) { text-align: right; }
+
+  /* FOOTER */
+  footer {
+    padding: 10px 28px;
+    border-top: 1px solid #0e0e0e;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .ticker {
+    font-size: 9px;
+    color: #222;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .ticker span { color: #444; margin-right: 24px; }
+  .round-state {
+    font-size: 9px;
+    color: #333;
+    letter-spacing: 0.1em;
+  }
+  .round-state .active { color: #22c55e; }
+  .round-state .timer { color: #888; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="contract-q">
+    <span id="contractQ">When will traffic at the Strait of Hormuz return to normal?</span>
+  </div>
+  <div class="vol-label">VOL <span id="totalVol">$1,503,164</span></div>
+</header>
+
+<main>
+  <!-- YES SIDE -->
+  <div class="side yes">
+    <div class="side-header">
+      <div>
+        <div class="side-label">Yes</div>
+        <div class="side-price" id="yesPrice">51¢</div>
+        <div class="side-sub" id="yesChance">51% chance</div>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <canvas class="chart" id="yesChart"></canvas>
+    </div>
+    <div class="player-table">
+      <div class="col-labels">
+        <span>#</span><span>player</span><span>invested</span><span>P&L</span>
+      </div>
+      <div id="yesPlayers"></div>
+    </div>
+  </div>
+
+  <!-- NO SIDE -->
+  <div class="side no">
+    <div class="side-header">
+      <div>
+        <div class="side-label">No</div>
+        <div class="side-price" id="noPrice">50¢</div>
+        <div class="side-sub" id="noChance">49% chance</div>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <canvas class="chart" id="noChart"></canvas>
+    </div>
+    <div class="player-table">
+      <div class="col-labels">
+        <span>#</span><span>player</span><span>invested</span><span>P&L</span>
+      </div>
+      <div id="noPlayers"></div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="ticker">
+    <span id="tick1">MALACCA FLOW 98%</span>
+    <span id="tick2">VESSELS 30</span>
+    <span id="tick3">SIM TICK 1033</span>
+    <span id="tick4">HORMUZ · BEFORE JUN 1 · 59%</span>
+  </div>
+  <div class="round-state">
+    ROUND <span id="roundNum">1</span> / 3 &nbsp;·&nbsp;
+    <span class="active">LIVE</span> &nbsp;·&nbsp;
+    <span class="timer" id="roundTimer">00:38</span>
+  </div>
+</footer>
+
+<script>
+  // ── CONFIG ──────────────────────────────────────────────────────
+  const YES_PLAYERS = [
+    { id: '01', name: 'P_ATLAS',   invested: 240, side: 'yes' },
+    { id: '02', name: 'P_WREN',    invested: 180, side: 'yes' },
+    { id: '03', name: 'P_KOFI',    invested: 310, side: 'yes' },
+    { id: '04', name: 'P_SABLE',   invested: 95,  side: 'yes' },
+    { id: '05', name: 'P_RIVER',   invested: 150, side: 'yes' },
+  ];
+  const NO_PLAYERS = [
+    { id: '06', name: 'P_VANCE',   invested: 200, side: 'no' },
+    { id: '07', name: 'P_MIRA',    invested: 270, side: 'no' },
+    { id: '08', name: 'P_TORCH',   invested: 120, side: 'no' },
+    { id: '09', name: 'P_LENA',    invested: 340, side: 'no' },
+    { id: '10', name: 'P_DREX',    invested: 85,  side: 'no' },
+  ];
+
+  // ── STATE ────────────────────────────────────────────────────────
+  let yesProb = 0.51;
+  const HISTORY_LEN = 120;
+  const yesHistory = Array.from({length: HISTORY_LEN}, (_,i) =>
+    0.50 + 0.08 * Math.sin(i * 0.15) + (Math.random() - 0.5) * 0.04
+  );
+  const noHistory = yesHistory.map(v => 1 - v);
+
+  let roundSec = 45;
+  let simTick = 1033;
+  let totalVol = 1503164;
+
+  // ── CANVAS SETUP ─────────────────────────────────────────────────
+  function setupCanvas(id) {
+    const canvas = document.getElementById(id);
+    const wrap = canvas.parentElement;
+    canvas.width = wrap.clientWidth * devicePixelRatio;
+    canvas.height = wrap.clientHeight * devicePixelRatio;
+    canvas.style.width = wrap.clientWidth + 'px';
+    canvas.style.height = wrap.clientHeight + 'px';
+    return canvas.getContext('2d');
+  }
+
+  let yesCtx, noCtx;
+
+  function drawChart(ctx, history, color, canvas) {
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+
+    const min = 0.05, max = 0.95;
+    const toX = i => (i / (history.length - 1)) * W;
+    const toY = v => H - ((v - min) / (max - min)) * H * 0.85 - H * 0.05;
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    ctx.lineWidth = 1;
+    [0.25, 0.50, 0.75].forEach(pct => {
+      const y = toY(pct);
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    });
+
+    // Area fill
+    ctx.beginPath();
+    ctx.moveTo(toX(0), H);
+    history.forEach((v, i) => ctx.lineTo(toX(i), toY(v)));
+    ctx.lineTo(toX(history.length - 1), H);
+    ctx.closePath();
+    ctx.fillStyle = color.replace('1)', '0.06)');
+    ctx.fill();
+
+    // Line
+    ctx.beginPath();
+    history.forEach((v, i) => {
+      if (i === 0) ctx.moveTo(toX(i), toY(v));
+      else ctx.lineTo(toX(i), toY(v));
+    });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5 * devicePixelRatio;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    // Current dot
+    const last = history[history.length - 1];
+    ctx.beginPath();
+    ctx.arc(toX(history.length - 1), toY(last), 3 * devicePixelRatio, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+
+  // ── PLAYER ROWS ──────────────────────────────────────────────────
+  function calcPnl(player, yesProb) {
+    const prob = player.side === 'yes' ? yesProb : (1 - yesProb);
+    const shares = player.invested / (player.side === 'yes' ? yesProb : (1 - yesProb));
+    // current value if sold now = shares * current price
+    const currentValue = shares * prob;
+    return currentValue - player.invested;
+  }
+
+  function renderPlayers(containerId, players, yesProb) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = players.map(p => {
+      const pnl = calcPnl(p, yesProb);
+      const pnlClass = pnl > 0.5 ? 'pos' : pnl < -0.5 ? 'neg' : 'neu';
+      const pnlStr = (pnl >= 0 ? '+' : '') + '$' + Math.abs(pnl).toFixed(0);
+      return `<div class="player-row">
+        <span class="pid">${p.id}</span>
+        <span class="pname">${p.name}</span>
+        <span class="pamt">$${p.invested}</span>
+        <span class="ppnl ${pnlClass}">${pnlStr}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // ── UPDATE LOOP ──────────────────────────────────────────────────
+  function tick() {
+    // Drift probability
+    const drift = (Math.random() - 0.5) * 0.008;
+    const reversion = (0.5 - yesProb) * 0.002;
+    yesProb = Math.max(0.05, Math.min(0.95, yesProb + drift + reversion));
+
+    yesHistory.push(yesProb);
+    if (yesHistory.length > HISTORY_LEN) yesHistory.shift();
+    noHistory.push(1 - yesProb);
+    if (noHistory.length > HISTORY_LEN) noHistory.shift();
+
+    // Update price displays
+    const yesCents = Math.round(yesProb * 100);
+    const noCents = 100 - yesCents;
+    document.getElementById('yesPrice').textContent = yesCents + '¢';
+    document.getElementById('noPrice').textContent = noCents + '¢';
+    document.getElementById('yesChance').textContent = yesCents + '% chance';
+    document.getElementById('noChance').textContent = noCents + '% chance';
+
+    // Redraw charts
+    if (yesCtx) drawChart(yesCtx, yesHistory, 'rgba(34,197,94,1)', document.getElementById('yesChart'));
+    if (noCtx)  drawChart(noCtx, noHistory, 'rgba(239,68,68,1)', document.getElementById('noChart'));
+
+    // Render player tables
+    renderPlayers('yesPlayers', YES_PLAYERS, yesProb);
+    renderPlayers('noPlayers', NO_PLAYERS, yesProb);
+
+    // Round timer
+    roundSec = Math.max(0, roundSec - (1/6));
+    const s = Math.floor(roundSec);
+    document.getElementById('roundTimer').textContent =
+      '00:' + String(s).padStart(2, '0');
+    if (roundSec <= 0) {
+      roundSec = 45;
+      document.getElementById('roundNum').textContent =
+        (parseInt(document.getElementById('roundNum').textContent) % 3) + 1;
+    }
+
+    // Sim ticker
+    simTick++;
+    totalVol += Math.floor(Math.random() * 120);
+    document.getElementById('tick3').textContent = 'SIM TICK ' + simTick;
+    document.getElementById('totalVol').textContent = '$' + totalVol.toLocaleString();
+  }
+
+  // ── INIT ─────────────────────────────────────────────────────────
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      yesCtx = setupCanvas('yesChart');
+      noCtx = setupCanvas('noChart');
+      setInterval(tick, 160);
+    }, 100);
+  });
+
+  window.addEventListener('resize', () => {
+    yesCtx = setupCanvas('yesChart');
+    noCtx = setupCanvas('noChart');
+  });
+</script>
+</body>
+</html>
