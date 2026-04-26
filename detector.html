@@ -180,8 +180,9 @@ body {
   text-transform: uppercase;
 }
 
-/* ===== START BUTTON (center of screen before camera active) ===== */
-#startBtn {
+/* ===== RETRY BUTTON (shown only on camera/model error) ===== */
+#retryBtn {
+  display: none;
   position: fixed; bottom: 202px; right: 12px; z-index: 101;
   width: 240px;
   background: transparent; border: 1px solid #222222;
@@ -190,8 +191,7 @@ body {
   cursor: pointer; font-family: Helvetica, Arial, sans-serif;
   transition: all 0.15s;
 }
-#startBtn:hover { border-color: #cc0000; color: #ffffff; }
-#startBtn:disabled { opacity: 0.3; cursor: not-allowed; }
+#retryBtn:hover { border-color: #cc0000; color: #ffffff; }
 
 /* ===== STATUS BAR ===== */
 #statusBar {
@@ -271,8 +271,8 @@ body {
   <div id="camLabel">TACTICAL CAM // CH-01</div>
 </div>
 
-<!-- Start button -->
-<button id="startBtn" onclick="startDetection()">START CAMERA</button>
+<!-- Retry button — hidden until camera or model error -->
+<button id="retryBtn">RETRY CAMERA</button>
 
 <!-- Status bar -->
 <div id="statusBar">
@@ -325,10 +325,10 @@ const adRole    = document.getElementById('adRole');
 const adAction  = document.getElementById('adAction');
 const adConf    = document.getElementById('adConfidence');
 const adDisplay = document.getElementById('actionDisplay');
-const startBtn  = document.getElementById('startBtn');
+const retryBtn  = document.getElementById('retryBtn');
 
 // ================================================================
-//  MODEL LOAD
+//  MODEL LOAD → auto-starts camera on success
 // ================================================================
 async function loadModel() {
   try {
@@ -336,16 +336,15 @@ async function loadModel() {
     document.getElementById('tpModel').textContent = 'READY';
     document.getElementById('tpModel').className = 'tp-value ready';
     document.getElementById('sbModel').textContent = 'MODEL: READY';
-    setAdState('AWAITING CAMERA');
-    startBtn.disabled = false;
     console.log('[Detection] Model loaded, classes:', model.getTotalClasses());
+    startCamera(); // auto-start — no button needed
   } catch(e) {
     document.getElementById('tpModel').textContent = 'ERROR';
     document.getElementById('tpModel').className = 'tp-value error';
     setAdState('MODEL LOAD FAILED — CHECK CONSOLE');
-    startBtn.textContent = 'RETRY';
-    startBtn.disabled = false;
-    startBtn.onclick = () => { startBtn.disabled = true; startBtn.textContent = 'LOADING MODEL...'; loadModel(); };
+    retryBtn.textContent = 'RETRY MODEL';
+    retryBtn.style.display = 'block';
+    retryBtn.onclick = () => { retryBtn.style.display = 'none'; loadModel(); };
     console.error('[Detection] Model load error:', e);
   }
 }
@@ -395,28 +394,20 @@ function buildBars(predictions) {
 }
 
 // ================================================================
-//  CAMERA START
+//  CAMERA START (called automatically after model loads)
 // ================================================================
-async function startDetection() {
-  if (!model) { alert('Model not ready yet — please wait.'); return; }
-  startBtn.disabled = true;
-  startBtn.textContent = 'STARTING...';
-  setAdState('AWAITING CAMERA');
-
+async function startCamera() {
+  setAdState('STARTING CAMERA');
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
-    });
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
     webcamEl.srcObject = stream;
 
-    // Wait until the video has enough data to paint a frame
     await new Promise(resolve => {
       if (webcamEl.readyState >= 2) { resolve(); return; }
       webcamEl.addEventListener('loadeddata', resolve, { once: true });
     });
     webcamEl.play();
 
-    // Off-screen canvas used for model input (avoids predict(videoEl) quirks)
     predCanvas = document.createElement('canvas');
     predCanvas.width  = 224;
     predCanvas.height = 224;
@@ -426,7 +417,6 @@ async function startDetection() {
     document.getElementById('tpCamera').className   = 'tp-value ready';
     document.getElementById('camStatus').textContent = '● LIVE';
     document.getElementById('camStatus').style.color = '#22c55e';
-    startBtn.style.display = 'none';
 
     running = true;
     lastFrameTime = performance.now();
@@ -435,9 +425,10 @@ async function startDetection() {
   } catch(e) {
     document.getElementById('tpCamera').textContent = 'DENIED';
     document.getElementById('tpCamera').className   = 'tp-value error';
-    setAdState('CAMERA ACCESS DENIED — CHECK PERMISSIONS');
-    startBtn.disabled = false;
-    startBtn.textContent = 'RETRY CAMERA';
+    setAdState('CAMERA DENIED — ALLOW ACCESS THEN RETRY');
+    retryBtn.textContent = 'RETRY CAMERA';
+    retryBtn.style.display = 'block';
+    retryBtn.onclick = () => { retryBtn.style.display = 'none'; startCamera(); };
     console.error('[Detection] Camera error:', e);
   }
 }
@@ -567,11 +558,9 @@ function setAdState(msg) {
 }
 
 // ================================================================
-//  BOOT
+//  BOOT — load model, then camera starts automatically
 // ================================================================
-startBtn.disabled    = true;
-startBtn.textContent = 'LOADING MODEL...';
-setAdState('INITIALIZING DETECTION SYSTEM');
+setAdState('LOADING MODEL');
 loadModel();
 </script>
 </body>
