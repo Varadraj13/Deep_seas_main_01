@@ -289,6 +289,9 @@ body {
 const MODEL_URL = 'https://teachablemachine.withgoogle.com/models/pB5PYX0fJ/';
 const CONFIDENCE_THRESHOLD = 0.70;
 
+// Keys must match the model's exact class labels (from metadata.json).
+// The arrow character is U+2192. If your model uses a different char, open
+// the browser console and check the className values logged on first frame.
 const LABEL_MAP = {
   'Green cushion → Block Strait':      { player: 'A', role: 'DISRUPTOR', action: 'BLOCK STRAIT',  color: '#cc0000', barClass: '' },
   'Red drill/tool → Seize Tanker':     { player: 'A', role: 'DISRUPTOR', action: 'SEIZE TANKER',  color: '#cc0000', barClass: '' },
@@ -302,26 +305,27 @@ const LABEL_MAP = {
 // ================================================================
 //  STATE
 // ================================================================
-let model = null;
-let webcamStream = null;
-let running = false;
-let frameCount = 0;
+let model        = null;
+let predCanvas   = null;  // 224×224 canvas fed to model.predict()
+let predCtx      = null;
+let running      = false;
+let frameCount   = 0;
 let lastFrameTime = performance.now();
-let fpsSmoothed = 0;
+let fpsSmoothed  = 0;
 let currentAction = null;
-let barEls = {};
+let barEls       = {};    // label → { fill, pct, lbl } DOM nodes (no IDs used)
 
-const webcamEl   = document.getElementById('webcam');
-const adState    = document.getElementById('adState');
-const adPlayer   = document.getElementById('adPlayer');
-const adRole     = document.getElementById('adRole');
-const adAction   = document.getElementById('adAction');
-const adConf     = document.getElementById('adConfidence');
-const adDisplay  = document.getElementById('actionDisplay');
-const startBtn   = document.getElementById('startBtn');
+const webcamEl  = document.getElementById('webcam');
+const adState   = document.getElementById('adState');
+const adPlayer  = document.getElementById('adPlayer');
+const adRole    = document.getElementById('adRole');
+const adAction  = document.getElementById('adAction');
+const adConf    = document.getElementById('adConfidence');
+const adDisplay = document.getElementById('actionDisplay');
+const startBtn  = document.getElementById('startBtn');
 
 // ================================================================
-//  INIT: load model on page load (non-blocking)
+//  MODEL LOAD
 // ================================================================
 async function loadModel() {
   try {
@@ -329,64 +333,94 @@ async function loadModel() {
     document.getElementById('tpModel').textContent = 'READY';
     document.getElementById('tpModel').className = 'tp-value ready';
     document.getElementById('sbModel').textContent = 'MODEL: READY';
-    buildBars(model.getTotalClasses());
     setAdState('AWAITING CAMERA');
     startBtn.disabled = false;
     console.log('[Detection] Model loaded, classes:', model.getTotalClasses());
   } catch(e) {
     document.getElementById('tpModel').textContent = 'ERROR';
     document.getElementById('tpModel').className = 'tp-value error';
-    setAdState('MODEL LOAD FAILED');
+    setAdState('MODEL LOAD FAILED — CHECK CONSOLE');
+    startBtn.textContent = 'RETRY';
+    startBtn.disabled = false;
+    startBtn.onclick = () => { startBtn.disabled = true; startBtn.textContent = 'LOADING MODEL...'; loadModel(); };
     console.error('[Detection] Model load error:', e);
   }
 }
 
-function buildBars(n) {
+// Build bar rows using direct DOM node refs — no element IDs with special chars.
+// Called after first prediction so we use the real class names from the model.
+function buildBars(predictions) {
   const container = document.getElementById('tpBars');
   container.innerHTML = '';
-  const classes = Object.keys(LABEL_MAP);
-  classes.forEach(label => {
-    const map = LABEL_MAP[label];
+  barEls = {};
+  predictions.forEach(p => {
+    const label = p.className;
+    const map   = LABEL_MAP[label];
     const barClass = map ? map.barClass : 'bg-class';
-    const shortLabel = label.replace(' → ', ' // ');
-    const row = document.createElement('div');
-    row.className = 'tp-bar-row';
-    row.innerHTML = `
-      <div class="tp-bar-label" id="blabel-${label}">${shortLabel}</div>
-      <div class="tp-bar-track">
-        <div class="tp-bar-bg">
-          <div class="tp-bar-fill ${barClass}" id="bfill-${label}" style="width:0%"></div>
-        </div>
-        <div class="tp-bar-pct" id="bpct-${label}">0%</div>
-      </div>`;
-    container.appendChild(row);
-    barEls[label] = {
-      fill: document.getElementById(`bfill-${label}`),
-      pct:  document.getElementById(`bpct-${label}`),
-      lbl:  document.getElementById(`blabel-${label}`),
-    };
+
+    const lblEl  = document.createElement('div');
+    lblEl.className = 'tp-bar-label';
+    lblEl.textContent = label.replace(' → ', ' // ');
+
+    const fillEl = document.createElement('div');
+    fillEl.className = 'tp-bar-fill' + (barClass ? ' ' + barClass : '');
+    fillEl.style.width = '0%';
+
+    const pctEl  = document.createElement('div');
+    pctEl.className = 'tp-bar-pct';
+    pctEl.textContent = '0%';
+
+    const bgEl   = document.createElement('div');
+    bgEl.className = 'tp-bar-bg';
+    bgEl.appendChild(fillEl);
+
+    const trackEl = document.createElement('div');
+    trackEl.className = 'tp-bar-track';
+    trackEl.appendChild(bgEl);
+    trackEl.appendChild(pctEl);
+
+    const rowEl  = document.createElement('div');
+    rowEl.className = 'tp-bar-row';
+    rowEl.appendChild(lblEl);
+    rowEl.appendChild(trackEl);
+    container.appendChild(rowEl);
+
+    barEls[label] = { fill: fillEl, pct: pctEl, lbl: lblEl };
   });
+  // Log actual class names once so the user can verify against LABEL_MAP
+  console.log('[Detection] Model class names:', predictions.map(p => p.className));
 }
 
 // ================================================================
 //  CAMERA START
 // ================================================================
 async function startDetection() {
-  if (!model) { alert('Model still loading, please wait.'); return; }
+  if (!model) { alert('Model not ready yet — please wait.'); return; }
   startBtn.disabled = true;
   startBtn.textContent = 'STARTING...';
   setAdState('AWAITING CAMERA');
 
   try {
-    webcamStream = await navigator.mediaDevices.getUserMedia({
+    const stream = await navigator.mediaDevices.getUserMedia({
       video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
     });
-    webcamEl.srcObject = webcamStream;
-    await new Promise(r => webcamEl.onloadedmetadata = r);
+    webcamEl.srcObject = stream;
+
+    // Wait until the video has enough data to paint a frame
+    await new Promise(resolve => {
+      if (webcamEl.readyState >= 2) { resolve(); return; }
+      webcamEl.addEventListener('loadeddata', resolve, { once: true });
+    });
     webcamEl.play();
 
+    // Off-screen canvas used for model input (avoids predict(videoEl) quirks)
+    predCanvas = document.createElement('canvas');
+    predCanvas.width  = 224;
+    predCanvas.height = 224;
+    predCtx = predCanvas.getContext('2d');
+
     document.getElementById('tpCamera').textContent = 'ACTIVE';
-    document.getElementById('tpCamera').className = 'tp-value ready';
+    document.getElementById('tpCamera').className   = 'tp-value ready';
     document.getElementById('camStatus').textContent = '● LIVE';
     document.getElementById('camStatus').style.color = '#22c55e';
     startBtn.style.display = 'none';
@@ -394,10 +428,11 @@ async function startDetection() {
     running = true;
     lastFrameTime = performance.now();
     requestAnimationFrame(loop);
+
   } catch(e) {
     document.getElementById('tpCamera').textContent = 'DENIED';
-    document.getElementById('tpCamera').className = 'tp-value error';
-    setAdState('CAMERA ACCESS DENIED');
+    document.getElementById('tpCamera').className   = 'tp-value error';
+    setAdState('CAMERA ACCESS DENIED — CHECK PERMISSIONS');
     startBtn.disabled = false;
     startBtn.textContent = 'RETRY CAMERA';
     console.error('[Detection] Camera error:', e);
@@ -407,50 +442,63 @@ async function startDetection() {
 // ================================================================
 //  PREDICTION LOOP
 // ================================================================
+let barsBuilt = false;
+
 async function loop() {
   if (!running) return;
   requestAnimationFrame(loop);
 
-  const predictions = await model.predict(webcamEl);
+  // Draw current video frame to prediction canvas (224×224)
+  if (webcamEl.readyState < 2) return;
+  predCtx.drawImage(webcamEl, 0, 0, 224, 224);
+
+  let predictions;
+  try {
+    predictions = await model.predict(predCanvas);
+  } catch(e) {
+    console.error('[Detection] Predict error:', e);
+    return;
+  }
+
   frameCount++;
 
-  // FPS
+  if (!barsBuilt) {
+    buildBars(predictions);
+    barsBuilt = true;
+  }
+
+  // FPS (exponential moving average)
   const now = performance.now();
-  const dt = (now - lastFrameTime) / 1000;
+  const dt  = (now - lastFrameTime) / 1000;
   lastFrameTime = now;
-  fpsSmoothed += (1/dt - fpsSmoothed) * 0.1;
+  fpsSmoothed += (1 / dt - fpsSmoothed) * 0.1;
   const fps = Math.round(fpsSmoothed);
 
   updateTechPanel(predictions, fps);
   updateActionDisplay(predictions);
-  updateStatusBar(fps);
 }
 
 // ================================================================
 //  TECH PANEL UPDATE
 // ================================================================
 function updateTechPanel(predictions, fps) {
-  document.getElementById('tpFPS').textContent = fps;
+  document.getElementById('tpFPS').textContent    = fps;
   document.getElementById('tpFrames').textContent = frameCount;
-  document.getElementById('sbFPS').textContent = fps + ' FPS';
+  document.getElementById('sbFPS').textContent    = fps + ' FPS';
 
-  // Sort by probability to find top
-  const sorted = [...predictions].sort((a,b) => b.probability - a.probability);
-  const top = sorted[0];
+  const sorted = [...predictions].sort((a, b) => b.probability - a.probability);
+  const top    = sorted[0];
   document.getElementById('tpTopClass').textContent = top.className;
-  const confPct = (top.probability * 100).toFixed(1) + '%';
-  document.getElementById('tpConf').textContent = confPct;
+  document.getElementById('tpConf').textContent     = (top.probability * 100).toFixed(1) + '%';
 
-  // Update bars
   predictions.forEach(p => {
     const els = barEls[p.className];
     if (!els) return;
     const pct = p.probability * 100;
-    els.fill.style.width = pct.toFixed(1) + '%';
-    els.pct.textContent = pct.toFixed(0) + '%';
-    els.pct.className = 'tp-bar-pct' + (pct >= 70 ? ' high' : '');
-    // Highlight top class label
-    els.lbl.className = 'tp-bar-label' + (p.className === top.className ? ' top-class' : '');
+    els.fill.style.width  = pct.toFixed(1) + '%';
+    els.pct.textContent   = pct.toFixed(0) + '%';
+    els.pct.className     = 'tp-bar-pct' + (pct >= 70 ? ' high' : '');
+    els.lbl.className     = 'tp-bar-label' + (p.className === top.className ? ' top-class' : '');
   });
 }
 
@@ -458,16 +506,15 @@ function updateTechPanel(predictions, fps) {
 //  ACTION DISPLAY UPDATE
 // ================================================================
 function updateActionDisplay(predictions) {
-  const sorted = [...predictions].sort((a,b) => b.probability - a.probability);
-  const top = sorted[0];
-  const map = LABEL_MAP[top.className];
-  const conf = top.probability;
+  const sorted = [...predictions].sort((a, b) => b.probability - a.probability);
+  const top    = sorted[0];
+  const map    = LABEL_MAP[top.className];
+  const conf   = top.probability;
 
   if (!map || conf < CONFIDENCE_THRESHOLD) {
-    // SCANNING state
     if (currentAction !== null) {
       currentAction = null;
-      adDisplay.className = '';
+      adDisplay.className  = '';
       adPlayer.style.display = 'none';
       adRole.style.display   = 'none';
       adAction.style.display = 'none';
@@ -477,38 +524,31 @@ function updateActionDisplay(predictions) {
     return;
   }
 
-  // Triggered
   const actionKey = map.player + '|' + map.action;
   if (currentAction !== actionKey) {
     currentAction = actionKey;
 
-    // Remove old trigger classes and re-add to force animation restart
     adDisplay.className = '';
-    void adDisplay.offsetWidth; // reflow
+    void adDisplay.offsetWidth; // force reflow to restart CSS animation
     adDisplay.classList.add('triggered-' + map.player.toLowerCase());
 
-    adState.style.display = 'none';
+    adState.style.display  = 'none';
     adPlayer.style.display = 'block';
     adRole.style.display   = 'block';
     adAction.style.display = 'block';
     adConf.style.display   = 'block';
 
-    adPlayer.textContent = 'PLAYER ' + map.player;
-    adPlayer.style.color = map.color;
-    adRole.textContent   = map.role;
-    adAction.textContent = map.action;
-    adAction.style.color = map.color;
+    adPlayer.textContent   = 'PLAYER ' + map.player;
+    adPlayer.style.color   = map.color;
+    adRole.textContent     = map.role;
+    adAction.textContent   = map.action;
+    adAction.style.color   = map.color;
 
     document.getElementById('sbPlayer').textContent = 'PLAYER: ' + map.player + ' / ' + map.role;
     document.getElementById('sbAction').textContent = 'ACTION: ' + map.action;
   }
 
-  // Always update confidence readout
   adConf.textContent = (conf * 100).toFixed(1) + '% CONFIDENCE';
-}
-
-function updateStatusBar(fps) {
-  // fps already updated in tech panel
 }
 
 // ================================================================
@@ -516,17 +556,17 @@ function updateStatusBar(fps) {
 // ================================================================
 function setAdState(msg) {
   adState.style.display = 'block';
-  // Keep scan dot only when scanning
   const dot = document.getElementById('scanDot');
-  dot.style.display = (msg === 'SCANNING') ? 'inline-block' : 'none';
+  const scanning = (msg === 'SCANNING');
+  dot.style.display = scanning ? 'inline-block' : 'none';
   adState.textContent = msg;
-  if (dot.style.display !== 'none') adState.appendChild(dot);
+  if (scanning) adState.appendChild(dot);
 }
 
 // ================================================================
 //  BOOT
 // ================================================================
-startBtn.disabled = true;
+startBtn.disabled    = true;
 startBtn.textContent = 'LOADING MODEL...';
 setAdState('INITIALIZING DETECTION SYSTEM');
 loadModel();
