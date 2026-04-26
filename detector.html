@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tactical Detection — Deep Seas</title>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: Helvetica, Arial, sans-serif;
+  background: #080808;
+  color: #888888;
+  height: 100vh;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ===== BACK NAV ===== */
+#backNav {
+  position: fixed; top: 12px; left: 12px; z-index: 100;
+}
+#backNav a {
+  display: inline-block;
+  background: transparent; border: 1px solid #222222;
+  color: #666666; padding: 4px 12px;
+  font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+  text-decoration: none; transition: all 0.15s;
+  font-family: Helvetica, Arial, sans-serif;
+}
+#backNav a:hover { border-color: #cc0000; color: #ffffff; }
+
+/* ===== CENTER ACTION DISPLAY ===== */
+#actionDisplay {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 480px;
+  background: #f8f8f8;
+  border: 1px solid #dddddd;
+  padding: 48px 40px;
+  text-align: center;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+#actionDisplay.triggered-a {
+  border-color: #cc0000;
+  box-shadow: 0 0 40px rgba(204,0,0,0.18);
+  animation: flashA 0.35s ease-out;
+}
+#actionDisplay.triggered-b {
+  border-color: #3b82f6;
+  box-shadow: 0 0 40px rgba(59,130,246,0.18);
+  animation: flashB 0.35s ease-out;
+}
+@keyframes flashA {
+  0%   { background: rgba(204,0,0,0.12); }
+  100% { background: #f8f8f8; }
+}
+@keyframes flashB {
+  0%   { background: rgba(59,130,246,0.12); }
+  100% { background: #f8f8f8; }
+}
+
+#adState {
+  font-size: 9px; letter-spacing: 4px; text-transform: uppercase;
+  color: #aaaaaa; margin-bottom: 24px;
+}
+#adPlayer {
+  font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+  margin-bottom: 4px;
+}
+#adRole {
+  font-size: 9px; letter-spacing: 4px; text-transform: uppercase;
+  color: #aaaaaa; margin-bottom: 20px;
+}
+#adAction {
+  font-size: 38px; font-weight: 400; letter-spacing: 5px;
+  text-transform: uppercase; line-height: 1.1;
+  color: #111111;
+}
+#adConfidence {
+  font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+  color: #aaaaaa; margin-top: 18px;
+}
+
+/* scanning dot pulse */
+@keyframes scanPulse { 0%,100%{opacity:0.3} 50%{opacity:1} }
+#scanDot {
+  display: inline-block; width: 5px; height: 5px;
+  border-radius: 0; background: #aaaaaa; margin-left: 6px;
+  vertical-align: middle; animation: scanPulse 1.2s ease-in-out infinite;
+}
+
+/* ===== TECH PANEL (top right) ===== */
+#techPanel {
+  position: fixed; top: 12px; right: 12px; z-index: 100;
+  width: 268px;
+  background: #0a0a0a; border: 1px solid #1a1a1a;
+  padding: 12px 14px;
+  font-size: 10px; font-family: Helvetica, Arial, sans-serif;
+  max-height: calc(100vh - 200px); overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: #222222 transparent;
+}
+#techPanel::-webkit-scrollbar { width: 3px; }
+#techPanel::-webkit-scrollbar-thumb { background: #222222; }
+
+.tp-title {
+  font-size: 8px; color: #cc0000; letter-spacing: 3px;
+  text-transform: uppercase; font-weight: 400;
+  margin-bottom: 10px;
+}
+.tp-row {
+  display: flex; justify-content: space-between;
+  align-items: baseline; padding: 2px 0;
+  border-bottom: 1px solid #111111;
+}
+.tp-label { font-size: 8px; color: #444444; text-transform: uppercase; letter-spacing: 2px; }
+.tp-value { font-size: 10px; color: #ffffff; font-family: Helvetica, Arial, sans-serif; }
+.tp-value.ready  { color: #22c55e; }
+.tp-value.loading { color: #f59e0b; }
+.tp-value.error  { color: #cc0000; }
+
+.tp-divider {
+  border: none; border-top: 1px solid #1a1a1a;
+  margin: 8px 0;
+}
+
+.tp-bar-row {
+  margin-bottom: 4px;
+}
+.tp-bar-label {
+  font-size: 7px; color: #555555; text-transform: uppercase;
+  letter-spacing: 1px; margin-bottom: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tp-bar-label.top-class { color: #cc0000; }
+.tp-bar-track {
+  display: flex; align-items: center; gap: 6px;
+}
+.tp-bar-bg {
+  flex: 1; height: 2px; background: #1a1a1a; position: relative;
+}
+.tp-bar-fill {
+  height: 100%; background: #cc0000;
+  transition: width 0.15s ease-out;
+  min-width: 0;
+}
+.tp-bar-fill.player-b { background: #3b82f6; }
+.tp-bar-fill.bg-class  { background: #333333; }
+.tp-bar-pct {
+  font-size: 8px; color: #555555; min-width: 30px;
+  text-align: right; font-family: Helvetica, Arial, sans-serif;
+}
+.tp-bar-pct.high { color: #ffffff; }
+
+/* ===== CAMERA PREVIEW (bottom right) ===== */
+#cameraWrap {
+  position: fixed; bottom: 12px; right: 12px; z-index: 100;
+  width: 240px; height: 180px;
+  background: #0a0a0a; border: 1px solid #1a1a1a;
+  overflow: hidden;
+}
+#cameraWrap video {
+  width: 100%; height: 100%; object-fit: cover;
+  transform: scaleX(-1); /* mirror */
+  display: block;
+}
+#camLabel {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: rgba(8,8,8,0.75); padding: 3px 6px;
+  font-size: 7px; color: #444444;
+  letter-spacing: 2px; text-transform: uppercase;
+}
+#camStatus {
+  position: absolute; top: 6px; left: 6px;
+  font-size: 7px; color: #cc0000; letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+/* ===== START BUTTON (center of screen before camera active) ===== */
+#startBtn {
+  position: fixed; bottom: 202px; right: 12px; z-index: 101;
+  width: 240px;
+  background: transparent; border: 1px solid #222222;
+  color: #666666; padding: 7px 0;
+  font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+  cursor: pointer; font-family: Helvetica, Arial, sans-serif;
+  transition: all 0.15s;
+}
+#startBtn:hover { border-color: #cc0000; color: #ffffff; }
+#startBtn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* ===== STATUS BAR ===== */
+#statusBar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 99;
+  background: #080808; border-top: 1px solid #1a1a1a;
+  padding: 4px 16px; font-size: 8px; color: #444444;
+  letter-spacing: 2px; text-transform: uppercase;
+  display: flex; gap: 16px;
+  font-family: Helvetica, Arial, sans-serif;
+}
+</style>
+</head>
+<body>
+
+<!-- Back navigation -->
+<div id="backNav">
+  <a href="index.html">← MALACCA SIM</a>
+</div>
+
+<!-- Center action display -->
+<div id="actionDisplay">
+  <div id="adState">INITIALIZING DETECTION SYSTEM<span id="scanDot"></span></div>
+  <div id="adPlayer" style="display:none"></div>
+  <div id="adRole"   style="display:none"></div>
+  <div id="adAction" style="display:none"></div>
+  <div id="adConfidence" style="display:none"></div>
+</div>
+
+<!-- Tech panel (top right) -->
+<div id="techPanel">
+  <div class="tp-title">DETECTION SYSTEM</div>
+
+  <div class="tp-row">
+    <span class="tp-label">Model</span>
+    <span class="tp-value loading" id="tpModel">LOADING</span>
+  </div>
+  <div class="tp-row">
+    <span class="tp-label">Camera</span>
+    <span class="tp-value loading" id="tpCamera">OFFLINE</span>
+  </div>
+  <div class="tp-row">
+    <span class="tp-label">FPS</span>
+    <span class="tp-value" id="tpFPS">—</span>
+  </div>
+  <div class="tp-row">
+    <span class="tp-label">Frames</span>
+    <span class="tp-value" id="tpFrames">0</span>
+  </div>
+
+  <hr class="tp-divider">
+
+  <div class="tp-row" style="margin-bottom:6px">
+    <span class="tp-label">Top Class</span>
+    <span class="tp-value" id="tpTopClass" style="font-size:8px;max-width:140px;text-align:right;line-height:1.3">—</span>
+  </div>
+  <div class="tp-row">
+    <span class="tp-label">Confidence</span>
+    <span class="tp-value" id="tpConf">—</span>
+  </div>
+  <div class="tp-row">
+    <span class="tp-label">Threshold</span>
+    <span class="tp-value" style="color:#444444">70%</span>
+  </div>
+
+  <hr class="tp-divider">
+
+  <div class="tp-label" style="margin-bottom:6px">CLASS PROBABILITIES</div>
+  <div id="tpBars">
+    <!-- populated by JS -->
+  </div>
+</div>
+
+<!-- Camera preview (bottom right) -->
+<div id="cameraWrap">
+  <video id="webcam" autoplay playsinline muted></video>
+  <div id="camStatus">● OFFLINE</div>
+  <div id="camLabel">TACTICAL CAM // CH-01</div>
+</div>
+
+<!-- Start button -->
+<button id="startBtn" onclick="startDetection()">START CAMERA</button>
+
+<!-- Status bar -->
+<div id="statusBar">
+  <span id="sbModel">MODEL: LOADING</span>
+  <span>//</span>
+  <span id="sbPlayer">PLAYER: —</span>
+  <span>//</span>
+  <span id="sbAction">ACTION: STANDBY</span>
+  <span>//</span>
+  <span id="sbFPS">0 FPS</span>
+</div>
+
+<script>
+// ================================================================
+//  CONFIG
+// ================================================================
+const MODEL_URL = 'https://teachablemachine.withgoogle.com/models/pB5PYX0fJ/';
+const CONFIDENCE_THRESHOLD = 0.70;
+
+const LABEL_MAP = {
+  'Green cushion → Block Strait':      { player: 'A', role: 'DISRUPTOR', action: 'BLOCK STRAIT',  color: '#cc0000', barClass: '' },
+  'Red drill/tool → Seize Tanker':     { player: 'A', role: 'DISRUPTOR', action: 'SEIZE TANKER',  color: '#cc0000', barClass: '' },
+  'Wooden stool → Dark Ops':           { player: 'A', role: 'DISRUPTOR', action: 'DARK OPS',      color: '#cc0000', barClass: '' },
+  'Cardboard box → Convoy':            { player: 'B', role: 'DEFENDER',  action: 'CONVOY',        color: '#3b82f6', barClass: 'player-b' },
+  'Black office chair → Sprint':       { player: 'B', role: 'DEFENDER',  action: 'SPRINT',        color: '#3b82f6', barClass: 'player-b' },
+  'Black standing desk → Secure Port': { player: 'B', role: 'DEFENDER',  action: 'SECURE PORT',   color: '#3b82f6', barClass: 'player-b' },
+  'Background': null,
+};
+
+// ================================================================
+//  STATE
+// ================================================================
+let model = null;
+let webcamStream = null;
+let running = false;
+let frameCount = 0;
+let lastFrameTime = performance.now();
+let fpsSmoothed = 0;
+let currentAction = null;
+let barEls = {};
+
+const webcamEl   = document.getElementById('webcam');
+const adState    = document.getElementById('adState');
+const adPlayer   = document.getElementById('adPlayer');
+const adRole     = document.getElementById('adRole');
+const adAction   = document.getElementById('adAction');
+const adConf     = document.getElementById('adConfidence');
+const adDisplay  = document.getElementById('actionDisplay');
+const startBtn   = document.getElementById('startBtn');
+
+// ================================================================
+//  INIT: load model on page load (non-blocking)
+// ================================================================
+async function loadModel() {
+  try {
+    model = await tmImage.load(MODEL_URL + 'model.json', MODEL_URL + 'metadata.json');
+    document.getElementById('tpModel').textContent = 'READY';
+    document.getElementById('tpModel').className = 'tp-value ready';
+    document.getElementById('sbModel').textContent = 'MODEL: READY';
+    buildBars(model.getTotalClasses());
+    setAdState('AWAITING CAMERA');
+    startBtn.disabled = false;
+    console.log('[Detection] Model loaded, classes:', model.getTotalClasses());
+  } catch(e) {
+    document.getElementById('tpModel').textContent = 'ERROR';
+    document.getElementById('tpModel').className = 'tp-value error';
+    setAdState('MODEL LOAD FAILED');
+    console.error('[Detection] Model load error:', e);
+  }
+}
+
+function buildBars(n) {
+  const container = document.getElementById('tpBars');
+  container.innerHTML = '';
+  const classes = Object.keys(LABEL_MAP);
+  classes.forEach(label => {
+    const map = LABEL_MAP[label];
+    const barClass = map ? map.barClass : 'bg-class';
+    const shortLabel = label.replace(' → ', ' // ');
+    const row = document.createElement('div');
+    row.className = 'tp-bar-row';
+    row.innerHTML = `
+      <div class="tp-bar-label" id="blabel-${label}">${shortLabel}</div>
+      <div class="tp-bar-track">
+        <div class="tp-bar-bg">
+          <div class="tp-bar-fill ${barClass}" id="bfill-${label}" style="width:0%"></div>
+        </div>
+        <div class="tp-bar-pct" id="bpct-${label}">0%</div>
+      </div>`;
+    container.appendChild(row);
+    barEls[label] = {
+      fill: document.getElementById(`bfill-${label}`),
+      pct:  document.getElementById(`bpct-${label}`),
+      lbl:  document.getElementById(`blabel-${label}`),
+    };
+  });
+}
+
+// ================================================================
+//  CAMERA START
+// ================================================================
+async function startDetection() {
+  if (!model) { alert('Model still loading, please wait.'); return; }
+  startBtn.disabled = true;
+  startBtn.textContent = 'STARTING...';
+  setAdState('AWAITING CAMERA');
+
+  try {
+    webcamStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+    });
+    webcamEl.srcObject = webcamStream;
+    await new Promise(r => webcamEl.onloadedmetadata = r);
+    webcamEl.play();
+
+    document.getElementById('tpCamera').textContent = 'ACTIVE';
+    document.getElementById('tpCamera').className = 'tp-value ready';
+    document.getElementById('camStatus').textContent = '● LIVE';
+    document.getElementById('camStatus').style.color = '#22c55e';
+    startBtn.style.display = 'none';
+
+    running = true;
+    lastFrameTime = performance.now();
+    requestAnimationFrame(loop);
+  } catch(e) {
+    document.getElementById('tpCamera').textContent = 'DENIED';
+    document.getElementById('tpCamera').className = 'tp-value error';
+    setAdState('CAMERA ACCESS DENIED');
+    startBtn.disabled = false;
+    startBtn.textContent = 'RETRY CAMERA';
+    console.error('[Detection] Camera error:', e);
+  }
+}
+
+// ================================================================
+//  PREDICTION LOOP
+// ================================================================
+async function loop() {
+  if (!running) return;
+  requestAnimationFrame(loop);
+
+  const predictions = await model.predict(webcamEl);
+  frameCount++;
+
+  // FPS
+  const now = performance.now();
+  const dt = (now - lastFrameTime) / 1000;
+  lastFrameTime = now;
+  fpsSmoothed += (1/dt - fpsSmoothed) * 0.1;
+  const fps = Math.round(fpsSmoothed);
+
+  updateTechPanel(predictions, fps);
+  updateActionDisplay(predictions);
+  updateStatusBar(fps);
+}
+
+// ================================================================
+//  TECH PANEL UPDATE
+// ================================================================
+function updateTechPanel(predictions, fps) {
+  document.getElementById('tpFPS').textContent = fps;
+  document.getElementById('tpFrames').textContent = frameCount;
+  document.getElementById('sbFPS').textContent = fps + ' FPS';
+
+  // Sort by probability to find top
+  const sorted = [...predictions].sort((a,b) => b.probability - a.probability);
+  const top = sorted[0];
+  document.getElementById('tpTopClass').textContent = top.className;
+  const confPct = (top.probability * 100).toFixed(1) + '%';
+  document.getElementById('tpConf').textContent = confPct;
+
+  // Update bars
+  predictions.forEach(p => {
+    const els = barEls[p.className];
+    if (!els) return;
+    const pct = p.probability * 100;
+    els.fill.style.width = pct.toFixed(1) + '%';
+    els.pct.textContent = pct.toFixed(0) + '%';
+    els.pct.className = 'tp-bar-pct' + (pct >= 70 ? ' high' : '');
+    // Highlight top class label
+    els.lbl.className = 'tp-bar-label' + (p.className === top.className ? ' top-class' : '');
+  });
+}
+
+// ================================================================
+//  ACTION DISPLAY UPDATE
+// ================================================================
+function updateActionDisplay(predictions) {
+  const sorted = [...predictions].sort((a,b) => b.probability - a.probability);
+  const top = sorted[0];
+  const map = LABEL_MAP[top.className];
+  const conf = top.probability;
+
+  if (!map || conf < CONFIDENCE_THRESHOLD) {
+    // SCANNING state
+    if (currentAction !== null) {
+      currentAction = null;
+      adDisplay.className = '';
+      adPlayer.style.display = 'none';
+      adRole.style.display   = 'none';
+      adAction.style.display = 'none';
+      adConf.style.display   = 'none';
+      setAdState('SCANNING');
+    }
+    return;
+  }
+
+  // Triggered
+  const actionKey = map.player + '|' + map.action;
+  if (currentAction !== actionKey) {
+    currentAction = actionKey;
+
+    // Remove old trigger classes and re-add to force animation restart
+    adDisplay.className = '';
+    void adDisplay.offsetWidth; // reflow
+    adDisplay.classList.add('triggered-' + map.player.toLowerCase());
+
+    adState.style.display = 'none';
+    adPlayer.style.display = 'block';
+    adRole.style.display   = 'block';
+    adAction.style.display = 'block';
+    adConf.style.display   = 'block';
+
+    adPlayer.textContent = 'PLAYER ' + map.player;
+    adPlayer.style.color = map.color;
+    adRole.textContent   = map.role;
+    adAction.textContent = map.action;
+    adAction.style.color = map.color;
+
+    document.getElementById('sbPlayer').textContent = 'PLAYER: ' + map.player + ' / ' + map.role;
+    document.getElementById('sbAction').textContent = 'ACTION: ' + map.action;
+  }
+
+  // Always update confidence readout
+  adConf.textContent = (conf * 100).toFixed(1) + '% CONFIDENCE';
+}
+
+function updateStatusBar(fps) {
+  // fps already updated in tech panel
+}
+
+// ================================================================
+//  HELPERS
+// ================================================================
+function setAdState(msg) {
+  adState.style.display = 'block';
+  // Keep scan dot only when scanning
+  const dot = document.getElementById('scanDot');
+  dot.style.display = (msg === 'SCANNING') ? 'inline-block' : 'none';
+  adState.textContent = msg;
+  if (dot.style.display !== 'none') adState.appendChild(dot);
+}
+
+// ================================================================
+//  BOOT
+// ================================================================
+startBtn.disabled = true;
+startBtn.textContent = 'LOADING MODEL...';
+setAdState('INITIALIZING DETECTION SYSTEM');
+loadModel();
+</script>
+</body>
+</html>
