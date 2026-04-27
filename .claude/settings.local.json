@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc:*)",
+      "Bash(python:*)",
+      "Bash(gh issue create:*)",
+      "Bash(where:*)",
+      "Bash(winget install:*)",
+      "Bash(powershell.exe -Command \"winget install --id GitHub.cli --accept-source-agreements --accept-package-agreements\")",
+      "Bash(pip install:*)"
+    ]
+  }
+}
