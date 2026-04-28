@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Phase 01: Game State Tests</title>
+  <style>
+    body { background: #0a0a0a; color: #ccc; font-family: monospace; padding: 24px; }
+    h1 { color: #fff; font-size: 14px; letter-spacing: 2px; margin-bottom: 24px; }
+    .result { padding: 6px 0; border-bottom: 1px solid #111; font-size: 12px; }
+    .pass { color: #4ade80; }
+    .fail { color: #ef4444; }
+    .summary { margin-top: 20px; font-size: 13px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>PHASE 01 — GAME STATE: D01 END-TO-END</h1>
+  <div id="results"></div>
+  <div id="summary" class="summary"></div>
+
+  <script src="../js/weapons-config.js"></script>
+  <script src="../js/game-state.js"></script>
+  <script>
+    const out = document.getElementById('results');
+    let passed = 0, failed = 0;
+
+    function test(desc, fn) {
+      try {
+        fn();
+        out.innerHTML += `<div class="result pass">PASS  ${desc}</div>`;
+        passed++;
+      } catch (e) {
+        out.innerHTML += `<div class="result fail">FAIL  ${desc}<br>&nbsp;&nbsp;&nbsp;&nbsp;→ ${e.message}</div>`;
+        failed++;
+      }
+    }
+
+    function assert(cond, msg) {
+      if (!cond) throw new Error(msg || 'assertion failed');
+    }
+
+    // Helper: reset marketState to defaults between tests
+    function resetState() {
+      marketState.prob = 50;
+      marketState.activeWeapons = [];
+      marketState.actionLog = [];
+      recomputeSimMultipliers();
+    }
+
+    // ── Slice 1 ──────────────────────────────────────────────────────
+
+    test('fireWeapon("D01") shifts prob from 50 to 72', () => {
+      resetState();
+      fireWeapon('D01');
+      assert(marketState.prob === 72, `expected 72, got ${marketState.prob}`);
+    });
+
+    // ── Summary ────────────────────────────────────────────────────
+    const total = passed + failed;
+    const color = failed === 0 ? '#4ade80' : '#ef4444';
+    document.getElementById('summary').innerHTML =
+      `<span style="color:${color}">${passed}/${total} passed</span>` +
+      (failed ? ` — ${failed} failing` : ' — all green');
+  </script>
+</body>
+</html>

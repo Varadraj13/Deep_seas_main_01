@@ -88,24 +88,92 @@ const SHIP_TYPES = {
 const SHIP_NAMES_PREFIX = ['MV', 'MT', 'MSC', 'CMA CGM', 'OOCL', 'Ever', 'Maersk', 'Yang Ming', 'PIL', 'NYK'];
 const SHIP_NAMES_SUFFIX = ['Glory', 'Fortune', 'Star', 'Dragon', 'Phoenix', 'Harmony', 'Venture', 'Spirit', 'Breeze', 'Horizon', 'Pioneer', 'Champion', 'Liberty', 'Pacific', 'Atlantic', 'Orchid', 'Coral', 'Jade', 'Pearl', 'Sapphire', 'Emerald', 'Titan', 'Atlas', 'Voyager', 'Meridian'];
 
-const ORIGINS = ['Shanghai', 'Busan', 'Tokyo', 'Hong Kong', 'Dubai', 'Rotterdam', 'Mumbai', 'Chennai', 'Colombo', 'Jeddah', 'Suez', 'Yokohama', 'Ningbo', 'Shenzhen', 'Kaohsiung', 'Laem Chabang', 'Tanjung Pelepas'];
-const DESTINATIONS = ['Singapore', 'Port Klang', 'Rotterdam', 'Dubai', 'Mumbai', 'Shanghai', 'Tokyo', 'Busan', 'Chennai', 'Colombo', 'Jeddah', 'Hamburg', 'Felixstowe', 'Piraeus', 'Antwerp', 'Los Angeles', 'Tanjung Priok'];
-
-const WAYPOINT_NAMES = [
-  'Singapore Strait TSS', 'Philip Channel', 'One Fathom Bank',
-  'Port Dickson Anchorage', 'Malacca Narrows', 'Klang Approach',
-  'Penang Strait North', 'Langkawi Passage', 'Andaman Sea Entry',
-  'South Channel Buoy', 'Raffles Lighthouse', 'Sultan Shoal',
-  'Horsburgh Lighthouse'
+const ORIGINS = [
+  'Singapore', 'Shanghai', 'Mumbai', 'Karachi', 'Colombo',
+  'Rotterdam', 'Houston', 'Busan', 'Tokyo', 'Jeddah',
+  'Suez Canal', 'Cape Town', 'Mombasa', 'Chennai', 'Ningbo'
+];
+const DESTINATIONS = [
+  'Jebel Ali', 'Abu Dhabi', 'Bandar Abbas', 'Kuwait City', 'Basra',
+  'Ras Tanura', 'Doha', 'Muscat', 'Khor Fakkan', 'Rotterdam',
+  'Singapore', 'Shanghai', 'Mumbai', 'Houston', 'Busan'
 ];
 
-// ROUTES
+const WAYPOINT_NAMES = [
+  'Gulf of Oman Approach', 'Musandam Peninsula', 'TSS South Lane',
+  'Hormuz Narrows', 'TSS North Lane', 'Qeshm Channel',
+  'Hormuz Island', 'Persian Gulf Entry', 'Khor Fakkan Anchorage',
+  'Bandar Abbas Approach', 'Jebel Ali Approach', 'Abu Dhabi Approach',
+  'Muscat Fairway Buoy'
+];
+
+// SHIPPING LANES — Strait of Hormuz
+// Single source of truth for route geometry. Waypoints follow navigable water,
+// avoiding the Musandam Peninsula and Qeshm Island.
+const SHIPPING_LANES = {
+  // Inbound: Gulf of Oman → Persian Gulf (south/Oman TSS lane)
+  inbound: [
+    [22.8, 60.2],    // Gulf of Oman — open water
+    [23.5, 59.4],    // approach
+    [24.3, 58.5],    // mid Gulf of Oman
+    [24.8, 57.8],    // nearing strait
+    [25.2, 57.3],    // strait approach (east)
+    [25.5, 57.0],    // south of Musandam (east side)
+    [25.75, 56.75],  // KEY: pass SOUTH of Musandam tip
+    [25.85, 56.5],   // KEY: clear of peninsula, south channel
+    [26.05, 56.1],   // through narrows — south of Larak Island
+    [26.15, 55.7],   // west of narrows
+    [26.25, 55.3],   // entering Persian Gulf
+    [26.3, 54.9],    // Persian Gulf
+    [26.2, 54.4],    // deep Gulf — terminus
+  ],
+  // Outbound: Persian Gulf → Gulf of Oman (north/Iran TSS lane)
+  outbound: [
+    [26.2, 54.4],    // deep Gulf — start
+    [26.4, 54.9],    // heading east
+    [26.6, 55.3],    // approaching strait
+    [26.75, 55.7],   // KEY: north of Qeshm (stay in channel)
+    [26.9, 56.05],   // KEY: north of islands
+    [26.85, 56.4],   // north passage past Larak
+    [26.6, 56.75],   // KEY: north of Musandam
+    [26.2, 57.1],    // exiting strait (north side)
+    [25.6, 57.6],    // entering Gulf of Oman
+    [24.8, 58.4],    // mid Gulf of Oman
+    [23.8, 59.3],    // Gulf of Oman
+    [22.8, 60.2],    // Gulf of Oman — terminus
+  ],
+  // Jitter config: how much random offset per waypoint zone
+  jitter: {
+    openWater: 0.04,   // first 3 and last 2 waypoints
+    approach: 0.02,    // waypoints 3-4 and second-to-last
+    strait: 0.008,     // waypoints in the narrow section
+  }
+};
+
+// ROUTES — Strait of Hormuz
+// Inbound (even index): Gulf of Oman → Persian Gulf, south/Oman channel, west-flowing
+// Outbound (odd index): Persian Gulf → Gulf of Oman, north/Iran channel, east-flowing
 function generateRoutes() {
-  const nwBase = [[1.20,103.82],[1.35,103.55],[1.65,103.20],[2.00,102.60],[2.40,101.90],[2.85,101.20],[3.30,100.55],[3.75,100.05],[4.15,99.50],[4.60,98.80],[5.10,98.10],[5.60,97.40],[6.00,96.80]];
-  const seBase = [[6.00,96.70],[5.55,97.30],[5.05,98.00],[4.55,98.70],[4.10,99.40],[3.70,99.95],[3.25,100.45],[2.78,101.10],[2.35,101.80],[1.95,102.50],[1.60,103.10],[1.30,103.50],[1.15,103.78]];
   const routes = [];
-  for (let i = 0; i < 6; i++) { routes.push(jitterRoute(nwBase, 0.04)); routes.push(jitterRoute(seBase, 0.04)); }
+  for (let i = 0; i < 6; i++) {
+    routes.push(jitterLane(SHIPPING_LANES.inbound));
+    routes.push(jitterLane(SHIPPING_LANES.outbound));
+  }
   return routes;
 }
-function jitterRoute(base, amt) { return base.map((p,i) => (i===0||i===base.length-1) ? [...p] : [p[0]+(Math.random()-0.5)*amt, p[1]+(Math.random()-0.5)*amt]); }
+
+function jitterLane(lane) {
+  const j = SHIPPING_LANES.jitter;
+  return lane.map((p, i) => {
+    // No jitter on first/last waypoints (spawn/despawn points)
+    if (i === 0 || i === lane.length - 1) return [...p];
+    // Determine zone
+    const totalLen = lane.length;
+    const isOpenWater = i <= 2 || i >= totalLen - 3;
+    const isApproach = i === 3 || i === totalLen - 4;
+    const amt = isOpenWater ? j.openWater : isApproach ? j.approach : j.strait;
+    return [p[0] + (Math.random() - 0.5) * amt, p[1] + (Math.random() - 0.5) * amt];
+  });
+}
+
 const ROUTES = generateRoutes();

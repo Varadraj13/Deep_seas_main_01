@@ -195,7 +195,7 @@ function updateStats() {
   if (sbTick) sbTick.textContent = 'SIM TICK ' + String(simTickCount).padStart(4, '0');
   if (sbVessels) sbVessels.textContent = 'VESSELS ' + vessels.length;
   var flowPct = vessels.length ? Math.min(100, Math.round((vessels.reduce(function(s,v){return s+v.speed;},0) / vessels.length / 15) * 100)) : 0;
-  if (sbFlow) sbFlow.textContent = '// MALACCA FLOW ' + flowPct + '%';
+  if (sbFlow) sbFlow.textContent = '// HORMUZ FLOW ' + flowPct + '%';
 }
 
 function updateEnvTab() {

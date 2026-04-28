@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pre-Phase 1: Routing Tests</title>
+  <style>
+    body { background: #0a0a0a; color: #ccc; font-family: monospace; padding: 24px; }
+    h1 { color: #fff; font-size: 14px; letter-spacing: 2px; margin-bottom: 24px; }
+    .result { padding: 6px 0; border-bottom: 1px solid #111; font-size: 12px; }
+    .pass { color: #4ade80; }
+    .fail { color: #ef4444; }
+    .summary { margin-top: 20px; font-size: 13px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>PRE-PHASE 01 — ROUTING: WAYPOINT-BASED SHIPPING LANES</h1>
+  <div id="results"></div>
+  <div id="summary" class="summary"></div>
+
+  <!-- config-data.js is self-contained (no DOM, no Leaflet) -->
+  <script src="../js/config-data.js"></script>
+  <script>
+    const out = document.getElementById('results');
+    let passed = 0, failed = 0;
+
+    function test(desc, fn) {
+      try {
+        fn();
+        out.innerHTML += `<div class="result pass">PASS  ${desc}</div>`;
+        passed++;
+      } catch (e) {
+        out.innerHTML += `<div class="result fail">FAIL  ${desc}<br>&nbsp;&nbsp;&nbsp;&nbsp;→ ${e.message}</div>`;
+        failed++;
+      }
+    }
+
+    function assert(cond, msg) {
+      if (!cond) throw new Error(msg || 'assertion failed');
+    }
+
+    // ── Exclusion zones ──────────────────────────────────────────────
+    // Musandam Peninsula bounding box
+    const MUSANDAM = { latMin: 25.9, latMax: 26.4, lngMin: 56.15, lngMax: 56.55 };
+    // Qeshm Island bounding box
+    const QESHM   = { latMin: 26.5, latMax: 26.9, lngMin: 55.5, lngMax: 56.3 };
+
+    function insideBox(lat, lng, box) {
+      return lat >= box.latMin && lat <= box.latMax &&
+             lng >= box.lngMin && lng <= box.lngMax;
+    }
+
+    // ── Tests ────────────────────────────────────────────────────────
+
+    test('1. SHIPPING_LANES exists with inbound and outbound arrays', () => {
+      assert(typeof SHIPPING_LANES === 'object', 'SHIPPING_LANES not defined');
+      assert(Array.isArray(SHIPPING_LANES.inbound), 'SHIPPING_LANES.inbound is not an array');
+      assert(Array.isArray(SHIPPING_LANES.outbound), 'SHIPPING_LANES.outbound is not an array');
+    });
+
+    test('2. Each lane has >= 12 waypoints', () => {
+      assert(SHIPPING_LANES.inbound.length >= 12,
+        `inbound has ${SHIPPING_LANES.inbound.length} waypoints, need >= 12`);
+      assert(SHIPPING_LANES.outbound.length >= 12,
+        `outbound has ${SHIPPING_LANES.outbound.length} waypoints, need >= 12`);
+    });
+
+    test('3. No consecutive waypoints are > 1.2 degrees apart', () => {
+      const bad = [];
+      [['inbound', SHIPPING_LANES.inbound], ['outbound', SHIPPING_LANES.outbound]].forEach(([name, lane]) => {
+        for (let i = 1; i < lane.length; i++) {
+          const dLat = Math.abs(lane[i][0] - lane[i-1][0]);
+          const dLng = Math.abs(lane[i][1] - lane[i-1][1]);
+          const dist = Math.sqrt(dLat*dLat + dLng*dLng);
+          if (dist > 1.2) bad.push(`${name}[${i-1}→${i}] dist=${dist.toFixed(3)}`);
+        }
+      });
+      assert(bad.length === 0, bad.join('; '));
+    });
+
+    test('4. All waypoints in lat range 22-28, lng range 54-61', () => {
+      const bad = [];
+      [['inbound', SHIPPING_LANES.inbound], ['outbound', SHIPPING_LANES.outbound]].forEach(([name, lane]) => {
+        lane.forEach(([lat, lng], i) => {
+          if (lat < 22 || lat > 28) bad.push(`${name}[${i}] lat=${lat}`);
+          if (lng < 54 || lng > 61) bad.push(`${name}[${i}] lng=${lng}`);
+        });
+      });
+      assert(bad.length === 0, bad.slice(0, 5).join('; '));
+    });
+
+    test('5. Inbound starts Gulf of Oman (lng > 59), ends Persian Gulf (lng < 55)', () => {
+      const lane = SHIPPING_LANES.inbound;
+      assert(lane[0][1] > 59, `inbound start lng=${lane[0][1]}, expected > 59`);
+      assert(lane[lane.length-1][1] < 55, `inbound end lng=${lane[lane.length-1][1]}, expected < 55`);
+    });
+
+    test('6. Outbound starts Persian Gulf (lng < 55), ends Gulf of Oman (lng > 59)', () => {
+      const lane = SHIPPING_LANES.outbound;
+      assert(lane[0][1] < 55, `outbound start lng=${lane[0][1]}, expected < 55`);
+      assert(lane[lane.length-1][1] > 59, `outbound end lng=${lane[lane.length-1][1]}, expected > 59`);
+    });
+
+    test('7. No waypoints inside Musandam Peninsula bounding box', () => {
+      const bad = [];
+      [['inbound', SHIPPING_LANES.inbound], ['outbound', SHIPPING_LANES.outbound]].forEach(([name, lane]) => {
+        lane.forEach(([lat, lng], i) => {
+          if (insideBox(lat, lng, MUSANDAM))
+            bad.push(`${name}[${i}] (${lat}, ${lng}) inside Musandam`);
+        });
+      });
+      assert(bad.length === 0, bad.join('; '));
+    });
+
+    test('8. No waypoints inside Qeshm Island bounding box', () => {
+      const bad = [];
+      [['inbound', SHIPPING_LANES.inbound], ['outbound', SHIPPING_LANES.outbound]].forEach(([name, lane]) => {
+        lane.forEach(([lat, lng], i) => {
+          if (insideBox(lat, lng, QESHM))
+            bad.push(`${name}[${i}] (${lat}, ${lng}) inside Qeshm`);
+        });
+      });
+      assert(bad.length === 0, bad.join('; '));
+    });
+
+    test('9. Generated ROUTES still has 12 routes', () => {
+      assert(ROUTES.length === 12, `expected 12, got ${ROUTES.length}`);
+    });
+
+    test('10. Jitter does not push waypoints into exclusion zones (100 runs)', () => {
+      const violations = [];
+      for (let run = 0; run < 100; run++) {
+        const routes = generateRoutes();
+        routes.forEach((route, ri) => {
+          route.forEach(([lat, lng], pi) => {
+            if (insideBox(lat, lng, MUSANDAM))
+              violations.push(`run ${run} route[${ri}][${pi}] (${lat.toFixed(4)}, ${lng.toFixed(4)}) in Musandam`);
+            if (insideBox(lat, lng, QESHM))
+              violations.push(`run ${run} route[${ri}][${pi}] (${lat.toFixed(4)}, ${lng.toFixed(4)}) in Qeshm`);
+          });
+        });
+      }
+      assert(violations.length === 0,
+        `${violations.length} violations; first: ${violations[0]}`);
+    });
+
+    test('11. All route waypoints pass land exclusion checks', () => {
+      const bad = [];
+      ROUTES.forEach((route, ri) => {
+        route.forEach(([lat, lng], pi) => {
+          if (insideBox(lat, lng, MUSANDAM))
+            bad.push(`route[${ri}][${pi}] (${lat.toFixed(4)}, ${lng.toFixed(4)}) in Musandam`);
+          if (insideBox(lat, lng, QESHM))
+            bad.push(`route[${ri}][${pi}] (${lat.toFixed(4)}, ${lng.toFixed(4)}) in Qeshm`);
+        });
+      });
+      assert(bad.length === 0, `${bad.length} violations; first: ${bad[0]}`);
+    });
+
+    // ── Summary ────────────────────────────────────────────────────
+    const total = passed + failed;
+    const color = failed === 0 ? '#4ade80' : '#ef4444';
+    document.getElementById('summary').innerHTML =
+      `<span style="color:${color}">${passed}/${total} passed</span>` +
+      (failed ? ` — ${failed} failing` : ' — all green');
+  </script>
+</body>
+</html>

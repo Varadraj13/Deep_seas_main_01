@@ -59,7 +59,7 @@ function exportJSON() {
     speed: v.speed, progress: v.progress, loadFactor: v.loadFactor,
     emissions: { co2Rate: v.co2Rate, totalCO2: v.totalCO2, fuelConsumed: v.totalFuelConsumed }
   }));
-  downloadFile(JSON.stringify(data, null, 2), 'malacca_vessels.json', 'application/json');
+  downloadFile(JSON.stringify(data, null, 2), 'hormuz_vessels.json', 'application/json');
   document.getElementById('exportStatus').textContent = 'JSON exported (' + data.length + ' vessels)';
 }
 
@@ -70,7 +70,7 @@ function exportCSV() {
     return [v.id,v.name,v.imo,v.type,v.flag.country,v.owner,v.dwt,v.sizeMeter,v.beam,v.draft,v.speed.toFixed(1),v.maxSpeed,v.fuelType,v.cargo.type,v.cargo.qty,v.cargo.unit,v.cargo.value,v.cargo.hazmat,v.origin,v.destination,pos.lat.toFixed(4),pos.lng.toFixed(4),(v.progress*100).toFixed(1),v.loadFactor.toFixed(2),v.totalCO2.toFixed(2),v.totalFuelConsumed.toFixed(2)];
   });
   const csv = [headers.join(','), ...rows.map(r => r.map(c => typeof c === 'string' && c.includes(',') ? '"'+c+'"' : c).join(','))].join('\n');
-  downloadFile(csv, 'malacca_vessels.csv', 'text/csv');
+  downloadFile(csv, 'hormuz_vessels.csv', 'text/csv');
   document.getElementById('exportStatus').textContent = 'CSV exported (' + rows.length + ' vessels)';
 }
 
@@ -95,12 +95,12 @@ function saveState() {
       routeIndex: ROUTES.indexOf(v.route) >= 0 ? ROUTES.indexOf(v.route) : 0
     }))
   };
-  localStorage.setItem('malacca_sim_state', JSON.stringify(state));
+  localStorage.setItem('hormuz_sim_state', JSON.stringify(state));
   document.getElementById('exportStatus').textContent = 'State saved to localStorage';
 }
 
 function loadState() {
-  const raw = localStorage.getItem('malacca_sim_state');
+  const raw = localStorage.getItem('hormuz_sim_state');
   if (!raw) { document.getElementById('exportStatus').textContent = 'No saved state found'; return; }
   const state = JSON.parse(raw);
 

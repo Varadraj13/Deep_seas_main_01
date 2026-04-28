@@ -8,7 +8,7 @@ function routeLength(route) { let d=0; for(let i=1;i<route.length;i++) d+=dist(r
 function dist(a,b) { const dx=(b[1]-a[1])*Math.cos(((a[0]+b[0])/2)*Math.PI/180), dy=b[0]-a[0]; return Math.sqrt(dx*dx+dy*dy)*60; }
 
 function positionOnRoute(route, progress) {
-  if (!route || route.length < 2) return { lat: route?.[0]?.[0] || 2.5, lng: route?.[0]?.[1] || 101.5, bearing: 0, segIndex: 0 };
+  if (!route || route.length < 2) return { lat: route?.[0]?.[0] || 26.0, lng: route?.[0]?.[1] || 57.0, bearing: 0, segIndex: 0 };
   const totalLen = routeLength(route);
   if (!totalLen || isNaN(totalLen) || totalLen <= 0) return { lat: route[0][0], lng: route[0][1], bearing: calcBearing(route[0], route[1]), segIndex: 0 };
   const clampedProgress = Math.max(0, Math.min(1, isNaN(progress) ? 0 : progress));

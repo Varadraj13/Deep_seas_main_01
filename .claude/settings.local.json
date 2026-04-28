@@ -7,7 +7,19 @@
       "Bash(where:*)",
       "Bash(winget install:*)",
       "Bash(powershell.exe -Command \"winget install --id GitHub.cli --accept-source-agreements --accept-package-agreements\")",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(ls:*)",
+      "Bash(dir /b \"C:\\\\Users\\\\vvb2112\\\\Test_simulator-main\\\\Deep_seas_main\\\\tests\")",
+      "WebSearch",
+      "WebFetch(domain:en.wikipedia.org)",
+      "WebFetch(domain:www.strausscenter.org)",
+      "WebFetch(domain:wwwcdn.imo.org)",
+      "WebFetch(domain:ontimebrief.com)",
+      "WebFetch(domain:www.getamap.net)",
+      "WebFetch(domain:maritime-executive.com)",
+      "WebFetch(domain:asmr.education)",
+      "WebFetch(domain:interactive.aljazeera.com)",
+      "WebFetch(domain:mapcarta.com)"
     ]
   }
 }

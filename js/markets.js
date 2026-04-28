@@ -1,6 +1,6 @@
 // ================================================================
 const MARKETS = [
-  { id: 'hormuz-jul26',      question: 'Will Strait of Malacca traffic normalise before Jul 2026?',
+  { id: 'hormuz-jul26',      question: 'Will Strait of Hormuz remain open through Jul 2026?',
     probability: 0.49, yesPrice: 54, noPrice: 47, volume: '$2.1M', history: [] },
   { id: 'fuel-q2',           question: 'Will VLSFO fuel prices exceed $700/ton by Jun 2026?',
     probability: 0.39, yesPrice: 42, noPrice: 62, volume: '$890K', history: [] },

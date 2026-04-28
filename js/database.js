@@ -1,7 +1,7 @@
 // ================================================================
 //  INDEXEDDB - REAL-TIME TRADE DATABASE
 // ================================================================
-const DB_NAME = 'MalaccaTradeDB';
+const DB_NAME = 'HormuzTradeDB';
 const DB_VERSION = 1;
 let db = null;
 

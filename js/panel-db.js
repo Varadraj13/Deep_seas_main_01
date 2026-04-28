@@ -113,7 +113,7 @@ function exportDBData() {
           cargo: v.cargo, financials: fin, dbStats: v.dbStats || null };
       })
     };
-    downloadFile(JSON.stringify(data, null, 2), 'malacca_trade_db.json', 'application/json');
+    downloadFile(JSON.stringify(data, null, 2), 'hormuz_trade_db.json', 'application/json');
     addDBEvent('Database exported');
   });
 }
