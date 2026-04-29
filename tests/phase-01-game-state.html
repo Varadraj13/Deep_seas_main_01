@@ -54,6 +54,90 @@
       assert(marketState.prob === 72, `expected 72, got ${marketState.prob}`);
     });
 
+    // ── Slice 2 ──────────────────────────────────────────────────────
+
+    test('fireWeapon("D01") sets simMultipliers.speed_mult to 0.05', () => {
+      resetState();
+      fireWeapon('D01');
+      assert(marketState.simMultipliers.speed_mult === 0.05,
+        `expected 0.05, got ${marketState.simMultipliers.speed_mult}`);
+    });
+
+    // ── Slice 3 ──────────────────────────────────────────────────────
+
+    test('fireWeapon("D01") sets simMultipliers.spawn_rate_mult to 0.2', () => {
+      resetState();
+      fireWeapon('D01');
+      assert(marketState.simMultipliers.spawn_rate_mult === 0.2,
+        `expected 0.2, got ${marketState.simMultipliers.spawn_rate_mult}`);
+    });
+
+    // ── Slice 4 ──────────────────────────────────────────────────────
+
+    test('fireWeapon("D01") sets simMultipliers.hormuz_lane to "closed"', () => {
+      resetState();
+      fireWeapon('D01');
+      assert(marketState.simMultipliers.hormuz_lane === 'closed',
+        `expected "closed", got "${marketState.simMultipliers.hormuz_lane}"`);
+    });
+
+    // ── Slice 5 ──────────────────────────────────────────────────────
+
+    test('fireWeapon("D01") is a no-op when D01 already active', () => {
+      resetState();
+      fireWeapon('D01');
+      const probAfterFirst = marketState.prob;
+      const countAfterFirst = marketState.activeWeapons.length;
+      fireWeapon('D01');
+      assert(marketState.prob === probAfterFirst,
+        `prob changed on second fire: expected ${probAfterFirst}, got ${marketState.prob}`);
+      assert(marketState.activeWeapons.length === countAfterFirst,
+        `activeWeapons grew on second fire: expected ${countAfterFirst}, got ${marketState.activeWeapons.length}`);
+    });
+
+    // ── Slice 6 ──────────────────────────────────────────────────────
+
+    test('probability clamps to 100 when delta would exceed it', () => {
+      resetState();
+      marketState.prob = 95;
+      fireWeapon('D01'); // +22 would give 117
+      assert(marketState.prob === 100,
+        `expected 100 (clamped), got ${marketState.prob}`);
+    });
+
+    // ── Slice 7 ──────────────────────────────────────────────────────
+
+    test('recomputeSimMultipliers() with empty activeWeapons restores SIM_DEFAULTS', () => {
+      resetState();
+      fireWeapon('D01'); // changes speed_mult, spawn_rate_mult, hormuz_lane
+      marketState.activeWeapons = [];
+      recomputeSimMultipliers();
+      assert(marketState.simMultipliers.speed_mult === 1.0,
+        `speed_mult: expected 1.0, got ${marketState.simMultipliers.speed_mult}`);
+      assert(marketState.simMultipliers.spawn_rate_mult === 1.0,
+        `spawn_rate_mult: expected 1.0, got ${marketState.simMultipliers.spawn_rate_mult}`);
+      assert(marketState.simMultipliers.hormuz_lane === 'open',
+        `hormuz_lane: expected "open", got "${marketState.simMultipliers.hormuz_lane}"`);
+    });
+
+    // ── Slice 8 ──────────────────────────────────────────────────────
+
+    test('actionLog records weaponId, delta, and timestamp on fire', () => {
+      resetState();
+      const before = Date.now();
+      fireWeapon('D01');
+      const after = Date.now();
+      assert(marketState.actionLog.length === 1,
+        `expected 1 log entry, got ${marketState.actionLog.length}`);
+      const entry = marketState.actionLog[0];
+      assert(entry.weaponId === 'D01',
+        `weaponId: expected "D01", got "${entry.weaponId}"`);
+      assert(entry.delta === 22,
+        `delta: expected 22, got ${entry.delta}`);
+      assert(typeof entry.timestamp === 'number' && entry.timestamp >= before && entry.timestamp <= after,
+        `timestamp out of range: got ${entry.timestamp}`);
+    });
+
     // ── Summary ────────────────────────────────────────────────────
     const total = passed + failed;
     const color = failed === 0 ? '#4ade80' : '#ef4444';

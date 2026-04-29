@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Post-Phase 01: Game Dashboard Tests</title>
+  <style>
+    body { background: #0a0a0a; color: #ccc; font-family: monospace; padding: 24px; }
+    h1 { color: #fff; font-size: 14px; letter-spacing: 2px; margin-bottom: 24px; }
+    .result { padding: 6px 0; border-bottom: 1px solid #111; font-size: 12px; }
+    .pass { color: #4ade80; }
+    .fail { color: #ef4444; }
+    .summary { margin-top: 20px; font-size: 13px; font-weight: bold; }
+    #fixtures { display: none; }
+  </style>
+</head>
+<body>
+  <h1>POST-PHASE 01 — GAME DASHBOARD: updateDashboard() BEHAVIOR</h1>
+  <div id="results"></div>
+  <div id="summary" class="summary"></div>
+
+  <!-- DOM fixtures: hidden, mirrors the real #gameDashboard zones -->
+  <div id="fixtures">
+    <div id="gameDashboard">
+      <section id="gdProb"></section>
+      <section id="gdLastAction"></section>
+      <section id="gdActive"></section>
+      <section id="gdLog"></section>
+    </div>
+  </div>
+
+  <script src="../js/weapons-config.js"></script>
+  <script src="../js/game-state.js"></script>
+  <script src="../js/game-dashboard.js"></script>
+  <script>
+    const out = document.getElementById('results');
+    let passed = 0, failed = 0;
+
+    function test(desc, fn) {
+      try {
+        fn();
+        out.innerHTML += `<div class="result pass">PASS  ${desc}</div>`;
+        passed++;
+      } catch (e) {
+        out.innerHTML += `<div class="result fail">FAIL  ${desc}<br>&nbsp;&nbsp;&nbsp;&nbsp;→ ${e.message}</div>`;
+        failed++;
+      }
+    }
+
+    function assert(cond, msg) {
+      if (!cond) throw new Error(msg || 'assertion failed');
+    }
+
+    function resetState() {
+      marketState.prob = 50;
+      marketState.activeWeapons = [];
+      marketState.actionLog = [];
+      recomputeSimMultipliers();
+    }
+
+    // ── Slice 1 ──────────────────────────────────────────────────────
+    // Tracer bullet: prob value appears in #gdProb
+
+    test('updateDashboard() renders prob value 72 in #gdProb', () => {
+      resetState();
+      marketState.prob = 72;
+      updateDashboard();
+      assert(
+        document.getElementById('gdProb').textContent.includes('72'),
+        `expected "72" in gdProb, got "${document.getElementById('gdProb').textContent}"`
+      );
+    });
+
+    // ── Slice 2 ──────────────────────────────────────────────────────
+
+    test('#gdProb has class prob-red when prob > 65', () => {
+      resetState();
+      marketState.prob = 72;
+      updateDashboard();
+      const el = document.getElementById('gdProb');
+      assert(el.classList.contains('prob-red'),
+        `expected class prob-red, got "${el.className}"`);
+    });
+
+    // ── Slice 3 ──────────────────────────────────────────────────────
+
+    test('#gdProb has class prob-amber when prob = 50', () => {
+      resetState();
+      updateDashboard();
+      const el = document.getElementById('gdProb');
+      assert(el.classList.contains('prob-amber'),
+        `expected class prob-amber, got "${el.className}"`);
+    });
+
+    // ── Slice 4 ──────────────────────────────────────────────────────
+
+    test('#gdProb has class prob-green when prob = 20', () => {
+      resetState();
+      marketState.prob = 20;
+      updateDashboard();
+      const el = document.getElementById('gdProb');
+      assert(el.classList.contains('prob-green'),
+        `expected class prob-green, got "${el.className}"`);
+    });
+
+    // ── Slice 5 ──────────────────────────────────────────────────────
+
+    test('#gdLastAction shows no-action message when actionLog is empty', () => {
+      resetState();
+      updateDashboard();
+      assert(
+        document.getElementById('gdLastAction').textContent.includes('NO ACTION YET'),
+        'expected "NO ACTION YET" in gdLastAction'
+      );
+    });
+
+    // ── Slice 6 ──────────────────────────────────────────────────────
+
+    test('#gdLastAction shows weapon name after fireWeapon("D01")', () => {
+      resetState();
+      fireWeapon('D01');
+      updateDashboard();
+      const text = document.getElementById('gdLastAction').textContent;
+      assert(text.includes('D01'), `expected "D01" in gdLastAction, got "${text}"`);
+      assert(text.includes('closure') || text.includes('blockade'),
+        `expected weapon name fragment in gdLastAction, got "${text}"`);
+    });
+
+    // ── Slice 7 ──────────────────────────────────────────────────────
+
+    test('#gdLastAction shows +22 cause line after fireWeapon("D01")', () => {
+      resetState();
+      fireWeapon('D01');
+      updateDashboard();
+      const text = document.getElementById('gdLastAction').textContent;
+      assert(text.includes('+22'), `expected "+22" in gdLastAction cause line, got "${text}"`);
+    });
+
+    // ── Slice 8 ──────────────────────────────────────────────────────
+
+    test('#gdLastAction shows sim_trigger_key EFFECT rows for D01', () => {
+      resetState();
+      fireWeapon('D01');
+      updateDashboard();
+      const text = document.getElementById('gdLastAction').textContent;
+      assert(text.includes('EFFECT'), `expected "EFFECT" label, got "${text}"`);
+      assert(text.includes('0.05'), `expected speed_mult value 0.05, got "${text}"`);
+      assert(text.includes('0.2'), `expected spawn_rate_mult value 0.2, got "${text}"`);
+      assert(text.toUpperCase().includes('CLOSED'),
+        `expected hormuz_lane "CLOSED", got "${text}"`);
+    });
+
+    // ── Slice 9 ──────────────────────────────────────────────────────
+
+    test('#gdActive shows D01 after fireWeapon("D01")', () => {
+      resetState();
+      fireWeapon('D01');
+      updateDashboard();
+      assert(
+        document.getElementById('gdActive').textContent.includes('D01'),
+        'expected D01 in gdActive'
+      );
+    });
+
+    // ── Slice 10 ─────────────────────────────────────────────────────
+
+    test('#gdActive shows none-active message after resetState()', () => {
+      resetState();
+      updateDashboard();
+      assert(
+        document.getElementById('gdActive').textContent.includes('NONE ACTIVE'),
+        'expected "NONE ACTIVE" in gdActive'
+      );
+    });
+
+    // ── Slice 11 ─────────────────────────────────────────────────────
+
+    test('#gdLog shows newest entry first and at most 3 entries', () => {
+      resetState();
+      // Push 4 entries directly to test display logic independently of fireWeapon
+      marketState.actionLog.push({ weaponId: 'D01', delta: 22, timestamp: 1 });
+      marketState.actionLog.push({ weaponId: 'D03', delta: 14, timestamp: 2 });
+      marketState.actionLog.push({ weaponId: 'D02', delta: 8,  timestamp: 3 });
+      marketState.actionLog.push({ weaponId: 'D04', delta: 11, timestamp: 4 });
+      updateDashboard();
+      const gdLog = document.getElementById('gdLog');
+      assert(gdLog.textContent.includes('D04'),
+        'expected newest entry D04 to appear');
+      assert(!gdLog.textContent.includes('D01'),
+        'expected oldest entry D01 to be excluded (only last 3 shown)');
+      const rows = gdLog.querySelectorAll('.gd-log-row');
+      assert(rows.length === 3,
+        `expected 3 log rows, got ${rows.length}`);
+      assert(rows[0].textContent.includes('D04'),
+        `expected first row to be newest (D04), got "${rows[0].textContent}"`);
+    });
+
+    // ── Summary ────────────────────────────────────────────────────
+    const total = passed + failed;
+    const color = failed === 0 ? '#4ade80' : '#ef4444';
+    document.getElementById('summary').innerHTML =
+      `<span style="color:${color}">${passed}/${total} passed</span>` +
+      (failed ? ` — ${failed} failing` : ' — all green');
+  </script>
+</body>
+</html>

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phase 02 — Multi-Model Selector Tests</title>
+<style>
+  body { font-family: monospace; background: #0a0a0a; color: #ccc; padding: 24px; }
+  h2   { color: #cc0000; letter-spacing: 3px; font-size: 11px; margin-bottom: 16px; }
+  .pass { color: #4ade80; }
+  .fail { color: #ef4444; }
+  .result { font-size: 11px; margin: 4px 0; }
+  #summary { margin-top: 20px; font-size: 13px; letter-spacing: 2px; }
+</style>
+</head>
+<body>
+<h2>PHASE 02 — MULTI-MODEL SELECTOR</h2>
+<div id="results"></div>
+<div id="summary"></div>
+
+<!-- Dependencies -->
+<script src="../js/weapons-config.js"></script>
+
+<!-- The function under test is inlined here until it lives in its own module.
+     When detector.html is refactored, this script tag will point to the extracted file. -->
+<script>
+// ── Functions under test (must stay in sync with detector.html) ───
+function buildLabelMap(rawMap) {
+  const out = {};
+  for (const [className, value] of Object.entries(rawMap)) {
+    if (value === null) { out[className] = null; continue; }
+    const ids = Array.isArray(value) ? value : [value];
+    const lookup = id => WEAPONS_CONFIG.weapons.find(w => w.id === id);
+    const primary = lookup(ids[0]);
+    if (!primary) { out[className] = null; continue; }
+    const validIds = ids.filter(id => !!lookup(id));
+    const isDisruptor = primary.player === 'disruptor';
+    const actionLabel = validIds.length > 1
+      ? validIds.map(id => lookup(id).name.toUpperCase()).join(' + ')
+      : primary.name.toUpperCase();
+    out[className] = {
+      player:    isDisruptor ? 'A' : 'B',
+      role:      primary.player.toUpperCase(),
+      action:    actionLabel,
+      weaponId:  ids[0],
+      weaponIds: validIds,
+      color:     isDisruptor ? '#cc0000' : '#3b82f6',
+      barClass:  isDisruptor ? '' : 'player-b',
+    };
+  }
+  return out;
+}
+
+function buildConfigTable(rawMap) {
+  const lookup = id => WEAPONS_CONFIG.weapons.find(w => w.id === id);
+  const rows = Object.entries(rawMap)
+    .filter(([, value]) => value !== null)
+    .map(([className, value]) => {
+      const ids = Array.isArray(value) ? value : [value];
+      const label = ids.map(id => { const w = lookup(id); return w ? `${id} — ${w.name}` : id; }).join('<br>');
+      return `<div class="tp-bar-row">
+        <div class="tp-bar-label">${className}</div>
+        <div style="font-size:8px;color:#888">${label}</div>
+      </div>`;
+    });
+  return rows.length ? rows.join('') : '<span style="color:#333">— none mapped —</span>';
+}
+// ──────────────────────────────────────────────────────────────────
+
+let passed = 0, failed = 0;
+const out = document.getElementById('results');
+
+function test(name, fn) {
+  try {
+    fn();
+    passed++;
+    out.innerHTML += `<div class="result pass">✓ ${name}</div>`;
+  } catch(e) {
+    failed++;
+    out.innerHTML += `<div class="result fail">✗ ${name} — ${e.message}</div>`;
+  }
+}
+
+function assert(condition, msg) {
+  if (!condition) throw new Error(msg || 'assertion failed');
+}
+
+// ── Slice 1 (tracer bullet) ───────────────────────────────────────
+
+test('buildLabelMap maps a disruptor className to weaponId "D01" and player "A"', () => {
+  const result = buildLabelMap({ 'single_object_01': 'D01' });
+  assert(result['single_object_01'] !== null,
+    'entry should not be null for a known weapon');
+  assert(result['single_object_01'].weaponId === 'D01',
+    `weaponId: expected D01, got ${result['single_object_01'].weaponId}`);
+  assert(result['single_object_01'].player === 'A',
+    `player: expected A (disruptor), got ${result['single_object_01'].player}`);
+});
+
+// ── Slice 2 ───────────────────────────────────────────────────────
+
+test('buildLabelMap passes null through as null (background class)', () => {
+  const result = buildLabelMap({ 'blank background': null });
+  assert('blank background' in result,
+    'key should exist in output');
+  assert(result['blank background'] === null,
+    `expected null, got ${JSON.stringify(result['blank background'])}`);
+});
+
+// ── Slice 3 ───────────────────────────────────────────────────────
+
+test('buildLabelMap returns null for unknown weaponId (graceful fallback)', () => {
+  const result = buildLabelMap({ 'mystery object': 'Z99' });
+  assert(result['mystery object'] === null,
+    `expected null for unknown weapon, got ${JSON.stringify(result['mystery object'])}`);
+});
+
+// ── Slice 4 ───────────────────────────────────────────────────────
+
+test('buildConfigTable returns HTML containing className and weapon name for each non-null entry', () => {
+  const html = buildConfigTable({ 'single_object_01': 'D01', 'blank background': null });
+  assert(typeof html === 'string' && html.length > 0,
+    'expected non-empty HTML string');
+  assert(html.includes('single_object_01'),
+    'HTML should include the class name');
+  assert(html.toLowerCase().includes('d01') || html.toLowerCase().includes('blockade') || html.toLowerCase().includes('strait'),
+    'HTML should include the weapon ID or name');
+  assert(!html.toLowerCase().includes('blank background'),
+    'null entries (blank background) should not appear in config table');
+});
+
+// ── Slice 5 — multi-weapon array ─────────────────────────────────
+
+test('buildLabelMap with array value produces weaponIds containing all valid IDs', () => {
+  const result = buildLabelMap({ 'Snacks': ['R01', 'R02'] });
+  assert(result['Snacks'] !== null, 'entry should not be null');
+  assert(Array.isArray(result['Snacks'].weaponIds),
+    'weaponIds should be an array');
+  assert(result['Snacks'].weaponIds.length === 2,
+    `expected 2 weaponIds, got ${result['Snacks'].weaponIds.length}`);
+  assert(result['Snacks'].weaponIds.includes('R01') && result['Snacks'].weaponIds.includes('R02'),
+    `expected R01 and R02, got ${result['Snacks'].weaponIds}`);
+});
+
+// ── Slice 6 — multi-weapon action label ──────────────────────────
+
+test('buildLabelMap with array value joins weapon names in action label', () => {
+  const result = buildLabelMap({ 'Snacks': ['R01', 'R02'] });
+  assert(result['Snacks'] !== null, 'entry should not be null');
+  assert(result['Snacks'].action.includes('+'),
+    `action should contain "+" for multi-weapon, got: "${result['Snacks'].action}"`);
+  assert(result['Snacks'].player === 'B',
+    `player: expected B (defender), got ${result['Snacks'].player}`);
+});
+
+// ── Slice 7 — mixed array, one unknown ID ────────────────────────
+
+test('buildLabelMap with ["R01","Z99"] keeps R01, drops unknown, does not crash', () => {
+  const result = buildLabelMap({ 'mixed': ['R01', 'Z99'] });
+  assert(result['mixed'] !== null, 'entry should not be null — R01 is valid');
+  assert(Array.isArray(result['mixed'].weaponIds), 'weaponIds should be an array');
+  assert(result['mixed'].weaponIds.length === 1,
+    `expected 1 valid ID, got ${result['mixed'].weaponIds.length}`);
+  assert(result['mixed'].weaponIds[0] === 'R01',
+    `expected R01, got ${result['mixed'].weaponIds[0]}`);
+});
+
+// ── Slice 8 — empty array ────────────────────────────────────────
+
+test('buildLabelMap with [] produces null entry without crashing', () => {
+  const result = buildLabelMap({ 'empty': [] });
+  assert('empty' in result, 'key should exist in output');
+  assert(result['empty'] === null,
+    `expected null for empty array, got ${JSON.stringify(result['empty'])}`);
+});
+
+// ── Slice 9 — defender weapon color + barClass ───────────────────
+
+test('buildLabelMap defender weapon gets player "B", blue color, player-b barClass', () => {
+  const result = buildLabelMap({ 'Snacks': 'R01' });
+  assert(result['Snacks'] !== null, 'entry should not be null');
+  assert(result['Snacks'].player === 'B',
+    `player: expected B, got ${result['Snacks'].player}`);
+  assert(result['Snacks'].color === '#3b82f6',
+    `color: expected #3b82f6, got ${result['Snacks'].color}`);
+  assert(result['Snacks'].barClass === 'player-b',
+    `barClass: expected player-b, got ${result['Snacks'].barClass}`);
+});
+
+// ── Slice 10 — buildConfigTable array entry shows both weapon names ──
+
+test('buildConfigTable with array value renders both weapon names in HTML', () => {
+  const html = buildConfigTable({ 'Snacks': ['R01', 'R02'] });
+  assert(html.includes('Snacks'), 'HTML should include the class name');
+  assert(html.toLowerCase().includes('r01') || html.toLowerCase().includes('naval'),
+    'HTML should include R01 or its name');
+  assert(html.toLowerCase().includes('r02') || html.toLowerCase().includes('flagging'),
+    'HTML should include R02 or its name');
+});
+
+// ── Slice 11 — buildConfigTable all-null map returns fallback ────
+
+test('buildConfigTable with all-null rawMap returns "none mapped" fallback', () => {
+  const html = buildConfigTable({ 'Background': null, 'Blank': null });
+  assert(html.includes('none mapped'),
+    `expected "none mapped" fallback, got: "${html}"`);
+});
+
+// ── Slice 12 — exact tm_model_02 label-map as shipped ────────────
+// Pins the production config so any accidental change to the mapping is caught.
+
+test('tm_model_02 label-map: Snacks fires R01, Sparkling water fires R02', () => {
+  const rawMap = {
+    'Object 01':       'D01',
+    'Pret Cup':        'D02',
+    'Snacks':          'R01',
+    'Sparkling water': 'R02',
+    'Background':      null,
+  };
+  const result = buildLabelMap(rawMap);
+
+  assert(result['Snacks'] !== null, 'Snacks should be mapped');
+  assert(result['Snacks'].weaponIds[0] === 'R01',
+    `Snacks: expected R01, got ${result['Snacks'].weaponIds[0]}`);
+  assert(result['Snacks'].player === 'B',
+    `Snacks player: expected B, got ${result['Snacks'].player}`);
+
+  assert(result['Sparkling water'] !== null, 'Sparkling water should be mapped');
+  assert(result['Sparkling water'].weaponIds[0] === 'R02',
+    `Sparkling water: expected R02, got ${result['Sparkling water'].weaponIds[0]}`);
+  assert(result['Sparkling water'].player === 'B',
+    `Sparkling water player: expected B, got ${result['Sparkling water'].player}`);
+
+  assert(result['Background'] === null, 'Background should be null');
+});
+
+// ── Summary ───────────────────────────────────────────────────────
+const total = passed + failed;
+const color = failed === 0 ? '#4ade80' : '#ef4444';
+document.getElementById('summary').innerHTML =
+  `<span style="color:${color}">${passed}/${total} PASSED${failed ? ' — ' + failed + ' FAILED' : ' — ALL GREEN'}</span>`;
+</script>
+</body>
+</html>

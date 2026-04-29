@@ -732,4 +732,794 @@ Layer 9: js/bootstrap.js
 - Pattern: standalone HTML files in `tests/` that load JS via `<script>` tags
 - No framework — hand-rolled `test()` and `assert()` functions
 - Open in browser to run, results displayed inline
-- Existing tests: `tests/pre-phase-01-recentering.html` (8 tests), `tests/pre-phase-01-routing.html` (11 tests), `tests/phase-01-game-state.html` (1 test, RED)
+- Existing tests: `tests/pre-phase-01-recentering.html` (8 tests), `tests/pre-phase-01-routing.html` (11 tests), `tests/phase-01-game-state.html` (8 tests, all GREEN)
+
+---
+
+## Post-Phase 1: Game Status Dashboard
+
+### Why this comes next
+
+Phase 1 proves the tracer bullet — keypress → weapon → market → ships — but the feedback lives in a one-line status bar that is illegible at Movement Lab projection scale and gives no causal narrative. Players and audience cannot read "D01 fired → prob +22% → ships halting" from the status bar. This dashboard makes the performativity chain visible in real time.
+
+### What it is
+
+A fixed `<div id="gameDashboard">` panel on the right edge of `index.html`. Four stacked zones, always visible:
+
+```
+┌─────────────────────────┐
+│  PROBABILITY            │  ← large number, color-coded bar
+│  ██████████░░░░  72%    │     RED >65% / AMBER 35–65% / GREEN <35%
+├─────────────────────────┤
+│  LAST ACTION            │  ← weapon card, replaces on each fire
+│  D01 · STRAIT BLOCKADE  │
+│  CAUSE  ↑ +22% prob     │
+│  EFFECT  speed ×0.05    │
+│          spawn ×0.20    │
+│          lane → CLOSED  │
+├─────────────────────────┤
+│  ACTIVE WEAPONS         │  ← live list, one row per weapon
+│  D01 ████████░░ [decay] │
+├─────────────────────────┤
+│  EVENT LOG              │  ← last 3 events, newest on top
+│  → D01 +22% · t=0042   │
+└─────────────────────────┘
+```
+
+### Data sources (read-only from marketState)
+
+| Zone | Source | Update trigger |
+|---|---|---|
+| Probability bar | `marketState.prob` | every `updateStats()` tick |
+| Last action card | `marketState.actionLog` (last entry) | on `fireWeapon()` |
+| Active weapons list | `marketState.activeWeapons` | on `fireWeapon()` |
+| Event log | `marketState.actionLog` (last 3) | on `fireWeapon()` |
+
+### Color thresholds
+
+| Range | Color | Meaning |
+|---|---|---|
+| prob > 65% | RED (`#ef4444`) | Strait likely closing — disruptor winning |
+| 35% ≤ prob ≤ 65% | AMBER (`#f59e0b`) | Contested — outcome uncertain |
+| prob < 35% | GREEN (`#4ade80`) | Strait likely open — defender winning |
+
+### Files changed
+
+- `index.html` — adds `#gameDashboard` div + all CSS inline in `<style>` block; adds script tags for `weapons-config.js`, `game-state.js`, `game-dashboard.js`; replaces status bar `// LAYER I //` span with `<span id="sbProb">// PROB 50%</span>`
+- `js/game-dashboard.js` — new file; pure DOM writer, 4 zones, reads `marketState` only
+- `js/simulation.js` — `updateStats()` now calls `updateDashboard()` and updates `sbProb`
+
+### Test file
+
+`tests/post-phase-01-dashboard.html` — verifies `updateDashboard()` renders correct HTML for known `marketState` snapshots (empty state, one weapon active, prob at each color threshold boundary).
+
+---
+
+## Grill Report: Multi-Model Selector for detector.html
+
+**Date:** 2026-04-28
+**Feature:** Allow detector.html to switch between multiple trained Teachable Machine models via a dropdown, with per-model label configuration.
+**Motivation:** Testing the gesture-detection mechanism in different physical locations requires different trained models.
+
+---
+
+### Q1: How does the detector know which models are available?
+
+**Options:** (a) `models/manifest.json` — hand-maintained list, works on `file://`, (b) Auto-scan folder names via server directory listing — requires a server, (c) File System Access API drag-and-drop — requires a gesture each session
+
+**Decision:** Option (a) — `models/manifest.json`
+
+**Rationale:** Only option that works on `file://` with zero server infrastructure; one extra line to maintain per model is acceptable.
+
+**Consequence:** Adding a model = copy folder + add one entry to manifest.json. No server required. Manifest is the source of truth for available models.
+
+---
+
+### Q2: Where does each model's LABEL_MAP config live?
+
+**Options:** (a) `label-map.json` inside each model folder — self-contained, (b) Embed all label maps in manifest.json — one file, (c) Keep LABEL_MAP hardcoded in detector.html — only works if all models share class names
+
+**Decision:** Option (a) — `label-map.json` per model folder
+
+**Rationale:** Each folder becomes fully self-contained; copy the folder, edit its label-map.json, done — no central file to keep in sync.
+
+**Consequence:** Each model folder must contain: `model.json`, `metadata.json`, `weights.bin`, `label-map.json`. detector.html fetches all four when a model is selected.
+
+---
+
+### Q3: What happens when detector.html first opens?
+
+**Options:** (a) Auto-load first model in manifest.json — camera starts immediately, (b) Show dropdown first, require explicit selection — adds a tap before camera starts, (c) Remember last-used model in localStorage — auto-loads last session's model
+
+**Decision:** Option (a) — auto-load first entry in manifest.json
+
+**Rationale:** Live demo context — every extra tap before camera starts is friction at the wrong moment; first entry in manifest is "current venue's model" by convention.
+
+**Consequence:** Reordering manifest.json entries is how you change the default model. Page behavior stays identical to current (auto-start on open).
+
+---
+
+### Q4: What is the format of `label-map.json`?
+
+**Options:** (a) Mirror existing LABEL_MAP structure exactly — all fields duplicated, (b) Flat `className → weaponId` map — detector joins with weapons-config.js for the rest, (c) Full metadata block with model name and description at top level
+
+**Decision:** Option (b) — flat `className → weaponId`
+
+**Rationale:** Color, role, and action already live in weapons-config.js — duplicating them in every label-map.json would drift; let detector.html do the join at load time.
+
+**Consequence:** detector.html must perform a join: `label-map.json` gives weaponId, `weapons-config.js` gives the rest. `null` value means "background — do nothing".
+
+---
+
+## Implementation Plan: Multi-Model Selector
+
+### Step 1 — Create `models/manifest.json`
+
+**Action:** Create `models/manifest.json` listing available model folders.
+
+```json
+[
+  { "id": "tm-my-image-model", "name": "Lab A — Object 01", "path": "./tm-my-image-model/" }
+]
+```
+
+**Visible change:** None — data layer only.
+
+**If skipped:** detector.html has no model list to fetch; dropdown cannot render.
+
+---
+
+### Step 2 — Create `label-map.json` in each model folder
+
+**Action:** Create `tm-my-image-model/label-map.json` with flat className → weaponId mapping.
+
+```json
+{
+  "single_object_01": "D01",
+  "blank background": null
+}
+```
+
+**Visible change:** None — data layer only.
+
+**If skipped:** detector.html cannot build LABEL_MAP for the selected model; weapon firing breaks.
+
+---
+
+### Step 3 — Add dropdown UI to `detector.html`
+
+**Action:** Add a `<select id="modelSelect">` element to the tactical panel header. Style to match existing monospace dark theme.
+
+**Visible change:** A small dropdown appears in the detector panel header, pre-selected to the first model name from manifest.
+
+**If skipped:** User cannot switch models; page still works with auto-loaded first model.
+
+---
+
+### Step 4 — Fetch manifest on load, populate dropdown, auto-load first model
+
+**Action:** Replace hardcoded `MODEL_URL` constant with a `loadManifest()` function that: (1) fetches `models/manifest.json`, (2) populates `<select>` options, (3) calls `loadModel(firstEntry.path)`.
+
+**Visible change:** Page behavior identical to today — model loads, camera starts. Dropdown shows active model name.
+
+**If skipped:** Dropdown is rendered but empty; model never loads.
+
+---
+
+### Step 5 — Fetch `label-map.json` on model load, build LABEL_MAP, display config table
+
+**Action:** In `loadModel(path)`: fetch `path + 'label-map.json'`, join each entry against `WEAPONS_CONFIG` to build `LABEL_MAP`, then render a config table in the tactical panel showing className → weaponId → action for each non-null entry.
+
+**Visible change:** Config table appears in the detector panel showing the active model's class-to-weapon mappings.
+
+**If skipped:** LABEL_MAP stays empty; weapon firing does not work for the newly selected model.
+
+---
+
+### Step 6 — Wire dropdown `change` event to reload model + LABEL_MAP
+
+**Action:** Add `modelSelect.addEventListener('change', ...)` that stops the current camera stream, calls `loadModel(selectedPath)`, which re-fetches label-map.json and re-renders the config table.
+
+**Visible change:** Selecting a different model in the dropdown stops the current camera, shows "LOADING…", then restarts with the new model and updated config table.
+
+**If skipped:** Dropdown renders but switching has no effect.
+
+---
+
+### Folder convention for adding a new model
+
+1. Export TM model → rename folder (no spaces, no parens), place in project root
+2. Create `label-map.json` in the folder: `{ "class_name": "WEAPON_ID", "blank background": null }`
+3. Add one entry to `models/manifest.json`: `{ "id": "folder-name", "name": "Human Label", "path": "./folder-name/" }`
+4. To make it the default: move its entry to position 0 in the manifest array
+
+---
+
+## Implementation Record: Multi-Model Selector
+
+**Date:** 2026-04-28
+**Status:** Complete — 12 tests, all GREEN
+
+### What was built
+
+Six files created or modified:
+
+| File | Change |
+|---|---|
+| `models/manifest.json` | New — lists all available TM model folders |
+| `tm-my-image-model/label-map.json` | New — `single_object_01 → D01`, `blank background → null` |
+| `tm_model_01/label-map.json` | New — same as above (identical class labels) |
+| `tm_model_02/label-map.json` | New — 5-class map (see table below) |
+| `detector.html` | Refactored — MODEL_URL/LABEL_MAP replaced with dynamic loading |
+| `tests/phase-02-multi-model.html` | New — 12 stress tests, all GREEN |
+
+### tm_model_02 label-map (production config)
+
+| Detected object | Weapon | Player | Effect |
+|---|---|---|---|
+| Object 01 | D01 | Disruptor (A) | Strait closure — prob +22%, ships halt |
+| Pret Cup | D02 | Disruptor (A) | Sanctions — prob +8%, speed ×0.6 |
+| Snacks | R01 | Defender (B) | Naval escort / freedom of navigation |
+| Sparkling water | R02 | Defender (B) | Emergency re-flagging |
+| Background | — | — | Resets to SCANNING, no weapon fired |
+
+### label-map.json format
+
+Single weapon (string value):
+```json
+{ "Snacks": "R01" }
+```
+
+Multiple weapons fired simultaneously (array value):
+```json
+{ "Snacks": ["R01", "R02"] }
+```
+
+Background / no-op class (null):
+```json
+{ "Background": null }
+```
+
+### Key design decisions implemented
+
+- `buildLabelMap(rawMap)` — pure function, joins flat label-map against `WEAPONS_CONFIG`. Supports string, array, and null values. Unknown weapon IDs silently drop to null; empty arrays produce null without crashing.
+- `buildConfigTable(rawMap)` — pure function, renders LABEL MAP section in the tech panel. All-null maps return a "none mapped" fallback string rather than empty HTML.
+- `loadManifest()` — fetches `models/manifest.json` on boot, populates dropdown, auto-loads first entry. Falls back to `./tm-my-image-model/` if manifest is missing (backward-compatible).
+- `stopCamera()` — stops media stream tracks before switching models; prevents camera lock on model change.
+- Multi-weapon firing: when `weaponIds` array has >1 entry, each ID is posted to BroadcastChannel separately in the same debounce window. Status bar shows `WEAPON FIRED: R01 + R02`.
+
+### Stress test results (tests/phase-02-multi-model.html)
+
+| Slice | Edge case | Result |
+|---|---|---|
+| 1 | Single disruptor → weaponId D01, player A | GREEN |
+| 2 | null value → null entry | GREEN |
+| 3 | Unknown weaponId → null, no crash | GREEN |
+| 4 | buildConfigTable skips nulls, renders weapon name | GREEN |
+| 5 | Array → weaponIds contains all valid IDs | GREEN |
+| 6 | Array → action label joined with "+", player B | GREEN |
+| 7 | Mixed array ["R01","Z99"] → keeps R01, drops Z99 | GREEN |
+| 8 | Empty array [] → null entry, no crash | GREEN |
+| 9 | Defender weapon → player B, color #3b82f6, barClass player-b | GREEN |
+| 10 | buildConfigTable array entry renders both weapon names | GREEN |
+| 11 | All-null rawMap → "none mapped" fallback string | GREEN |
+| 12 | Exact tm_model_02 production config pinned as regression guard | GREEN |
+
+---
+
+## Grill Report: Phase 2 — marketTick Decay Loop
+
+**Date:** 2026-04-28
+**Feature:** Autonomous 20-second tick loop — decay, drift, and mean-reversion.
+
+---
+
+### Q1: How is each weapon's remaining effect tracked in activeWeapons?
+
+**Options:** (a) `remainingDelta` stored on entry at fire time, decremented each tick, (b) `firedAt` timestamp, derive decay from elapsed time, (c) `ticksFired` counter, compute ticks_active from global tick count
+
+**Decision:** Option (a) — `remainingDelta` on each activeWeapons entry
+
+**Rationale:** Directly testable ("remainingDelta ≤ 0 after 11 ticks"), matches issue spec language, single comparison for "fully decayed".
+
+**Consequence:** `fireWeapon()` must set `remainingDelta = weapon.prob_delta` on each new entry. `marketTick()` decrements `entry.remainingDelta` by `decay_per_30s × (20/30)` each tick.
+
+---
+
+### Q2: Does Brownian drift apply when no weapons are active?
+
+**Options:** (a) Drift always runs every tick, (b) Drift only runs when weapons are active, (c) Drift + mean-reversion pull toward 50
+
+**Decision:** Option (c) — drift + mean-reversion
+
+**Rationale:** Market breathes organically at all times but gravitates back to 50 between rounds — prevents prob drifting to 80 from pure noise.
+
+**Consequence:** Each tick applies `drift = (Math.random() - 0.5) * 4` plus `pull = (50 - prob) * 0.05`. Both applied before clamp.
+
+---
+
+### Q3: Slow weapons in Phase 2 or deferred?
+
+**Options:** (a) Defer to Phase 3, (b) Handle in Phase 2, (c) Stub onset counter only
+
+**Decision:** Option (a) — defer entirely to Phase 3
+
+**Rationale:** All 6 Phase 2-testable weapons are fast; slow weapon logic (onset delay + build_per_30s) is already scoped to issues/03.
+
+**Consequence:** `marketTick` skips any entry where `weapon.speed === 'slow'`. Phase 3 extends the tick loop with onset + build path.
+
+---
+
+### Q4: Where does `marketTick` live?
+
+**Options:** (a) Added to game-state.js, (b) New file js/market-tick.js, (c) Inline in bootstrap.js
+
+**Decision:** Option (b) — new `js/market-tick.js`
+
+**Rationale:** Keeps game-state.js as a pure data+write layer; tick loop is independently testable; follows the same file-per-concern pattern as game-dashboard.js.
+
+**Consequence:** New `<script src="js/market-tick.js">` tag needed in index.html after game-state.js.
+
+---
+
+### Q5: How does tick count relate to the round timer?
+
+**Options:** (a) Track `tickCount` in marketState, don't act on it, (b) Add onRoundEnd stub callback, (c) Don't track in Phase 2
+
+**Decision:** Option (a) — `marketState.tickCount` increments each tick, no action taken
+
+**Rationale:** Costs nothing, gives Phase 5 (round controller) a pre-populated field to read without adding speculative logic now.
+
+**Consequence:** Phase 5 reads `marketState.tickCount`, checks against 30, triggers round end. No Phase 2 code changes needed at that point.
+
+---
+
+## Implementation Plan: Phase 2 — marketTick Decay Loop
+
+### Step 1 — Add `remainingDelta` and `tickCount` to marketState
+
+**Action:** Modify `js/game-state.js`:
+- Add `tickCount: 0` to `marketState`
+- In `fireWeapon()`, add `remainingDelta: weapon.prob_delta` to the activeWeapons entry
+
+**Visible change:** None — data layer only.
+
+**If skipped:** `marketTick` has no field to decrement; decay loop cannot function.
+
+---
+
+### Step 2 — Create `js/market-tick.js` with `marketTick()` and `startTick()`
+
+**Action:** New file. `marketTick()` does on each call:
+1. Increment `marketState.tickCount`
+2. For each entry in `marketState.activeWeapons` where `weapon.speed === 'fast'`:
+   - `entry.remainingDelta += weapon.decay_per_30s * (20/30)`
+   - `marketState.prob += weapon.decay_per_30s * (20/30)`
+3. Remove entries where `entry.remainingDelta <= 0`; call `recomputeSimMultipliers()` if any removed
+4. Apply drift + mean-reversion: `prob += (Math.random() - 0.5) * 4 + (50 - prob) * 0.05`
+5. Clamp `prob` to `[0, 100]`
+6. Call `updateDashboard()` if defined
+
+`startTick()` calls `setInterval(marketTick, 20000)`.
+
+**Visible change:** None until wired into index.html.
+
+**If skipped:** Market never moves autonomously; prob stays frozen after weapon fires.
+
+---
+
+### Step 3 — Add script tag and call `startTick()` in index.html
+
+**Action:** Add `<script src="js/market-tick.js"></script>` after `game-state.js` in index.html. Call `startTick()` after all scripts load (end of body or DOMContentLoaded).
+
+**Visible change:** Dashboard probability bar now decays over time after D01 fires. Ships gradually resume speed as `speed_mult` returns toward 1.0 via `recomputeSimMultipliers`.
+
+**If skipped:** `marketTick` is defined but never runs.
+
+---
+
+### Step 4 — Tests in `tests/phase-02-market-tick.html`
+
+Tests (each as a RED→GREEN TDD cycle):
+1. After 11 calls to `marketTick()`, D01 `remainingDelta ≤ 0` and `activeWeapons` is empty
+2. `prob` decreases each tick while D01 is active
+3. `prob` stays within `[0, 100]` after 100 ticks of drift with no weapons
+4. `tickCount` increments by 1 on each call
+5. Slow weapon (D02) is not decayed — `remainingDelta` unchanged after tick
+6. `recomputeSimMultipliers` is called after weapon removal — `speed_mult` returns to 1.0
+
+
+---
+
+## Implementation Record: Phase 2 — marketTick Decay Loop
+
+**Date:** 2026-04-28
+**Status:** Complete — 6 tests, all GREEN
+
+### What was built
+
+| File | Change |
+|---|---|
+| `js/game-state.js` | Added `tickCount: 0` to marketState; added `remainingDelta: weapon.prob_delta` to each activeWeapons entry in `fireWeapon()` |
+| `js/market-tick.js` | New file — `marketTick()` and `startTick()` |
+| `index.html` | Added `<script src="js/market-tick.js">` after game-state.js; `startTick()` call at end of body |
+| `tests/phase-02-market-tick.html` | New file — 6 tests, all GREEN |
+
+### Decay math
+
+Weapon config rates are per 30s. Tick interval is 20s. Scale factor: `20/30 = 0.667`.
+
+| Weapon | decay_per_30s | decay_per_tick | prob_delta | ticks to fully decay |
+|---|---|---|---|---|
+| D01 | -2.0 | -1.333 | 22 | 17 |
+| D03 | -1.0 | -0.667 | 14 | 21 |
+| D04 | -1.5 | -1.0 | 18 | 18 |
+| D06 | -2.0 | -1.333 | 12 | 9 |
+| R01 | -1.5 | -1.0 | -18 | 18 |
+| R02 | -0.5 | -0.333 | -10 | 30 |
+
+### marketTick() behaviour per call
+
+1. Increment `marketState.tickCount`
+2. For each entry in `activeWeapons` where `weapon.speed === 'fast'`:
+   - `entry.remainingDelta += decay_per_30s × (20/30)`
+   - `marketState.prob += decay_per_30s × (20/30)`
+   - If `remainingDelta ≤ 0`: remove entry, set `anyRemoved = true`
+3. If any removed: call `recomputeSimMultipliers()` → sim multipliers restore to defaults
+4. Apply drift + mean-reversion: `prob += (Math.random() - 0.5) × 4 + (50 - prob) × 0.05`
+5. Clamp `prob` to `[0, 100]`
+6. Call `updateDashboard()` if defined
+
+### Slow weapons
+
+D02, D05, R04, R05, R06 (`weapon.speed === 'slow'`) are skipped by the `speed !== 'fast'` guard. Their `remainingDelta` is set on fire but never decremented. Onset delay and `build_per_30s` logic deferred to Phase 3.
+
+### Test results (tests/phase-02-market-tick.html)
+
+| Slice | Behaviour | Result |
+|---|---|---|
+| 1 | After 17 marketTick() calls, D01 removed from activeWeapons | GREEN |
+| 2 | prob decreases each tick while D01 active | GREEN |
+| 3 | prob stays in [0, 100] after 100 drift-only ticks | GREEN |
+| 4 | tickCount increments by 1 per call | GREEN |
+| 5 | D02 (slow) remainingDelta unchanged after tick | GREEN |
+| 6 | speed_mult returns to 1.0 after D01 fully decays | GREEN |
+
+### Visible demo
+
+Fire D01 (`1` key) → prob jumps to 72 → every 20s prob ticks down ~1.33 → ships gradually resume speed as `speed_mult` climbs back toward 1.0 → after 17 ticks D01 clears → `speed_mult` snaps to 1.0.
+
+---
+
+## Grill Report: Phase 3 — All 12 Weapons via Keyboard
+
+**Date:** 2026-04-28
+**Feature:** Wire all 12 weapons to keyboard keys; add slow weapon onset + build logic to marketTick.
+
+---
+
+### Q1: How do we resolve the KeyR / KeyT keyboard conflicts?
+
+**Options:** (a) Reassign sim shortcuts — toggleRoutes → Comma, toggleTrails → Period; weapons get clean Q–Y row, (b) Skip R and T in defender layout — use Q,W,E,G,U,I, (c) Shift modifier for all weapon keys
+
+**Decision:** Option (a) — reassign toggleRoutes to Comma, toggleTrails to Period
+
+**Rationale:** Weapons are the primary game mechanic and need single-key fires; sim shortcuts are operational tools that can move without affecting gameplay.
+
+**Consequence:** bootstrap.js loses KeyR/KeyT for sim shortcuts; those move to Comma/Period. Full Q–Y row is free for R01–R06.
+
+---
+
+### Q2: How is slow weapon onset tracked per entry?
+
+**Options:** (a) `ticksFiredAt` on entry — onset passed when `(currentTick - ticksFiredAt) × 20 >= onset_s`, (b) `onsetTicksRemaining` countdown counter on entry, (c) `activatesAt` wall-clock timestamp
+
+**Decision:** Option (a) — `ticksFiredAt = marketState.tickCount` stored on each entry at fire time
+
+**Rationale:** Reuses existing `tickCount` field, adds no new state, and the onset check is deterministic in tests.
+
+**Consequence:** `fireWeapon()` must store `ticksFiredAt: marketState.tickCount` on every entry (fast and slow). Tick loop computes `ticksActive = currentTick - entry.ticksFiredAt`.
+
+---
+
+### Q3: How is slow weapon build applied to prob?
+
+**Options:** (a) Apply `build_per_30s × (20/30)` directly to `prob` each tick after onset, (b) Track `accumulatedBuild` per entry and recompute prob from scratch each tick, (c) Cap build at a maximum accumulated delta
+
+**Decision:** Option (a) — apply build directly to prob each tick
+
+**Rationale:** Same pattern as fast weapon decay (also applied directly); keeps tick loop uniform; round controller removes weapons at round end so runaway isn't a risk.
+
+**Consequence:** Slow weapon entries stay in `activeWeapons` indefinitely once active; removal is the round controller's responsibility (Phase 5).
+
+---
+
+### Q4: Does Phase 3 implement R06's disruptor_decay_mult = 1.5?
+
+**Options:** (a) Defer to Phase 4 — R06 fires and builds normally but multiplier is a no-op, (b) Implement in Phase 3 inside the fast weapon decay loop, (c) Stub as a 1.0 placeholder function
+
+**Decision:** Option (a) — defer entirely to Phase 4
+
+**Rationale:** Phase 4 is explicitly scoped to weapon interactions; implementing it in Phase 3 pre-empts that design and adds cross-weapon logic before the interaction system exists.
+
+**Consequence:** R06 fires, applies prob_delta, builds each tick — but disruptor weapons decay at their normal rate until Phase 4.
+
+---
+
+## Implementation Plan: Phase 3 — All 12 Weapons via Keyboard
+
+### Full keyboard layout
+
+| Key | Weapon | Name | Speed |
+|---|---|---|---|
+| `1` | D01 | Strait closure / naval blockade | Fast (already wired) |
+| `2` | D02 | Sanctions package | Slow |
+| `3` | D03 | Tanker seizure | Fast |
+| `4` | D04 | Drone / missile strike on port | Fast |
+| `5` | D05 | Insurance market suspension | Slow |
+| `6` | D06 | Cyber attack on port logistics | Fast |
+| `Q` | R01 | Naval escort / freedom of navigation | Fast |
+| `W` | R02 | Emergency re-flagging | Fast |
+| `E` | R03 | Alternative route activation | Fast |
+| `R` | R04 | Diplomatic back-channel | Slow |
+| `T` | R05 | Strategic petroleum reserve release | Slow |
+| `Y` | R06 | Coalition formation | Slow |
+| `,` | — | toggleRoutes (moved from R) | — |
+| `.` | — | toggleTrails (moved from T) | — |
+
+### Step 1 — Add `ticksFiredAt` to fireWeapon entries in `game-state.js`
+
+**Action:** Add `ticksFiredAt: marketState.tickCount` to the entry pushed in `fireWeapon()`.
+
+**Visible change:** None — data layer only.
+
+**If skipped:** Slow weapon onset check has no reference tick; build never activates.
+
+---
+
+### Step 2 — Add slow weapon onset + build to `market-tick.js`
+
+**Action:** After the fast weapon decay block, add a slow weapon block: for each entry where `weapon.speed === 'slow'`, compute `ticksActive = marketState.tickCount - entry.ticksFiredAt`. If `ticksActive * 20 >= weapon.onset_s`, apply `marketState.prob += weapon.build_per_30s * (20/30)`.
+
+**Visible change:** After onset delay, prob starts moving autonomously (D02 builds +2/tick, R06 pulls -2.67/tick).
+
+**If skipped:** Slow weapons fire their initial `prob_delta` but never build; half the weapon roster is broken.
+
+---
+
+### Step 3 — Rewire keyboard shortcuts in `bootstrap.js`
+
+**Action:** Move `KeyR` → `Comma` for toggleRoutes. Move `KeyT` → `Period` for toggleTrails. Add Digit2–6 for D02–D06. Add KeyQ/W/E/R/T/Y for R01–R06.
+
+**Visible change:** Keys 2–6 and Q–Y now fire weapons; comma/period toggle routes/trails.
+
+**If skipped:** Only D01 is keyboard-fireable; 11 weapons inaccessible.
+
+---
+
+### Step 4 — Tests in `tests/phase-03-all-weapons.html`
+
+TDD slices:
+1. All 12 weapon IDs fire without error (fireWeapon returns cleanly for each)
+2. Fast weapons D03/D04/D06 apply correct immediate prob_delta
+3. Slow weapon D02 does not build before onset (3 ticks = 60s)
+4. Slow weapon D02 builds after onset — prob increases each tick past tick 3
+5. `ticksFiredAt` is set correctly on each entry
+6. R06 active — disruptor decay rate unchanged (multiplier deferred to Phase 4)
+
+---
+
+## Implementation Record: Phase 3 — All 12 Weapons via Keyboard
+
+**Date:** 2026-04-28
+**Status:** Complete — 6 tests, all GREEN
+
+### What was built
+
+| File | Change |
+|---|---|
+| `js/game-state.js` | Added `ticksFiredAt: marketState.tickCount` to each activeWeapons entry in `fireWeapon()` |
+| `js/market-tick.js` | Added slow weapon onset + build block after fast weapon decay |
+| `js/bootstrap.js` | Digits 2–6 → D02–D06; Q/W/E/R/T/Y → R01–R06; toggleRoutes moved to Comma; toggleTrails moved to Period |
+| `tests/phase-03-all-weapons.html` | New — 6 tests, all GREEN |
+
+### Keyboard layout
+
+| Key | Weapon | Name | Speed |
+|---|---|---|---|
+| `1` | D01 | Strait closure / naval blockade | Fast |
+| `2` | D02 | Sanctions package | Slow |
+| `3` | D03 | Tanker seizure | Fast |
+| `4` | D04 | Drone / missile strike on port | Fast |
+| `5` | D05 | Insurance market suspension | Slow |
+| `6` | D06 | Cyber attack on port logistics | Fast |
+| `Q` | R01 | Naval escort / freedom of navigation | Fast |
+| `W` | R02 | Emergency re-flagging | Fast |
+| `E` | R03 | Alternative route activation | Fast |
+| `R` | R04 | Diplomatic back-channel | Slow |
+| `T` | R05 | Strategic petroleum reserve release | Slow |
+| `Y` | R06 | Coalition formation | Slow |
+| `,` | — | toggleRoutes (moved from R) | — |
+| `.` | — | toggleTrails (moved from T) | — |
+
+### Slow weapon onset + build logic (market-tick.js)
+
+After the fast weapon decay block, each tick now runs a slow weapon pass:
+
+```
+for each entry where weapon.speed === 'slow':
+  ticksActive = marketState.tickCount - entry.ticksFiredAt
+  if ticksActive × 20 >= weapon.onset_s:
+    marketState.prob += weapon.build_per_30s × (20/30)
+```
+
+Onset thresholds (ticks before build activates):
+
+| Weapon | onset_s | onset ticks | build_per_tick |
+|---|---|---|---|
+| D02 | 60s | 3 | +2.00 |
+| D05 | 90s | 5 | +2.67 |
+| R04 | 60s | 3 | −2.00 |
+| R05 | 90s | 5 | −1.33 |
+| R06 | 120s | 6 | −2.67 |
+
+Slow weapons are never removed by the tick loop — they stay in `activeWeapons` until the round controller clears them (Phase 5).
+
+### Deferred
+
+R06's `disruptor_decay_mult = 1.5` (speeds up disruptor fast weapon decay when R06 is active) is deferred to Phase 4 (weapon interactions). In Phase 3, R06 fires and builds normally but the cross-weapon multiplier is a no-op.
+
+### Test results (tests/phase-03-all-weapons.html)
+
+| Slice | Behaviour | Result |
+|---|---|---|
+| 1 | All 12 weapons fire without error and appear in activeWeapons | GREEN |
+| 2 | Fast weapon D03 applies prob_delta +14 immediately | GREEN |
+| 3 | Slow weapon D02 does not build before onset (2 ticks = 40s < 60s) | GREEN |
+| 4 | Slow weapon D02 builds after onset — prob rises on tick 3 | GREEN |
+| 5 | ticksFiredAt = marketState.tickCount at fire time | GREEN |
+| 6 | R06 active — D01 decays at normal rate (multiplier deferred to Phase 4) | GREEN |
+
+---
+
+## Grill Report: Phase 4 — Weapon Interactions
+
+**Date:** 2026-04-28
+**Feature:** When specific weapon pairs are simultaneously active, their per-tick build effects are replaced by a single net_delta override instead of summing independently.
+
+---
+
+### Q1: Where does the interaction table live?
+
+**Options:** (a) Add `interactions` array to `weapons-config.js`, (b) Separate `js/interactions-config.js`, (c) Hardcoded in `market-tick.js`
+
+**Decision:** Option (a) — `interactions` array added directly to `WEAPONS_CONFIG` in `weapons-config.js`
+
+**Rationale:** Keeps all game balance data in one file; consistent with how weapons array already lives there; single file to edit when tuning pairs.
+
+**Consequence:** `market-tick.js` reads `WEAPONS_CONFIG.interactions` at tick time. Any file that loads `weapons-config.js` automatically has access to the table.
+
+---
+
+### Q2: When and where is the interaction check applied?
+
+**Options:** (a) In `marketTick` each tick — after individual effects, detect active pairs and apply net_delta, (b) In `fireWeapon` at fire time — patch entries on the spot when partner is detected, (c) Both — fire time for immediate offset, tick time for ongoing correction
+
+**Decision:** Option (a) — interaction check runs inside `marketTick` each tick
+
+**Rationale:** net_delta describes an ongoing per-tick rate, not a one-time event; keeping `fireWeapon` dumb (apply prob_delta, push entry) preserves separation of concerns.
+
+**Consequence:** `fireWeapon` is unchanged. `marketTick` grows a pair-detection pass that runs each tick and replaces individual slow weapon builds when both partners are active.
+
+---
+
+### Q3: What does "net_delta override" mean mechanically per tick?
+
+**Options:** (a) Skip-and-replace — paired weapons skip individual tick effects; apply interaction net_delta instead, (b) Correction-term — individual effects run, then add a correction delta, (c) One-time total — net_delta applied once at second fire, not every tick
+
+**Decision:** Option (a) — skip-and-replace per tick
+
+**Rationale:** Clearest expression of intent: paired weapons stop behaving individually and behave as a unit. No undo step required; paired entries are simply excluded from the individual slow-build loop.
+
+**Consequence:** `marketTick` builds a `pairedIds` set before the slow weapon build loop. Any entry whose `weaponId` is in `pairedIds` is skipped. A second loop then applies `ix.net_delta * TICK_DECAY_SCALE` for each active pair when both partners are past onset.
+
+---
+
+## Implementation Plan: Phase 4 — Weapon Interactions
+
+### Scope
+
+Only **slow-slow pairs** get the skip-and-replace treatment (D02+R04, D05+R05). Fast weapon interactions (D01+R01, D03+R02, D04+R03, D06+R03) are already captured by `prob_delta` values at fire time; their per-tick decay continues independently.
+
+Compound entries in the interactions table (`"D01+D02"`, `"any"`) are narrative descriptions only — skipped by the pair-detection filter.
+
+### Step 1 — Confirm `interactions` array exists in `weapons-config.js`
+
+**Action:** No code change needed. The array was already present with `disruptor_id`, `defender_id`, and `net_delta` fields for all 8 pairs.
+
+**Visible change:** None — data layer only.
+
+**If skipped:** `market-tick.js` has nothing to iterate; interaction detection loop throws.
+
+---
+
+### Step 2 — Add pair-detection and skip-and-replace to `market-tick.js`
+
+**Action:** Between the fast weapon decay block and the slow weapon build loop, add:
+
+1. Build `activeIds` set from current `activeWeapons`
+2. Iterate `WEAPONS_CONFIG.interactions`; skip compound entries (`disruptor_id` contains `+` or equals `'any'`)
+3. For each simple pair where both IDs are in `activeIds` and both weapons are `speed === 'slow'`: add both IDs to `pairedIds`, push pair to `activePairs`
+4. In slow weapon build loop: add `if (pairedIds.has(entry.weaponId)) continue;` guard
+5. After slow weapon loop: for each active pair, if both partners past their respective onset, apply `ix.net_delta * TICK_DECAY_SCALE` to `marketState.prob`
+
+**Visible change:** When D05 is active and R05 fires (or vice versa), prob stops climbing after R05 onset — the +2.67/tick build from D05 is suppressed and offset by R05's −1.33/tick build, resulting in 0 net per tick.
+
+**If skipped:** Paired slow weapons build independently — D05 and R05 together would still push prob upward at +1.33/tick (net of individual rates), ignoring the counter relationship.
+
+---
+
+### Step 3 — Tests in `tests/phase-04-interactions.html`
+
+TDD slices (4 total):
+1. **Tracer (D05+R05 past onset)** — interaction suppresses the +1.33/tick net build; delta after onset tick < 0.5
+2. **D05 alone** — still builds +2.67/tick after onset (pairing doesn't break lone weapon)
+3. **D02+R04 past onset** — prob stays flat (net_delta=0; individual builds also sum to 0 — regression guard)
+4. **D05+R05 before onset** — no build applied; individual builds skipped, interaction net_delta also not applied (onset guard)
+
+---
+
+## Implementation Record: Phase 4 — Weapon Interactions
+
+**Date:** 2026-04-28
+**Status:** Complete — 4 tests, all GREEN
+
+### What was built
+
+| File | Change |
+|---|---|
+| `js/weapons-config.js` | No change — `interactions` array was already present |
+| `js/market-tick.js` | Added pair-detection block + skip-and-replace in slow weapon build loop |
+| `tests/phase-04-interactions.html` | New — 4 tests, all GREEN |
+
+### Interaction pair detection (market-tick.js)
+
+Each tick, before the slow weapon build loop:
+
+```
+activeIds = Set of all weaponIds in activeWeapons
+pairedIds = {}
+activePairs = []
+
+for each ix in WEAPONS_CONFIG.interactions:
+  skip if disruptor_id contains '+', equals 'any', or defender_id contains '+'
+  skip if either ID not in activeIds
+  look up dW and rW in WEAPONS_CONFIG.weapons
+  skip if either weapon is not 'slow'
+  add both IDs to pairedIds, push ix to activePairs
+
+slow build loop: skip any entry in pairedIds
+
+for each ix in activePairs:
+  if both partners past onset: prob += ix.net_delta * (20/30)
+```
+
+### Active slow-slow pairs
+
+| Pair | net_delta | Mechanism |
+|---|---|---|
+| D02 + R04 | 0.0/30s | Back-channel freezes sanctions build. D02 build = +3.0/30s, R04 build = −3.0/30s — individual sum also = 0; interaction overrides both. |
+| D05 + R05 | 0.0/30s | SPR breaks fear signal. D05 build = +4.0/30s, R05 build = −2.0/30s — without interaction net = +2.0/30s; interaction overrides to 0. |
+
+### Fast-fast pairs (not implemented in tick loop)
+
+D01+R01, D03+R02, D04+R03, D06+R03 — interaction captured by `prob_delta` values at fire time. Per-tick decay continues independently. Config `net_delta` for these pairs is narrative, not mechanical.
+
+### Test results (tests/phase-04-interactions.html)
+
+| Slice | Behaviour | Result |
+|---|---|---|
+| 1 | D05+R05 both active past onset: prob delta < 0.5 per tick (build suppressed) | GREEN |
+| 2 | D05 alone past onset: prob delta > 2.0 per tick (builds normally) | GREEN |
+| 3 | D02+R04 both active past onset: \|delta\| < 0.5 per tick | GREEN |
+| 4 | D05+R05 both active before onset: no build applied | GREEN |

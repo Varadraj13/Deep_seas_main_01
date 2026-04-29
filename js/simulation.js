@@ -62,7 +62,9 @@ function updateSim(dtReal) {
     const rLen = v.totalDist;
     if (!rLen || isNaN(rLen) || rLen <= 0) { v.totalDist = routeLength(v.route) || 100; continue; }
     if (isNaN(v.speed) || v.speed <= 0) { v.speed = 12; }
-    const progressDelta = (v.speed * dtHours) / rLen;
+    const speedMult = (typeof marketState !== 'undefined' && marketState.simMultipliers.speed_mult) || 1.0;
+    const effectiveSpeed = v.speed * speedMult;
+    const progressDelta = (effectiveSpeed * dtHours) / rLen;
     if (isNaN(progressDelta)) continue;
     const oldProgress = v.progress;
     v.progress += progressDelta;
@@ -93,6 +95,14 @@ function updateSim(dtReal) {
         portProcessed[key].count++;
         portProcessed[key].value += v.cargo.value;
         portProcessed[key].cargo[v.cargo.type] = (portProcessed[key].cargo[v.cargo.type] || 0) + v.cargo.qty;
+      }
+
+      // Spawn gate: when blockade active, arriving ships have a chance of being removed
+      const spawnMult = (typeof marketState !== 'undefined' && marketState.simMultipliers.spawn_rate_mult) || 1.0;
+      if (spawnMult < 1.0 && Math.random() > spawnMult) {
+        vessels.splice(i, 1);
+        map.removeLayer(v.marker);
+        continue;
       }
 
       // Respawn
@@ -196,6 +206,12 @@ function updateStats() {
   if (sbVessels) sbVessels.textContent = 'VESSELS ' + vessels.length;
   var flowPct = vessels.length ? Math.min(100, Math.round((vessels.reduce(function(s,v){return s+v.speed;},0) / vessels.length / 15) * 100)) : 0;
   if (sbFlow) sbFlow.textContent = '// HORMUZ FLOW ' + flowPct + '%';
+  var sbProb = document.getElementById('sbProb');
+  if (sbProb && typeof marketState !== 'undefined') {
+    var activeNames = marketState.activeWeapons.map(function(e){ return e.weaponId; }).join(' ');
+    sbProb.textContent = '// PROB ' + Math.round(marketState.prob) + '%' + (activeNames ? ' // ' + activeNames : '');
+  }
+  if (typeof updateDashboard === 'function') updateDashboard();
 }
 
 function updateEnvTab() {

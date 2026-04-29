@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>detector.html — setAdState tests</title>
+  <style>
+    body { background:#0a0a0a; color:#ccc; font-family:monospace; padding:24px; }
+    h1 { color:#fff; font-size:13px; letter-spacing:2px; margin-bottom:6px; }
+    .sub { font-size:10px; color:#555; margin-bottom:20px; letter-spacing:1px; }
+    .result { padding:6px 0; border-bottom:1px solid #111; font-size:12px; }
+    .pass { color:#4ade80; }
+    .fail { color:#ef4444; }
+    .summary { margin-top:20px; font-size:13px; font-weight:bold; }
+
+    /* Minimal scanDot styles so the element is styled correctly in the fixture */
+    @keyframes scanPulse { 0%,100%{opacity:0.3} 50%{opacity:1} }
+    #scanDot {
+      display:inline-block; width:5px; height:5px;
+      border-radius:0; background:#aaa; margin-left:6px;
+      vertical-align:middle; animation:scanPulse 1.2s ease-in-out infinite;
+    }
+    #fixtures { display:none; }
+  </style>
+</head>
+<body>
+  <h1>DETECTOR — setAdState BEHAVIOR</h1>
+  <div class="sub">ROOT CAUSE: adState.textContent detaches #scanDot — subsequent getElementById returns null → TypeError</div>
+  <div id="results"></div>
+  <div id="summary" class="summary"></div>
+
+  <!-- Minimal DOM fixtures mirroring detector.html -->
+  <div id="fixtures">
+    <div id="adState">INITIALIZING<span id="scanDot"></span></div>
+  </div>
+
+<script>
+// ── test harness ──────────────────────────────────────────────────
+const out = document.getElementById('results');
+let passed = 0, failed = 0;
+
+function test(desc, fn) {
+  try {
+    fn();
+    out.innerHTML += `<div class="result pass">PASS  ${desc}</div>`;
+    passed++;
+  } catch(e) {
+    out.innerHTML += `<div class="result fail">FAIL  ${desc}<br>&nbsp;&nbsp;&nbsp;&nbsp;→ ${e.message}</div>`;
+    failed++;
+  }
+}
+function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
+
+// ── paste the CURRENT (broken) setAdState from detector.html ─────
+// This is the function we are TESTING. Tests below should show it failing.
+// After the fix we replace this with the fixed version.
+const adState = document.getElementById('adState');
+
+function setAdState_BROKEN(msg) {
+  adState.style.display = 'block';
+  const dot = document.getElementById('scanDot'); // null after first call
+  const scanning = (msg === 'SCANNING');
+  dot.style.display = scanning ? 'inline-block' : 'none'; // ← THROWS when dot is null
+  adState.textContent = msg;
+  if (scanning) adState.appendChild(dot);
+}
+
+function setAdState_FIXED(msg) {
+  adState.style.display = 'block';
+  // textContent wipes all children (including scanDot). Set text first.
+  adState.textContent = msg;
+  if (msg === 'SCANNING') {
+    // Recreate dot — CSS targets by id so a fresh element works identically.
+    const dot = document.createElement('span');
+    dot.id = 'scanDot';
+    adState.appendChild(dot);
+  }
+}
+
+// ── helper: reset fixture between test groups ─────────────────────
+function resetFixture() {
+  adState.innerHTML = 'INITIALIZING<span id="scanDot"></span>';
+}
+
+// ════════════════════════════════════════════════════════════════
+//  GROUP A: demonstrates the BUG with the broken version
+// ════════════════════════════════════════════════════════════════
+
+resetFixture();
+
+test('[BROKEN] first call setAdState("LOADING MODEL") works', () => {
+  let threw = false;
+  try { setAdState_BROKEN('LOADING MODEL'); } catch(e) { threw = true; }
+  assert(!threw, 'expected no throw on first call');
+  assert(adState.textContent === 'LOADING MODEL', `text: "${adState.textContent}"`);
+});
+
+test('[BROKEN] second call setAdState("STARTING CAMERA") crashes — scanDot detached', () => {
+  // scanDot was detached by the first call above. This should throw.
+  let threw = false;
+  try { setAdState_BROKEN('STARTING CAMERA'); } catch(e) { threw = true; }
+  assert(threw, 'expected TypeError because getElementById("scanDot") returns null after first call');
+});
+
+// ════════════════════════════════════════════════════════════════
+//  GROUP B: verifies the FIX
+// ════════════════════════════════════════════════════════════════
+
+resetFixture();
+
+test('[FIXED] first call "LOADING MODEL" — no throw, text correct', () => {
+  setAdState_FIXED('LOADING MODEL');
+  assert(adState.textContent === 'LOADING MODEL', `text: "${adState.textContent}"`);
+});
+
+test('[FIXED] second call "STARTING CAMERA" — no throw after scanDot detached', () => {
+  // scanDot was detached above — fixed version should not crash
+  setAdState_FIXED('STARTING CAMERA');
+  assert(adState.textContent === 'STARTING CAMERA', `text: "${adState.textContent}"`);
+});
+
+test('[FIXED] third call "SCANNING" — recreates scanDot', () => {
+  setAdState_FIXED('SCANNING');
+  const dot = document.getElementById('scanDot');
+  assert(dot !== null, 'expected scanDot to exist after SCANNING call');
+  assert(adState.contains(dot), 'expected scanDot to be inside adState');
+});
+
+test('[FIXED] "MODEL LOAD FAILED" after SCANNING — no crash', () => {
+  // Simulates the full boot sequence: LOADING MODEL → STARTING CAMERA → error path
+  resetFixture();
+  setAdState_FIXED('LOADING MODEL');
+  setAdState_FIXED('STARTING CAMERA');
+  setAdState_FIXED('SCANNING');
+  setAdState_FIXED('MODEL FILE ERROR: test message');
+  assert(adState.textContent === 'MODEL FILE ERROR: test message',
+    `text: "${adState.textContent}"`);
+  assert(document.getElementById('scanDot') === null,
+    'scanDot should not exist after non-SCANNING message');
+});
+
+test('[FIXED] full boot sequence does not throw', () => {
+  resetFixture();
+  const msgs = ['LOADING MODEL', 'STARTING CAMERA', 'SCANNING',
+                'CAMERA DENIED — ALLOW ACCESS THEN RETRY', 'SCANNING'];
+  for (const msg of msgs) {
+    setAdState_FIXED(msg); // must not throw
+  }
+  assert(adState.textContent === 'SCANNING', `last text: "${adState.textContent}"`);
+  assert(document.getElementById('scanDot') !== null, 'scanDot present after final SCANNING');
+});
+
+// ── summary ───────────────────────────────────────────────────────
+const total = passed + failed;
+const color = failed === 0 ? '#4ade80' : '#ef4444';
+document.getElementById('summary').innerHTML =
+  `<span style="color:${color}">${passed}/${total} passed` +
+  (failed ? ` — ${failed} failing` : ' — all green') + '</span>';
+</script>
+</body>
+</html>

@@ -32,10 +32,24 @@ requestAnimationFrame(animate);
 // Keyboard shortcuts
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  // Disruptors: keys 1–6
+  if (e.code === 'Digit1' && typeof fireWeapon === 'function') fireWeapon('D01');
+  if (e.code === 'Digit2' && typeof fireWeapon === 'function') fireWeapon('D02');
+  if (e.code === 'Digit3' && typeof fireWeapon === 'function') fireWeapon('D03');
+  if (e.code === 'Digit4' && typeof fireWeapon === 'function') fireWeapon('D04');
+  if (e.code === 'Digit5' && typeof fireWeapon === 'function') fireWeapon('D05');
+  if (e.code === 'Digit6' && typeof fireWeapon === 'function') fireWeapon('D06');
+  // Defenders: keys Q–Y
+  if (e.code === 'KeyQ' && typeof fireWeapon === 'function') fireWeapon('R01');
+  if (e.code === 'KeyW' && typeof fireWeapon === 'function') fireWeapon('R02');
+  if (e.code === 'KeyE' && typeof fireWeapon === 'function') fireWeapon('R03');
+  if (e.code === 'KeyR' && typeof fireWeapon === 'function') fireWeapon('R04');
+  if (e.code === 'KeyT' && typeof fireWeapon === 'function') fireWeapon('R05');
+  if (e.code === 'KeyY' && typeof fireWeapon === 'function') fireWeapon('R06');
   if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
   if (e.code === 'KeyN') toggleNight();
-  if (e.code === 'KeyT') toggleTrails();
-  if (e.code === 'KeyR') toggleRoutes();
+  if (e.code === 'Period') toggleTrails();
+  if (e.code === 'Comma') toggleRoutes();
   if (e.code === 'KeyH') toggleHeatmap();
   if (e.code === 'KeyF') toggleGFW();
   if (e.code === 'KeyA') toggleAnalytics();
@@ -49,3 +63,12 @@ document.addEventListener('keydown', e => {
 
 // Close panels when clicking map
 map.on('click', () => { closeShipPanel(); closePortPanel(); });
+
+// BroadcastChannel receiver — listens for weapon fire events from detector.html.
+// Keyboard shortcut (Digit1) remains as fallback if detector is not open.
+const gameChannel = new BroadcastChannel('deepseas-game');
+gameChannel.onmessage = function(e) {
+  if (e.data && e.data.type === 'FIRE_WEAPON' && typeof fireWeapon === 'function') {
+    fireWeapon(e.data.weaponId);
+  }
+};

@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tactical Detection — Deep Seas</title>
-<!-- Pin to the exact versions Teachable Machine was built and tested with.
-     @teachablemachine/image@0.8.5 peer-requires tfjs@1.3.1; loading tfjs@4.x
-     causes silent incompatibility (API surface changed across major versions). -->
+<!-- @teachablemachine/image@0.8.5 CDN distribution requires tfjs@1.3.1 as its global tf.
+     The tfjsVersion in metadata.json (1.7.4) is informational — it is the TM web app's
+     internal version, NOT the required loader version. Loading 1.7.x breaks the CDN bundle. -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js"></script>
 <style>
@@ -224,6 +224,15 @@ body {
 <div id="techPanel">
   <div class="tp-title">DETECTION SYSTEM</div>
 
+  <div class="tp-row" style="margin-bottom:8px">
+    <span class="tp-label">Model</span>
+    <select id="modelSelect" style="
+      background:#111;border:1px solid #222;color:#ccc;
+      font-family:Helvetica,Arial,sans-serif;font-size:9px;
+      letter-spacing:1px;padding:2px 4px;max-width:150px;cursor:pointer;
+    "></select>
+  </div>
+
   <div class="tp-row">
     <span class="tp-label">Model</span>
     <span class="tp-value loading" id="tpModel">LOADING</span>
@@ -253,7 +262,7 @@ body {
   </div>
   <div class="tp-row">
     <span class="tp-label">Threshold</span>
-    <span class="tp-value" style="color:#444444">70%</span>
+    <span class="tp-value" style="color:#444444">50%</span>
   </div>
 
   <hr class="tp-divider">
@@ -262,6 +271,11 @@ body {
   <div id="tpBars">
     <!-- populated by JS -->
   </div>
+
+  <hr class="tp-divider">
+
+  <div class="tp-label" style="margin-bottom:6px">LABEL MAP</div>
+  <div id="tpLabelMap" style="font-size:8px;color:#444;font-style:italic">—</div>
 </div>
 
 <!-- Camera preview (bottom right) -->
@@ -285,25 +299,95 @@ body {
   <span id="sbFPS">0 FPS</span>
 </div>
 
+<script src="js/weapons-config.js"></script>
 <script>
 // ================================================================
 //  CONFIG
 // ================================================================
-const MODEL_URL = 'https://teachablemachine.withgoogle.com/models/pB5PYX0fJ/';
-const CONFIDENCE_THRESHOLD = 0.70;
+const CONFIDENCE_THRESHOLD = 0.50;
 
-// Keys must match the model's exact class labels (from metadata.json).
-// The arrow character is U+2192. If your model uses a different char, open
-// the browser console and check the className values logged on first frame.
-const LABEL_MAP = {
-  'Green cushion → Block Strait':      { player: 'A', role: 'DISRUPTOR', action: 'BLOCK STRAIT',  color: '#cc0000', barClass: '' },
-  'Red drill/tool → Seize Tanker':     { player: 'A', role: 'DISRUPTOR', action: 'SEIZE TANKER',  color: '#cc0000', barClass: '' },
-  'Wooden stool → Dark Ops':           { player: 'A', role: 'DISRUPTOR', action: 'DARK OPS',      color: '#cc0000', barClass: '' },
-  'Cardboard box → Convoy':            { player: 'B', role: 'DEFENDER',  action: 'CONVOY',        color: '#3b82f6', barClass: 'player-b' },
-  'Black office chair → Sprint':       { player: 'B', role: 'DEFENDER',  action: 'SPRINT',        color: '#3b82f6', barClass: 'player-b' },
-  'Black standing desk → Secure Port': { player: 'B', role: 'DEFENDER',  action: 'SECURE PORT',   color: '#3b82f6', barClass: 'player-b' },
-  'Background': null,
-};
+// Populated by loadManifest() → loadModel(path) → buildLabelMap().
+// Must be let so it can be reassigned when the model changes.
+let LABEL_MAP = {};
+
+// Active model path — updated by loadManifest and the dropdown change handler.
+let currentModelPath = '';
+
+// ================================================================
+//  LABEL MAP HELPERS
+// ================================================================
+// Converts flat label-map.json (className → weaponId | [weaponId, ...] | null)
+// into the full LABEL_MAP shape used by updateActionDisplay.
+// Arrays fire multiple weapons; display is driven by the first weapon in the list.
+function buildLabelMap(rawMap) {
+  const out = {};
+  for (const [className, value] of Object.entries(rawMap)) {
+    if (value === null) { out[className] = null; continue; }
+
+    const ids = Array.isArray(value) ? value : [value];
+    const primaryId = ids[0];
+
+    const lookup = id => (typeof WEAPONS_CONFIG !== 'undefined')
+      ? WEAPONS_CONFIG.weapons.find(w => w.id === id) : null;
+
+    const primary = lookup(primaryId);
+    if (!primary) {
+      console.warn('[buildLabelMap] unknown weaponId:', primaryId);
+      out[className] = null;
+      continue;
+    }
+
+    // Silently drop any IDs in the array that aren't in WEAPONS_CONFIG.
+    const validIds = ids.filter(id => !!lookup(id));
+
+    const isDisruptor = primary.player === 'disruptor';
+    const actionLabel = validIds.length > 1
+      ? validIds.map(id => lookup(id).name.toUpperCase()).join(' + ')
+      : primary.name.toUpperCase();
+
+    out[className] = {
+      player:    isDisruptor ? 'A' : 'B',
+      role:      primary.player.toUpperCase(),
+      action:    actionLabel,
+      weaponId:  primaryId,          // kept for backward compat
+      weaponIds: validIds,           // all IDs to fire
+      color:     isDisruptor ? '#cc0000' : '#3b82f6',
+      barClass:  isDisruptor ? '' : 'player-b',
+    };
+  }
+  return out;
+}
+
+// Renders a config table for the LABEL MAP section in the tech panel.
+// Supports single and multi-weapon entries.
+function buildConfigTable(rawMap) {
+  const rows = Object.entries(rawMap)
+    .filter(([, value]) => value !== null)
+    .map(([className, value]) => {
+      const ids = Array.isArray(value) ? value : [value];
+      const lookup = id => (typeof WEAPONS_CONFIG !== 'undefined')
+        ? WEAPONS_CONFIG.weapons.find(w => w.id === id) : null;
+      const label = ids.map(id => {
+        const w = lookup(id);
+        return w ? `${id} — ${w.name}` : id;
+      }).join('<br>');
+      return `<div class="tp-bar-row">
+        <div class="tp-bar-label">${className}</div>
+        <div style="font-size:8px;color:#666;padding:1px 0">${label}</div>
+      </div>`;
+    });
+  return rows.length ? rows.join('') : '<span style="color:#333">— none mapped —</span>';
+}
+
+// BroadcastChannel shared with index.html game layer.
+// Same channel name must be used in bootstrap.js receiver.
+const gameChannel = new BroadcastChannel('deepseas-game');
+
+// Debounce: after firing, suppress re-fire for this many ms.
+// D01 decay_per_30s = -2, so ~8 ticks × 30s = 240s to fully decay.
+// Use 8000ms here to prevent rapid accidental re-fires within one hold gesture.
+const FIRE_DEBOUNCE_MS = 8000;
+let lastFiredAt = 0;
 
 // ================================================================
 //  STATE
@@ -328,23 +412,98 @@ const adDisplay = document.getElementById('actionDisplay');
 const retryBtn  = document.getElementById('retryBtn');
 
 // ================================================================
+//  MANIFEST LOAD → populates dropdown → auto-loads first model
+// ================================================================
+async function loadManifest() {
+  setAdState('LOADING MANIFEST');
+  let manifest;
+  try {
+    const res = await fetch('./models/manifest.json');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    manifest = await res.json();
+  } catch(e) {
+    // Manifest missing — fall back to the legacy single-model path.
+    console.warn('[Detection] manifest.json not found, falling back to ./tm-my-image-model/');
+    manifest = [{ id: 'tm-my-image-model', name: 'Default', path: './tm-my-image-model/' }];
+  }
+
+  const sel = document.getElementById('modelSelect');
+  sel.innerHTML = '';
+  manifest.forEach(entry => {
+    const opt = document.createElement('option');
+    opt.value = entry.path;
+    opt.textContent = entry.name;
+    sel.appendChild(opt);
+  });
+
+  sel.addEventListener('change', async () => {
+    stopCamera();
+    barsBuilt = false;
+    LABEL_MAP = {};
+    await loadModel(sel.value);
+  });
+
+  // Auto-load first model
+  await loadModel(manifest[0].path);
+}
+
+// ================================================================
 //  MODEL LOAD → auto-starts camera on success
 // ================================================================
-async function loadModel() {
+async function loadModel(path) {
+  currentModelPath = path;
+  document.getElementById('tpModel').textContent = 'LOADING';
+  document.getElementById('tpModel').className = 'tp-value loading';
+  setAdState('LOADING MODEL');
+
+  // Preflight: verify model.json is reachable before handing off to TM library.
+  // Catches file:// protocol errors and wrong paths immediately with a clear message.
   try {
-    model = await tmImage.load(MODEL_URL + 'model.json', MODEL_URL + 'metadata.json');
+    const probe = await fetch(path + 'model.json');
+    if (!probe.ok) throw new Error('HTTP ' + probe.status + ' fetching model.json');
+  } catch(preflight) {
+    const msg = preflight.message || String(preflight);
+    document.getElementById('tpModel').textContent = 'ERROR';
+    document.getElementById('tpModel').className = 'tp-value error';
+    setAdState('MODEL FILE ERROR: ' + msg);
+    document.getElementById('sbModel').textContent = 'MODEL: ' + msg;
+    retryBtn.textContent = 'RETRY MODEL';
+    retryBtn.style.display = 'block';
+    retryBtn.onclick = () => { retryBtn.style.display = 'none'; loadModel(path); };
+    console.error('[Detection] Preflight failed:', preflight);
+    return;
+  }
+
+  // Fetch label-map.json for this model folder and build LABEL_MAP.
+  try {
+    const lmRes = await fetch(path + 'label-map.json');
+    if (!lmRes.ok) throw new Error('HTTP ' + lmRes.status + ' fetching label-map.json');
+    const rawMap = await lmRes.json();
+    LABEL_MAP = buildLabelMap(rawMap);
+    document.getElementById('tpLabelMap').innerHTML = buildConfigTable(rawMap);
+  } catch(lmErr) {
+    // label-map.json missing — LABEL_MAP stays empty, weapon firing disabled for this model.
+    console.warn('[Detection] label-map.json not found:', lmErr.message);
+    document.getElementById('tpLabelMap').innerHTML =
+      '<span style="color:#cc0000">label-map.json missing</span>';
+  }
+
+  try {
+    model = await tmImage.load(path + 'model.json', path + 'metadata.json');
     document.getElementById('tpModel').textContent = 'READY';
     document.getElementById('tpModel').className = 'tp-value ready';
     document.getElementById('sbModel').textContent = 'MODEL: READY';
     console.log('[Detection] Model loaded, classes:', model.getTotalClasses());
     startCamera(); // auto-start — no button needed
   } catch(e) {
+    const msg = e.message || String(e);
     document.getElementById('tpModel').textContent = 'ERROR';
     document.getElementById('tpModel').className = 'tp-value error';
-    setAdState('MODEL LOAD FAILED — CHECK CONSOLE');
+    setAdState('MODEL ERROR: ' + msg);
+    document.getElementById('sbModel').textContent = 'MODEL: ' + msg;
     retryBtn.textContent = 'RETRY MODEL';
     retryBtn.style.display = 'block';
-    retryBtn.onclick = () => { retryBtn.style.display = 'none'; loadModel(); };
+    retryBtn.onclick = () => { retryBtn.style.display = 'none'; loadModel(path); };
     console.error('[Detection] Model load error:', e);
   }
 }
@@ -540,6 +699,15 @@ function updateActionDisplay(predictions) {
 
     document.getElementById('sbPlayer').textContent = 'PLAYER: ' + map.player + ' / ' + map.role;
     document.getElementById('sbAction').textContent = 'ACTION: ' + map.action;
+
+    // Fire all weapons once per gesture — debounce prevents re-firing while object is held
+    const now = Date.now();
+    if (map.weaponIds && map.weaponIds.length && (now - lastFiredAt) > FIRE_DEBOUNCE_MS) {
+      lastFiredAt = now;
+      map.weaponIds.forEach(id => gameChannel.postMessage({ type: 'FIRE_WEAPON', weaponId: id }));
+      document.getElementById('sbAction').textContent =
+        'WEAPON FIRED: ' + map.weaponIds.join(' + ') + ' // ' + map.action;
+    }
   }
 
   adConf.textContent = (conf * 100).toFixed(1) + '% CONFIDENCE';
@@ -548,20 +716,34 @@ function updateActionDisplay(predictions) {
 // ================================================================
 //  HELPERS
 // ================================================================
+function stopCamera() {
+  running = false;
+  if (webcamEl.srcObject) {
+    webcamEl.srcObject.getTracks().forEach(t => t.stop());
+    webcamEl.srcObject = null;
+  }
+  document.getElementById('tpCamera').textContent = 'OFFLINE';
+  document.getElementById('tpCamera').className   = 'tp-value loading';
+  document.getElementById('camStatus').textContent = '● OFFLINE';
+  document.getElementById('camStatus').style.color = '#cc0000';
+}
+
 function setAdState(msg) {
   adState.style.display = 'block';
-  const dot = document.getElementById('scanDot');
-  const scanning = (msg === 'SCANNING');
-  dot.style.display = scanning ? 'inline-block' : 'none';
+  // textContent wipes all children including #scanDot.
+  // Set text first, then recreate the dot only when SCANNING needs it.
   adState.textContent = msg;
-  if (scanning) adState.appendChild(dot);
+  if (msg === 'SCANNING') {
+    const dot = document.createElement('span');
+    dot.id = 'scanDot';
+    adState.appendChild(dot);
+  }
 }
 
 // ================================================================
-//  BOOT — load model, then camera starts automatically
+//  BOOT — load manifest → populate dropdown → load first model → start camera
 // ================================================================
-setAdState('LOADING MODEL');
-loadModel();
+loadManifest();
 </script>
 </body>
 </html>

@@ -9,6 +9,48 @@
 <link rel="stylesheet" href="css/main.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+/* ── Game Dashboard ─────────────────────────────────────── */
+#gameDashboard {
+  position: fixed; top: 12px; right: 244px;
+  width: 260px; max-height: calc(100vh - 60px);
+  background: rgba(10,10,10,0.92);
+  border: 1px solid rgba(255,255,255,0.08);
+  font-family: monospace; font-size: 11px; color: #ccc;
+  z-index: 900; overflow-y: auto;
+  display: flex; flex-direction: column;
+  scrollbar-width: thin; scrollbar-color: #222 transparent;
+}
+#gameDashboard section {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+#gameDashboard section::before {
+  display: block; font-size: 8px; letter-spacing: 2px;
+  color: rgba(255,255,255,0.25); margin-bottom: 6px;
+}
+#gdProb::before       { content: 'PROBABILITY'; }
+#gdLastAction::before { content: 'LAST ACTION'; }
+#gdActive::before     { content: 'ACTIVE WEAPONS'; }
+#gdLog::before        { content: 'EVENT LOG'; }
+.gd-prob-value {
+  font-size: 28px; font-weight: bold;
+  letter-spacing: 3px; line-height: 1; margin-bottom: 4px;
+}
+.gd-prob-bar { font-size: 13px; letter-spacing: 1px; }
+.prob-red   .gd-prob-value, .prob-red   .gd-prob-bar { color: #ef4444; }
+.prob-amber .gd-prob-value, .prob-amber .gd-prob-bar { color: #f59e0b; }
+.prob-green .gd-prob-value, .prob-green .gd-prob-bar { color: #4ade80; }
+.gd-weapon-id {
+  color: #fff; font-size: 11px; margin-bottom: 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gd-cause  { color: #f59e0b; margin-bottom: 3px; }
+.gd-effect { color: rgba(255,255,255,0.45); font-size: 10px; padding-left: 8px; margin: 1px 0; }
+.gd-active-row { color: #4ade80; margin: 2px 0; }
+.gd-log-row { color: rgba(255,255,255,0.35); font-size: 10px; margin: 2px 0; }
+.gd-empty  { color: rgba(255,255,255,0.18); font-style: italic; }
+</style>
 </head>
 <body>
 
@@ -452,10 +494,18 @@
 <!-- MediaPipe slow-load fallback banner -->
 <div class="mediapipe-warning" id="mediapipe-warning">! HAND TRACKING SLOW // MOUSE DRAG ACTIVE</div>
 
+<!-- Game Dashboard -->
+<div id="gameDashboard">
+  <section id="gdProb"></section>
+  <section id="gdLastAction"></section>
+  <section id="gdActive"></section>
+  <section id="gdLog"></section>
+</div>
+
 <!-- Status bar -->
 <div id="statusBar">
   <span id="sbTick">SIM TICK 0000</span>
-  <span>// LAYER I //</span>
+  <span id="sbProb">// PROB 50%</span>
   <span id="sbVessels">VESSELS 0</span>
   <span id="sbFlow">// HORMUZ FLOW 0%</span>
 </div>
@@ -468,6 +518,12 @@
 <script src="js/config-data.js"></script>
 <script src="js/markets.js"></script>
 <script src="js/utils.js"></script>
+
+<!-- Layer 1.5: Game -->
+<script src="js/weapons-config.js"></script>
+<script src="js/game-state.js"></script>
+<script src="js/market-tick.js"></script>
+<script src="js/game-dashboard.js"></script>
 
 <!-- Layer 2: Map -->
 <script src="js/map-setup.js"></script>
@@ -498,6 +554,7 @@
 
 <!-- Layer 9: Bootstrap -->
 <script src="js/bootstrap.js"></script>
+<script>startTick();</script>
 
 </body>
 </html>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phase 04 — Weapon Interactions</title>
+<style>
+  body { font-family: monospace; background: #0a0a0a; color: #ccc; padding: 24px; }
+  h2   { color: #cc0000; letter-spacing: 3px; font-size: 11px; margin-bottom: 16px; }
+  .pass { color: #4ade80; }
+  .fail { color: #ef4444; }
+  .result { font-size: 11px; margin: 4px 0; }
+  #summary { margin-top: 20px; font-size: 13px; letter-spacing: 2px; }
+</style>
+</head>
+<body>
+<h2>PHASE 04 — WEAPON INTERACTIONS</h2>
+<div id="results"></div>
+<div id="summary"></div>
+
+<script src="../js/weapons-config.js"></script>
+<script src="../js/game-state.js"></script>
+<script src="../js/market-tick.js"></script>
+<script>
+
+let passed = 0, failed = 0;
+const out = document.getElementById('results');
+
+function test(name, fn) {
+  try { fn(); passed++; out.innerHTML += `<div class="result pass">✓ ${name}</div>`; }
+  catch(e) { failed++; out.innerHTML += `<div class="result fail">✗ ${name} — ${e.message}</div>`; }
+}
+
+function assert(condition, msg) {
+  if (!condition) throw new Error(msg || 'assertion failed');
+}
+
+function resetState() {
+  marketState.prob = 50;
+  marketState.tickCount = 0;
+  marketState.activeWeapons = [];
+  marketState.simMultipliers = { speed_mult: 1.0, spawn_rate_mult: 1.0, hormuz_lane: 'open' };
+  marketState.actionLog = [];
+}
+
+// D05 onset_s=90 → ticksActive=5 needed (5×20=100≥90)
+// D02/R04 onset_s=60 → ticksActive=3 needed (3×20=60≥60)
+
+// ── Slice 1 (tracer) ─────────────────────────────────────────────
+// D05 build=+4.0/30s, R05 build=−2.0/30s → without interaction: +1.33/tick net
+// with interaction net_delta=0: build suppressed → delta near 0
+
+test('D05+R05 both active: interaction suppresses net build after onset', () => {
+  resetState();
+  const origRandom = Math.random;
+  Math.random = () => 0.5; // neutralise drift
+  fireWeapon('D05'); // prob=56, ticksFiredAt=0
+  fireWeapon('R05'); // prob=48, ticksFiredAt=0
+  for (let i = 0; i < 4; i++) marketTick(); // ticks 1–4: ticksActive=4, 80s < 90s onset
+  const probBeforeOnset = marketState.prob;
+  marketTick(); // tick 5: ticksActive=5, 100s ≥ 90s onset
+  const delta = marketState.prob - probBeforeOnset;
+  Math.random = origRandom;
+  // Without interaction: delta ≈ +1.33 (net build) + pull ≈ +1.4
+  // With interaction (net_delta=0): delta ≈ only pull ≈ +0.08
+  assert(delta < 0.5,
+    `interaction should suppress net build (expected delta<0.5, got ${delta.toFixed(3)})`);
+});
+
+// ── Slice 2 ──────────────────────────────────────────────────────
+// D05 alone (R05 not active) — should still build normally
+
+test('D05 alone (no R05): builds normally after onset', () => {
+  resetState();
+  const origRandom = Math.random;
+  Math.random = () => 0.5;
+  fireWeapon('D05'); // prob=56
+  for (let i = 0; i < 4; i++) marketTick();
+  const probBeforeOnset = marketState.prob;
+  marketTick(); // tick 5 — onset reached
+  const delta = marketState.prob - probBeforeOnset;
+  Math.random = origRandom;
+  // Expected: +4.0*(20/30) = +2.667 build, minus small pull ≈ +2.4
+  assert(delta > 2.0,
+    `D05 alone should build normally (expected delta>2.0, got ${delta.toFixed(3)})`);
+});
+
+// ── Slice 3 ──────────────────────────────────────────────────────
+// D02+R04 — build rates: D02 +3.0/30s, R04 −3.0/30s → individual sum = 0 anyway
+// interaction net_delta=0 → confirms pair is handled without error
+
+test('D02+R04 both active: prob stays flat after onset (net_delta=0)', () => {
+  resetState();
+  const origRandom = Math.random;
+  Math.random = () => 0.5;
+  fireWeapon('D02'); // prob=58
+  fireWeapon('R04'); // prob=53
+  marketTick(); marketTick(); // ticks 1–2: ticksActive=2, 40s < 60s
+  const probBeforeOnset = marketState.prob;
+  marketTick(); // tick 3: ticksActive=3, 60s ≥ 60s onset
+  const delta = marketState.prob - probBeforeOnset;
+  Math.random = origRandom;
+  // net_delta=0 → only pull applies → |delta| ≈ 0.13
+  assert(Math.abs(delta) < 0.5,
+    `D02+R04 pair should stay flat (expected |delta|<0.5, got ${delta.toFixed(3)})`);
+});
+
+// ── Slice 4 ──────────────────────────────────────────────────────
+// D05+R05 both active but before onset — no build at all
+
+test('D05+R05 both active but before onset: no build applied', () => {
+  resetState();
+  const origRandom = Math.random;
+  Math.random = () => 0.5;
+  fireWeapon('D05'); // prob=56
+  fireWeapon('R05'); // prob=48
+  const probAtFire = marketState.prob;
+  marketTick(); // tick 1: ticksActive=1, 20s < 90s onset
+  Math.random = origRandom;
+  // Individual builds skipped (in pair), interaction net_delta not applied (not past onset)
+  // Only pull: (50−48)*0.05 = +0.1
+  assert(marketState.prob < probAtFire + 0.5,
+    `no build before onset (expected prob<${(probAtFire + 0.5).toFixed(1)}, got ${marketState.prob.toFixed(3)})`);
+});
+
+// ── Summary ──────────────────────────────────────────────────────
+const total = passed + failed;
+const color = failed === 0 ? '#4ade80' : '#ef4444';
+document.getElementById('summary').innerHTML =
+  `<span style="color:${color}">${passed}/${total} PASSED${failed ? ' — ' + failed + ' FAILED' : ' — ALL GREEN'}</span>`;
+</script>
+</body>
+</html>

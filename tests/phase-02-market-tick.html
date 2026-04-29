@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phase 02 — Market Tick Tests</title>
+<style>
+  body { font-family: monospace; background: #0a0a0a; color: #ccc; padding: 24px; }
+  h2   { color: #cc0000; letter-spacing: 3px; font-size: 11px; margin-bottom: 16px; }
+  .pass { color: #4ade80; }
+  .fail { color: #ef4444; }
+  .result { font-size: 11px; margin: 4px 0; }
+  #summary { margin-top: 20px; font-size: 13px; letter-spacing: 2px; }
+</style>
+</head>
+<body>
+<h2>PHASE 02 — MARKET TICK DECAY LOOP</h2>
+<div id="results"></div>
+<div id="summary"></div>
+
+<script src="../js/weapons-config.js"></script>
+<script src="../js/game-state.js"></script>
+<script src="../js/market-tick.js"></script>
+<script>
+
+let passed = 0, failed = 0;
+const out = document.getElementById('results');
+
+function test(name, fn) {
+  try {
+    fn();
+    passed++;
+    out.innerHTML += `<div class="result pass">✓ ${name}</div>`;
+  } catch(e) {
+    failed++;
+    out.innerHTML += `<div class="result fail">✗ ${name} — ${e.message}</div>`;
+  }
+}
+
+function assert(condition, msg) {
+  if (!condition) throw new Error(msg || 'assertion failed');
+}
+
+function resetState() {
+  marketState.prob = 50;
+  marketState.tickCount = 0;
+  marketState.activeWeapons = [];
+  marketState.simMultipliers = { speed_mult: 1.0, spawn_rate_mult: 1.0, hormuz_lane: 'open' };
+  marketState.actionLog = [];
+}
+
+// ── Slice 1 (tracer bullet) ───────────────────────────────────────
+// D01: prob_delta=22, decay_per_30s=-2, tick=20s → decay_per_tick=-1.333
+// ceil(22 / 1.333) = 17 ticks to fully decay
+
+test('after 17 marketTick() calls, D01 is removed from activeWeapons', () => {
+  resetState();
+  // Suppress drift for determinism
+  const origRandom = Math.random;
+  Math.random = () => 0.5; // drift = (0.5 - 0.5) * 4 = 0, pull only
+  fireWeapon('D01');
+  for (let i = 0; i < 17; i++) marketTick();
+  Math.random = origRandom;
+  assert(marketState.activeWeapons.length === 0,
+    `expected 0 active weapons after 17 ticks, got ${marketState.activeWeapons.length}`);
+});
+
+// ── Slice 2 ───────────────────────────────────────────────────────
+
+test('prob decreases each tick while D01 is active', () => {
+  resetState();
+  const origRandom = Math.random;
+  Math.random = () => 0.5; // neutralise drift
+  fireWeapon('D01');
+  const probAfterFire = marketState.prob;
+  marketTick();
+  const probAfterTick = marketState.prob;
+  Math.random = origRandom;
+  assert(probAfterTick < probAfterFire,
+    `prob should decrease: was ${probAfterFire}, now ${probAfterTick}`);
+});
+
+// ── Slice 3 ───────────────────────────────────────────────────────
+
+test('prob stays within [0, 100] after 100 drift-only ticks', () => {
+  resetState();
+  // Use real Math.random — we want to verify clamping holds regardless of drift direction
+  for (let i = 0; i < 100; i++) marketTick();
+  assert(marketState.prob >= 0 && marketState.prob <= 100,
+    `prob out of bounds: ${marketState.prob}`);
+});
+
+// ── Slice 4 ───────────────────────────────────────────────────────
+
+test('tickCount increments by 1 on each marketTick() call', () => {
+  resetState();
+  assert(marketState.tickCount === 0, 'tickCount should start at 0');
+  marketTick();
+  assert(marketState.tickCount === 1, `expected 1, got ${marketState.tickCount}`);
+  marketTick();
+  assert(marketState.tickCount === 2, `expected 2, got ${marketState.tickCount}`);
+});
+
+// ── Slice 5 ───────────────────────────────────────────────────────
+
+test('slow weapon D02 remainingDelta is unchanged after a tick (deferred to Phase 3)', () => {
+  resetState();
+  const origRandom = Math.random;
+  Math.random = () => 0.5;
+  fireWeapon('D02');
+  const deltaAfterFire = marketState.activeWeapons[0].remainingDelta;
+  marketTick();
+  const deltaAfterTick = marketState.activeWeapons[0].remainingDelta;
+  Math.random = origRandom;
+  assert(deltaAfterTick === deltaAfterFire,
+    `slow weapon should not decay: was ${deltaAfterFire}, now ${deltaAfterTick}`);
+});
+
+// ── Slice 6 ───────────────────────────────────────────────────────
+
+test('speed_mult returns to 1.0 after D01 fully decays', () => {
+  resetState();
+  const origRandom = Math.random;
+  Math.random = () => 0.5;
+  fireWeapon('D01');
+  assert(marketState.simMultipliers.speed_mult === 0.05,
+    `speed_mult should be 0.05 after D01 fires, got ${marketState.simMultipliers.speed_mult}`);
+  for (let i = 0; i < 17; i++) marketTick();
+  Math.random = origRandom;
+  assert(marketState.simMultipliers.speed_mult === 1.0,
+    `speed_mult should be 1.0 after D01 decays, got ${marketState.simMultipliers.speed_mult}`);
+});
+
+// ── Summary ───────────────────────────────────────────────────────
+const total = passed + failed;
+const color = failed === 0 ? '#4ade80' : '#ef4444';
+document.getElementById('summary').innerHTML =
+  `<span style="color:${color}">${passed}/${total} PASSED${failed ? ' — ' + failed + ' FAILED' : ' — ALL GREEN'}</span>`;
+</script>
+</body>
+</html>

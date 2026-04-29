@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Model Load Diagnostics</title>
+  <style>
+    body { background:#0a0a0a; color:#ccc; font-family:monospace; padding:24px; }
+    h1   { color:#fff; font-size:13px; letter-spacing:3px; margin-bottom:20px; }
+    .row { padding:5px 0; border-bottom:1px solid #111; font-size:11px; display:flex; gap:12px; }
+    .lbl { color:#555; min-width:240px; }
+    .pass { color:#4ade80; }
+    .fail { color:#ef4444; }
+    .info { color:#f59e0b; }
+    .summary { margin-top:20px; font-size:13px; font-weight:bold; }
+    .note { margin-top:16px; font-size:10px; color:#555; line-height:1.7; }
+  </style>
+
+  <!-- Same versions as detector.html — change here if you change there -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js"></script>
+</head>
+<body>
+  <h1>MODEL LOAD DIAGNOSTICS</h1>
+  <div id="out"></div>
+  <div id="summary" class="summary"></div>
+  <div class="note" id="note"></div>
+
+<script>
+// ── helpers ──────────────────────────────────────────────────────
+const out = document.getElementById('out');
+let pass = 0, fail = 0;
+
+function row(label, status, detail) {
+  const cls = status === 'PASS' ? 'pass' : status === 'INFO' ? 'info' : 'fail';
+  if (status === 'PASS') pass++;
+  if (status === 'FAIL') fail++;
+  out.innerHTML +=
+    `<div class="row"><span class="lbl">${label}</span>` +
+    `<span class="${cls}">${status}</span>` +
+    `<span>${detail || ''}</span></div>`;
+}
+
+function summary() {
+  const total = pass + fail;
+  const color = fail === 0 ? '#4ade80' : '#ef4444';
+  document.getElementById('summary').innerHTML =
+    `<span style="color:${color}">${pass}/${total} checks passed` +
+    (fail ? ` — ${fail} failing` : ' — all green') + '</span>';
+}
+
+// ── Model path — matches detector.html exactly ────────────────────
+// If this page lives in tests/ and the model is at root/tm-my-image-model/
+const MODEL_BASE = '../tm-my-image-model/';
+
+async function run() {
+
+  // 1. TF.js global
+  row('tf global exists',
+    typeof tf !== 'undefined' ? 'PASS' : 'FAIL',
+    typeof tf !== 'undefined' ? 'tf.version.tfjs = ' + tf.version.tfjs : 'tf is undefined');
+
+  // 2. TM image library global
+  row('tmImage global exists',
+    typeof tmImage !== 'undefined' ? 'PASS' : 'FAIL',
+    typeof tmImage !== 'undefined' ? 'OK' : 'tmImage is undefined — CDN load failed');
+
+  // 3. Page origin (confirms we are NOT on file://)
+  const proto = window.location.protocol;
+  row('Protocol is http(s)://',
+    proto.startsWith('http') ? 'PASS' : 'FAIL',
+    proto + ' — ' + (proto === 'file:' ? 'OPEN VIA LIVE SERVER, NOT FILE://' : window.location.href));
+
+  // 4. Fetch model.json
+  try {
+    const r = await fetch(MODEL_BASE + 'model.json');
+    row('fetch model.json', r.ok ? 'PASS' : 'FAIL',
+      'HTTP ' + r.status + (r.ok ? ' — ' + r.headers.get('content-length') + ' bytes' : ''));
+  } catch(e) {
+    row('fetch model.json', 'FAIL', e.message);
+  }
+
+  // 5. Fetch metadata.json
+  try {
+    const r = await fetch(MODEL_BASE + 'metadata.json');
+    if (r.ok) {
+      const meta = await r.json();
+      row('fetch metadata.json', 'PASS',
+        'labels: [' + meta.labels.join(', ') + ']  packageVersion: ' + meta.packageVersion);
+    } else {
+      row('fetch metadata.json', 'FAIL', 'HTTP ' + r.status);
+    }
+  } catch(e) {
+    row('fetch metadata.json', 'FAIL', e.message);
+  }
+
+  // 6. Fetch weights.bin
+  try {
+    const r = await fetch(MODEL_BASE + 'weights.bin');
+    row('fetch weights.bin', r.ok ? 'PASS' : 'FAIL',
+      'HTTP ' + r.status + (r.ok ? ' — ' + r.headers.get('content-length') + ' bytes' : ''));
+  } catch(e) {
+    row('fetch weights.bin', 'FAIL', e.message);
+  }
+
+  // 7. Full tmImage.load() — this is what detector.html does
+  row('tmImage.load() starting…', 'INFO', 'may take 2-5s');
+  try {
+    const model = await tmImage.load(
+      MODEL_BASE + 'model.json',
+      MODEL_BASE + 'metadata.json'
+    );
+    row('tmImage.load() complete', 'PASS',
+      'classes: ' + model.getTotalClasses() +
+      '  — ' + model.getClassLabels().join(' | '));
+  } catch(e) {
+    row('tmImage.load() failed', 'FAIL', e.message || String(e));
+    document.getElementById('note').innerHTML =
+      'Common fixes:<br>' +
+      '• "Failed to fetch" → open via Live Server, not file://<br>' +
+      '• "Cannot read property" or "is not a function" → tfjs/TM version mismatch<br>' +
+      '• "404" on weights.bin → model folder path is wrong (check MODEL_BASE above)';
+  }
+
+  summary();
+}
+
+run();
+</script>
+</body>
+</html>

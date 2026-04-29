@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phase 03 — All 12 Weapons Tests</title>
+<style>
+  body { font-family: monospace; background: #0a0a0a; color: #ccc; padding: 24px; }
+  h2   { color: #cc0000; letter-spacing: 3px; font-size: 11px; margin-bottom: 16px; }
+  .pass { color: #4ade80; }
+  .fail { color: #ef4444; }
+  .result { font-size: 11px; margin: 4px 0; }
+  #summary { margin-top: 20px; font-size: 13px; letter-spacing: 2px; }
+</style>
+</head>
+<body>
+<h2>PHASE 03 — ALL 12 WEAPONS</h2>
+<div id="results"></div>
+<div id="summary"></div>
+
+<script src="../js/weapons-config.js"></script>
+<script src="../js/game-state.js"></script>
+<script src="../js/market-tick.js"></script>
+<script>
+
+let passed = 0, failed = 0;
+const out = document.getElementById('results');
+
+function test(name, fn) {
+  try { fn(); passed++; out.innerHTML += `<div class="result pass">✓ ${name}</div>`; }
+  catch(e) { failed++; out.innerHTML += `<div class="result fail">✗ ${name} — ${e.message}</div>`; }
+}
+
+function assert(condition, msg) {
+  if (!condition) throw new Error(msg || 'assertion failed');
+}
+
+function resetState() {
+  marketState.prob = 50;
+  marketState.tickCount = 0;
+  marketState.activeWeapons = [];
+  marketState.simMultipliers = { speed_mult: 1.0, spawn_rate_mult: 1.0, hormuz_lane: 'open' };
+  marketState.actionLog = [];
+}
+
+const ALL_IDS = ['D01','D02','D03','D04','D05','D06','R01','R02','R03','R04','R05','R06'];
+
+// ── Slice 1 (tracer bullet) ───────────────────────────────────────
+
+test('all 12 weapons fire without error and appear in activeWeapons', () => {
+  resetState();
+  ALL_IDS.forEach(id => fireWeapon(id));
+  assert(marketState.activeWeapons.length === 12,
+    `expected 12 active weapons, got ${marketState.activeWeapons.length}`);
+  ALL_IDS.forEach(id => {
+    const found = marketState.activeWeapons.some(e => e.weaponId === id);
+    assert(found, `${id} not found in activeWeapons`);
+  });
+});
+
+// ── Slice 2 ───────────────────────────────────────────────────────
+
+test('fast weapon D03 applies prob_delta +14 immediately on fire', () => {
+  resetState();
+  fireWeapon('D03');
+  assert(marketState.prob === 64,
+    `expected prob 64 after D03, got ${marketState.prob}`);
+});
+
+// ── Slice 3 ───────────────────────────────────────────────────────
+
+test('slow weapon D02 does not build before onset (2 ticks = 40s < onset 60s)', () => {
+  resetState();
+  const origRandom = Math.random;
+  Math.random = () => 0.5; // neutralise drift
+  fireWeapon('D02');
+  const probAfterFire = marketState.prob; // 50 + 8 = 58
+  marketTick(); // tick 1 — ticksActive=1, 20s < 60s
+  marketTick(); // tick 2 — ticksActive=2, 40s < 60s
+  const probAfter2Ticks = marketState.prob;
+  Math.random = origRandom;
+  // With no build, prob should only move from mean-reversion pull (downward from 58)
+  assert(probAfter2Ticks < probAfterFire,
+    `prob should not have built before onset: was ${probAfterFire}, now ${probAfter2Ticks}`);
+});
+
+// ── Slice 4 ───────────────────────────────────────────────────────
+// D02: onset_s=60 → activates on tick 3 (ticksActive=3, 60s >= 60s)
+// build_per_30s=3.0, build_per_tick=3.0*(20/30)=2.0
+// After tick 2 prob is declining (pull only). Tick 3 adds +2.0 — should cause net increase.
+
+test('slow weapon D02 builds prob after onset passes (tick 3)', () => {
+  resetState();
+  const origRandom = Math.random;
+  Math.random = () => 0.5;
+  fireWeapon('D02');
+  marketTick(); // tick 1 — no build
+  marketTick(); // tick 2 — no build
+  const probBeforeOnset = marketState.prob;
+  marketTick(); // tick 3 — onset reached, build applies (+2.0 > pull ~0.4)
+  const probAfterOnset = marketState.prob;
+  Math.random = origRandom;
+  assert(probAfterOnset > probBeforeOnset,
+    `prob should increase when D02 builds: was ${probBeforeOnset}, now ${probAfterOnset}`);
+});
+
+// ── Slice 5 ───────────────────────────────────────────────────────
+
+test('ticksFiredAt is set to marketState.tickCount at the moment of fire', () => {
+  resetState();
+  marketState.tickCount = 7; // simulate mid-round fire
+  fireWeapon('D01');
+  const entry = marketState.activeWeapons[0];
+  assert(entry.ticksFiredAt === 7,
+    `expected ticksFiredAt 7, got ${entry.ticksFiredAt}`);
+});
+
+// ── Slice 6 ───────────────────────────────────────────────────────
+
+test('R06 active — D01 decays at normal rate (disruptor_decay_mult deferred to Phase 4)', () => {
+  resetState();
+  const origRandom = Math.random;
+  Math.random = () => 0.5;
+  fireWeapon('D01');
+  fireWeapon('R06');
+  const d01Before = marketState.activeWeapons.find(e => e.weaponId === 'D01').remainingDelta;
+  marketTick();
+  const d01After = marketState.activeWeapons.find(e => e.weaponId === 'D01').remainingDelta;
+  Math.random = origRandom;
+  const expectedDecay = -2.0 * (20 / 30); // normal rate, no multiplier
+  assert(Math.abs((d01After - d01Before) - expectedDecay) < 0.001,
+    `D01 decay should be ${expectedDecay.toFixed(3)}, got ${(d01After - d01Before).toFixed(3)}`);
+});
+
+// ── Summary ───────────────────────────────────────────────────────
+const total = passed + failed;
+const color = failed === 0 ? '#4ade80' : '#ef4444';
+document.getElementById('summary').innerHTML =
+  `<span style="color:${color}">${passed}/${total} PASSED${failed ? ' — ' + failed + ' FAILED' : ' — ALL GREEN'}</span>`;
+</script>
+</body>
+</html>

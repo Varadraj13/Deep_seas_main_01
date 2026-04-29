@@ -1,0 +1,5 @@
+[
+  { "id": "tm-my-image-model", "name": "Lab A — Object 01",    "path": "./tm-my-image-model/" },
+  { "id": "tm_model_01",       "name": "Model 01 — Object 01", "path": "./tm_model_01/" },
+  { "id": "tm_model_02",       "name": "Model 02 — Multi",     "path": "./tm_model_02/" }
+]
