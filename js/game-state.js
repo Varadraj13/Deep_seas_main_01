@@ -15,7 +15,18 @@ const marketState = {
   tickCount: 0,
   activeWeapons: [],
   simMultipliers: { ...SIM_DEFAULTS },
-  actionLog: []
+  actionLog: [],
+  round: {
+    phase: 'idle',
+    number: 0,
+    scores: [0, 0],
+    roles: ['disruptor', 'defender'],
+    winner: null,
+    roundStartedAt: null,
+    pausedAt: null,
+    totalPausedMs: 0,
+    firstMoveFlags: { disruptor: false, defender: false }
+  }
 };
 
 function weaponLookup(id) {
@@ -67,6 +78,12 @@ function fireWeapon(id) {
     delta: weapon.prob_delta,
     timestamp: Date.now()
   });
+
+  if (marketState.round.phase === 'playing' && !marketState.round.firstMoveFlags[weapon.player]) {
+    marketState.round.firstMoveFlags[weapon.player] = true;
+    const msg = weapon.player === 'disruptor' ? 'GO DEFENDER!' : 'GO DISRUPTOR!';
+    if (typeof showFlash === 'function') showFlash(msg);
+  }
 
   if (typeof updateDashboard === 'function') updateDashboard();
 }

@@ -211,6 +211,23 @@ function updateStats() {
     var activeNames = marketState.activeWeapons.map(function(e){ return e.weaponId; }).join(' ');
     sbProb.textContent = '// PROB ' + Math.round(marketState.prob) + '%' + (activeNames ? ' // ' + activeNames : '');
   }
+  var sbRound = document.getElementById('sbRound');
+  if (sbRound && typeof marketState !== 'undefined') {
+    var r = marketState.round;
+    if (r.phase === 'playing' && r.roundStartedAt !== null) {
+      var elapsed = Date.now() - r.roundStartedAt - r.totalPausedMs;
+      var remainMs = Math.max(0, 600000 - elapsed);
+      var remSec = Math.floor(remainMs / 1000);
+      var mm = String(Math.floor(remSec / 60)).padStart(2, '0');
+      var ss = String(remSec % 60).padStart(2, '0');
+      sbRound.textContent = '// R' + r.number + ' · ' + mm + ':' + ss + ' · A' + r.scores[0] + '-B' + r.scores[1];
+      if (remainMs === 0 && typeof endRound === 'function') endRound();
+    } else if (r.phase === 'roundEnd' || r.phase === 'over') {
+      sbRound.textContent = '// R' + r.number + ' END · A' + r.scores[0] + '-B' + r.scores[1];
+    } else {
+      sbRound.textContent = '// R0 · --:-- · A' + r.scores[0] + '-B' + r.scores[1];
+    }
+  }
   if (typeof updateDashboard === 'function') updateDashboard();
 }
 

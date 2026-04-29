@@ -50,6 +50,29 @@
 .gd-active-row { color: #4ade80; margin: 2px 0; }
 .gd-log-row { color: rgba(255,255,255,0.35); font-size: 10px; margin: 2px 0; }
 .gd-empty  { color: rgba(255,255,255,0.18); font-style: italic; }
+
+/* ── Game Flash ─────────────────────────────────────────────── */
+#gameFlash {
+  position: fixed; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 4rem; font-weight: 900;
+  font-family: monospace; color: #fff;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 9999;
+  text-align: center;
+  text-shadow: 0 0 60px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.9);
+  letter-spacing: 4px;
+}
+#gameFlash.visible { opacity: 1; }
+
+/* ── Round controls ─────────────────────────────────────────── */
+#roundControls { margin-top: 8px; }
+#roundControls .btn-row { display: flex; gap: 4px; }
+#roundControls .btn { flex: 1; font-size: 9px; padding: 5px 2px; }
+#btnStartRound { color: #4ade80; border-color: #4ade80; }
+#btnPauseRound { color: #f59e0b; border-color: #f59e0b; }
+#btnResetGame  { color: #ef4444; border-color: #ef4444; }
 </style>
 </head>
 <body>
@@ -84,6 +107,16 @@
     <div class="btn-row">
       <button class="btn" onclick="addRandomVessel()">+ADD</button>
       <button class="btn" onclick="removeLastVessel()">-RMV</button>
+    </div>
+  </div>
+
+  <!-- Round controls -->
+  <div class="ctrl-group" id="roundControls">
+    <label>ROUND</label>
+    <div class="btn-row">
+      <button class="btn" id="btnStartRound" onclick="startRound()">START</button>
+      <button class="btn" id="btnPauseRound" onclick="togglePauseRound()">PAUSE</button>
+      <button class="btn" id="btnResetGame"  onclick="resetGame()">RESET</button>
     </div>
   </div>
 
@@ -494,6 +527,20 @@
 <!-- MediaPipe slow-load fallback banner -->
 <div class="mediapipe-warning" id="mediapipe-warning">! HAND TRACKING SLOW // MOUSE DRAG ACTIVE</div>
 
+<!-- Game Flash -->
+<div id="gameFlash"></div>
+<script>
+function showFlash(text, ms) {
+  ms = ms || 2000;
+  var el = document.getElementById('gameFlash');
+  if (!el) return;
+  el.textContent = text;
+  el.classList.add('visible');
+  clearTimeout(el._flashTimer);
+  el._flashTimer = setTimeout(function() { el.classList.remove('visible'); }, ms);
+}
+</script>
+
 <!-- Game Dashboard -->
 <div id="gameDashboard">
   <section id="gdProb"></section>
@@ -505,6 +552,7 @@
 <!-- Status bar -->
 <div id="statusBar">
   <span id="sbTick">SIM TICK 0000</span>
+  <span id="sbRound">// R0 · --:-- · A0-B0</span>
   <span id="sbProb">// PROB 50%</span>
   <span id="sbVessels">VESSELS 0</span>
   <span id="sbFlow">// HORMUZ FLOW 0%</span>
@@ -523,6 +571,7 @@
 <script src="js/weapons-config.js"></script>
 <script src="js/game-state.js"></script>
 <script src="js/market-tick.js"></script>
+<script src="js/round-controller.js"></script>
 <script src="js/game-dashboard.js"></script>
 
 <!-- Layer 2: Map -->

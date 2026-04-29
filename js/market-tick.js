@@ -76,6 +76,32 @@ function marketTick() {
   if (typeof updateDashboard === 'function') updateDashboard();
 }
 
-function startTick() {
-  setInterval(marketTick, TICK_INTERVAL_MS);
+let _tickTimer = null;
+let _tickPausedAt = null;
+let _tickRemainingMs = TICK_INTERVAL_MS;
+
+function scheduleTick(delayMs) {
+  _tickTimer = setTimeout(() => {
+    marketTick();
+    _tickRemainingMs = TICK_INTERVAL_MS;
+    scheduleTick(TICK_INTERVAL_MS);
+  }, delayMs);
+}
+
+function startTick() { scheduleTick(TICK_INTERVAL_MS); }
+
+function pauseTick() {
+  _tickPausedAt = Date.now();
+  clearTimeout(_tickTimer);
+  _tickTimer = null;
+}
+
+function resumeTick() {
+  clearTimeout(_tickTimer); // prevent double-scheduling if startTick() already ran
+  if (_tickPausedAt !== null) {
+    _tickRemainingMs = Math.max(0, _tickRemainingMs - (Date.now() - _tickPausedAt));
+    _tickPausedAt = null;
+  }
+  scheduleTick(_tickRemainingMs);
+  _tickRemainingMs = TICK_INTERVAL_MS;
 }

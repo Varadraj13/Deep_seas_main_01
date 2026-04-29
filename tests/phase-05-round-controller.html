@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phase 05 — Round Controller</title>
+<style>
+  body { font-family: monospace; background: #0a0a0a; color: #ccc; padding: 24px; }
+  h2   { color: #cc0000; letter-spacing: 3px; font-size: 11px; margin-bottom: 16px; }
+  .pass { color: #4ade80; }
+  .fail { color: #ef4444; }
+  .result { font-size: 11px; margin: 4px 0; }
+  #summary { margin-top: 20px; font-size: 13px; letter-spacing: 2px; }
+</style>
+</head>
+<body>
+<h2>PHASE 05 — ROUND CONTROLLER</h2>
+<div id="results"></div>
+<div id="summary"></div>
+
+<!-- Stubs for globals not present outside full sim -->
+<div id="gameFlash" style="display:none"></div>
+<script>
+  // Sim playing flag stub
+  let playing = true;
+  // Tick pause stubs
+  let tickPaused = false;
+  function pauseTick() { tickPaused = true; }
+  function resumeTick() { tickPaused = false; }
+  // Flash stub — captures last message for assertions
+  let lastFlash = null;
+  function showFlash(text) { lastFlash = text; }
+</script>
+
+<script src="../js/weapons-config.js"></script>
+<script src="../js/game-state.js"></script>
+<script src="../js/round-controller.js"></script>
+<script>
+
+let passed = 0, failed = 0;
+const out = document.getElementById('results');
+
+function test(name, fn) {
+  try { fn(); passed++; out.innerHTML += `<div class="result pass">✓ ${name}</div>`; }
+  catch(e) { failed++; out.innerHTML += `<div class="result fail">✗ ${name} — ${e.message}</div>`; }
+}
+
+function assert(condition, msg) {
+  if (!condition) throw new Error(msg || 'assertion failed');
+}
+
+function resetState() {
+  marketState.prob = 50;
+  marketState.tickCount = 0;
+  marketState.activeWeapons = [];
+  marketState.simMultipliers = { speed_mult: 1.0, spawn_rate_mult: 1.0, hormuz_lane: 'open' };
+  marketState.actionLog = [];
+  marketState.round = {
+    phase: 'idle',
+    number: 0,
+    scores: [0, 0],
+    roles: ['disruptor', 'defender'],
+    winner: null,
+    roundStartedAt: null,
+    pausedAt: null,
+    totalPausedMs: 0,
+    firstMoveFlags: { disruptor: false, defender: false }
+  };
+  playing = true;
+  tickPaused = false;
+  lastFlash = null;
+}
+
+// ── Slice 1 (tracer) ─────────────────────────────────────────────
+// startRound() resets game layer and transitions to 'playing'
+
+test('startRound() sets phase to playing, prob to 50, clears activeWeapons, increments round.number', () => {
+  resetState();
+  // Dirty state before startRound
+  marketState.prob = 80;
+  marketState.activeWeapons = [{ weaponId: 'D01' }];
+  marketState.round.number = 0;
+
+  startRound();
+
+  assert(marketState.round.phase === 'playing',
+    `expected phase 'playing', got '${marketState.round.phase}'`);
+  assert(marketState.prob === 50,
+    `expected prob 50, got ${marketState.prob}`);
+  assert(marketState.activeWeapons.length === 0,
+    `expected 0 active weapons, got ${marketState.activeWeapons.length}`);
+  assert(marketState.round.number === 1,
+    `expected round.number 1, got ${marketState.round.number}`);
+});
+
+// ── Slice 2 ──────────────────────────────────────────────────────
+// endRound() with hormuz_lane 'closed' → disruptor wins, score increments
+
+test('endRound() with hormuz_lane closed → disruptor score increments', () => {
+  resetState();
+  startRound();
+  marketState.simMultipliers.hormuz_lane = 'closed';
+
+  endRound();
+
+  // roles[0] = 'disruptor' → scores[0] should increment
+  assert(marketState.round.scores[0] === 1,
+    `expected disruptor (player A) score 1, got ${marketState.round.scores[0]}`);
+  assert(marketState.round.scores[1] === 0,
+    `expected defender (player B) score 0, got ${marketState.round.scores[1]}`);
+  assert(marketState.round.winner === 'A',
+    `expected winner 'A', got '${marketState.round.winner}'`);
+});
+
+// ── Slice 3 ──────────────────────────────────────────────────────
+// endRound() with hormuz_lane 'open' → defender wins, score increments
+
+test('endRound() with hormuz_lane open → defender score increments', () => {
+  resetState();
+  startRound();
+  marketState.simMultipliers.hormuz_lane = 'open';
+
+  endRound();
+
+  // roles[1] = 'defender' → scores[1] should increment
+  assert(marketState.round.scores[1] === 1,
+    `expected defender (player B) score 1, got ${marketState.round.scores[1]}`);
+  assert(marketState.round.scores[0] === 0,
+    `expected disruptor (player A) score 0, got ${marketState.round.scores[0]}`);
+  assert(marketState.round.winner === 'B',
+    `expected winner 'B', got '${marketState.round.winner}'`);
+});
+
+// ── Slice 4 ──────────────────────────────────────────────────────
+// Best-of-3: game ends when a player reaches 2 wins
+
+test('game ends when player reaches 2 wins — phase set to over', () => {
+  resetState();
+
+  // Round 1: disruptor wins
+  startRound();
+  marketState.simMultipliers.hormuz_lane = 'closed';
+  endRound();
+  assert(marketState.round.phase === 'roundEnd',
+    `after 1 win, expected phase 'roundEnd', got '${marketState.round.phase}'`);
+
+  // Round 2: disruptor wins again → game over
+  startRound();
+  marketState.simMultipliers.hormuz_lane = 'closed';
+  endRound();
+  assert(marketState.round.phase === 'over',
+    `after 2 wins, expected phase 'over', got '${marketState.round.phase}'`);
+  assert(marketState.round.scores[0] === 2,
+    `expected disruptor score 2, got ${marketState.round.scores[0]}`);
+});
+
+// ── Slice 5 ──────────────────────────────────────────────────────
+// resetGame() returns everything to idle, zeros scores and round number
+
+test('resetGame() resets phase to idle, scores to [0,0], number to 0', () => {
+  resetState();
+  startRound();
+  marketState.simMultipliers.hormuz_lane = 'closed';
+  endRound(); // scores now [1,0]
+  startRound();
+  marketState.simMultipliers.hormuz_lane = 'closed';
+  endRound(); // scores now [2,0], phase 'over'
+
+  resetGame();
+
+  assert(marketState.round.phase === 'idle',
+    `expected phase 'idle', got '${marketState.round.phase}'`);
+  assert(marketState.round.scores[0] === 0 && marketState.round.scores[1] === 0,
+    `expected scores [0,0], got [${marketState.round.scores}]`);
+  assert(marketState.round.number === 0,
+    `expected round.number 0, got ${marketState.round.number}`);
+  assert(marketState.prob === 50,
+    `expected prob 50, got ${marketState.prob}`);
+});
+
+// ── Slice 6 ──────────────────────────────────────────────────────
+// pauseRound() freezes tick; resumeRound() restores it
+
+test('pauseRound() pauses tick; resumeRound() resumes it', () => {
+  resetState();
+  startRound();
+
+  pauseRound();
+  assert(tickPaused === true, `expected tickPaused true after pauseRound()`);
+  assert(playing === false, `expected playing false after pauseRound()`);
+  assert(marketState.round.pausedAt !== null, `expected pausedAt to be set`);
+
+  resumeRound();
+  assert(tickPaused === false, `expected tickPaused false after resumeRound()`);
+  assert(playing === true, `expected playing true after resumeRound()`);
+  assert(marketState.round.pausedAt === null, `expected pausedAt cleared`);
+});
+
+// ── Slice 7 ──────────────────────────────────────────────────────
+// firstMoveFlags: first disruptor fire sets flag, second fire does not re-trigger flash
+
+test('first disruptor weapon fire sets firstMoveFlags.disruptor and flashes GO DEFENDER!', () => {
+  resetState();
+  startRound(); // phase = 'playing'
+  lastFlash = null;
+
+  fireWeapon('D01'); // first disruptor move
+  assert(marketState.round.firstMoveFlags.disruptor === true,
+    `expected firstMoveFlags.disruptor true after first fire`);
+  assert(lastFlash === 'GO DEFENDER!',
+    `expected flash 'GO DEFENDER!', got '${lastFlash}'`);
+
+  lastFlash = null;
+  // D01 is active (no-op for same weapon), fire a different disruptor weapon
+  fireWeapon('D03'); // second disruptor move
+  assert(lastFlash === null,
+    `second disruptor fire should NOT re-trigger flash, got '${lastFlash}'`);
+});
+
+// ── Summary ──────────────────────────────────────────────────────
+const total = passed + failed;
+const color = failed === 0 ? '#4ade80' : '#ef4444';
+document.getElementById('summary').innerHTML =
+  `<span style="color:${color}">${passed}/${total} PASSED${failed ? ' — ' + failed + ' FAILED' : ' — ALL GREEN'}</span>`;
+</script>
+</body>
+</html>

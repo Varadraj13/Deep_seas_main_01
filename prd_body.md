@@ -1523,3 +1523,319 @@ D01+R01, D03+R02, D04+R03, D06+R03 — interaction captured by `prob_delta` valu
 | 2 | D05 alone past onset: prob delta > 2.0 per tick (builds normally) | GREEN |
 | 3 | D02+R04 both active past onset: \|delta\| < 0.5 per tick | GREEN |
 | 4 | D05+R05 both active before onset: no build applied | GREEN |
+
+---
+
+## Grill Report: Phase 5 — Round Controller
+
+**Date:** 2026-04-28
+**Feature:** Full round lifecycle — start, play, end, score, pause/resume, reset. Best-of-3. Operator controls. Center-screen flash for major events.
+
+---
+
+### Q1: Where does round state live?
+
+**Options:** (a) Flat fields on marketState (`marketState.phase`, `marketState.round`, etc.), (b) Nested `marketState.round` sub-object, (c) Separate `roundState` global
+**Decision:** Option B — nested `marketState.round` sub-object
+**Rationale:** Groups all round state under one key that can be atomically reset, without polluting the top-level marketState or breaking single-source-of-truth.
+**Consequence:** `startRound()` resets `marketState.round` in one assignment. All readers (status bar, dashboard, tests) access `marketState.round.phase`, `marketState.round.scores`, etc.
+
+Phase 5 shape added to `marketState`:
+```js
+round: {
+  phase: 'idle',                              // 'idle' | 'playing' | 'roundEnd' | 'over'
+  number: 0,                                  // 1, 2, 3
+  scores: [0, 0],                             // [playerA, playerB]
+  roles: ['disruptor', 'defender'],           // [playerA role, playerB role]
+  winner: null,                               // null | 'A' | 'B'
+  roundStartedAt: null,                       // Date.now() at startRound()
+  pausedAt: null,                             // Date.now() at pauseRound()
+  firstMoveFlags: { disruptor: false, defender: false }
+}
+```
+
+---
+
+### Q2: How does `endRound()` determine the winner?
+
+**Options:** (a) Read `marketState.simMultipliers.hormuz_lane` directly, (b) Prob threshold — `prob > 65` → disruptor wins, (c) Both must agree
+**Decision:** Option A — read `marketState.simMultipliers.hormuz_lane`
+**Rationale:** `hormuz_lane` is already the authoritative physical state set by weapons and `recomputeSimMultipliers()`; it is consistent with what ships display and never diverges from ship behavior.
+**Consequence:** `endRound()` is a single boolean check: `marketState.simMultipliers.hormuz_lane === 'closed'` → disruptor wins, else defender wins.
+
+---
+
+### Q3: How does PAUSE freeze the game?
+
+**Options:** (a) Keep `setInterval`, add a `paused` flag that `marketTick()` checks and returns early, (b) Replace `setInterval` with a `setTimeout` chain — pause clears pending timeout, resume reschedules for remaining ms, (c) Clear interval on pause, restart fresh interval on resume
+**Decision:** Option B — `setTimeout` chain with remaining-ms tracking
+**Rationale:** The only approach that honors remaining interval time on resume; prevents giving a free 20s to whoever unpauses.
+**Consequence:** `market-tick.js` replaces `startTick()` with `scheduleTick(delayMs)`. New exports: `pauseTick()` and `resumeTick()`. `round-controller.js` calls both.
+
+```js
+let tickTimer = null;
+let tickPausedAt = null;
+let tickRemainingMs = TICK_INTERVAL_MS;
+
+function scheduleTick(delayMs) {
+  tickTimer = setTimeout(() => { marketTick(); scheduleTick(TICK_INTERVAL_MS); }, delayMs);
+}
+function startTick() { scheduleTick(TICK_INTERVAL_MS); }
+function pauseTick() { tickPausedAt = Date.now(); clearTimeout(tickTimer); }
+function resumeTick() {
+  const elapsed = Date.now() - tickPausedAt;
+  tickRemainingMs = Math.max(0, tickRemainingMs - elapsed);
+  scheduleTick(tickRemainingMs);
+  tickRemainingMs = TICK_INTERVAL_MS;
+}
+```
+
+---
+
+### Q4: Where do operator controls render?
+
+**Options:** (a) Add to existing left control panel below the PLAY button, (b) Separate floating operator overlay, (c) Keyboard-only
+**Decision:** Option A — three buttons added to existing left control panel
+**Rationale:** Consistent with existing UI; operator already reaches this panel; no new DOM layer or CSS required.
+**Consequence:** `index.html` gets a `#roundControls` div inserted below `btnPlay`. Buttons call `startRound()`, `pauseRound()`, `resetGame()` via `onclick`.
+
+---
+
+### Q5: What does the status bar show for round and score?
+
+**Options:** (a) Extend status bar inline with new span between sbTick and sbProb, (b) Show round/score only in `#gameDashboard`, (c) New dedicated `#roundBar`
+**Decision:** Option A — new `#sbRound` span inserted between sbTick and sbProb
+**Rationale:** Status bar is the one element guaranteed visible at Movement Lab projection scale; always-on round state must live there.
+**Consequence:** Status bar reads: `SIM TICK 0042 // R1 · 08:20 · A1-B0 // PROB 72% // VESSELS 28 // HORMUZ FLOW 4%`. `updateStats()` in `simulation.js` populates `sbRound` from `marketState.round`.
+
+---
+
+### Q6: How does role swap track which player is which?
+
+**Options:** (a) Dynamically remap keys — 1–6 fires defender weapons after swap, (b) Fixed key mapping, swap the role label in `marketState.round.roles` only, (c) No explicit role tracking
+**Decision:** Option B — fixed key mapping, role label swap only
+**Rationale:** Physical seat-swap is the legible ritual for the audience; remapping keys mid-game is error-prone and confusing under live demo conditions.
+**Consequence:** Keys 1–6 always fire disruptor weapons, Q–Y always fire defender weapons. After a round, `swapRoles()` flips `marketState.round.roles` and the dashboard updates the role label. **Deferred — not in Phase 5 implementation scope.**
+
+---
+
+### Q7: Where does `round-controller.js` live in the script stack?
+
+**Options:** (a) New `js/round-controller.js` at Layer 1.5 after `market-tick.js`, (b) Append to `game-state.js`, (c) Inline in `bootstrap.js`
+**Decision:** Option A — new file at Layer 1.5 after `market-tick.js`, before `game-dashboard.js`
+**Rationale:** Follows file-per-concern pattern; must load before `bootstrap.js` since operator buttons call its functions via `onclick`; needs `pauseTick`/`resumeTick` from `market-tick.js` to already be defined.
+**Consequence:** `index.html` load order: `weapons-config.js` → `game-state.js` → `market-tick.js` → `round-controller.js` → `game-dashboard.js`.
+
+**Additional decision (same question):** `fireWeapon()` checks `marketState.round.firstMoveFlags` on each fire. First disruptor weapon in a round → `showFlash('GO DEFENDER!')`. First defender weapon → `showFlash('GO DISRUPTOR!')`. Flags reset in `startRound()`.
+
+---
+
+### Q8: What does `startRound()` reset?
+
+**Options:** (a) Reset game layer only — `prob → 50`, `activeWeapons → []`, `simMultipliers → SIM_DEFAULTS`, `actionLog → []`, `tickCount → 0`; vessels untouched, (b) Full reset including `resetSim()` — clears and respawns all vessels, (c) Reset game layer + 3-second holding screen
+**Decision:** Option A — game layer reset only, vessels untouched
+**Rationale:** `resetSim()` already exists for operator use; conflating it with round start destroys sim continuity and takes time during a live demo.
+**Consequence:** Ships on map persist across rounds. Only `marketState` game fields and `marketState.round` are reset. `marketState.round.number` increments, `scores` persists across rounds (only reset by `resetGame()`).
+
+---
+
+### Q9: How does the 10-minute countdown work?
+
+**Options:** (a) Wall-clock — `roundStartedAt = Date.now()` at start, computed each `updateStats()` frame, (b) Tick-based — `ticksRemaining` decremented each `marketTick()`, (c) Both — ticks for resolution, wall-clock for display
+**Decision:** Option A — wall-clock based
+**Rationale:** Precise to the millisecond, survives variable frame rates, pause handled by shifting `roundStartedAt` forward by paused duration.
+**Consequence:** `updateStats()` computes `remaining = 600000 - (Date.now() - marketState.round.roundStartedAt - totalPausedMs)` and formats as `mm:ss`. `endRound()` is triggered inside `updateStats()` when remaining ≤ 0 and phase is `'playing'`.
+
+---
+
+### Q10: What happens to sim and tick when `endRound()` triggers?
+
+**Options:** (a) Both loops keep running through roundEnd, (b) Auto-pause both on `endRound()` — operator must press START to begin next round, (c) Pause tick only, leave sim running
+**Decision:** Option B — auto-pause both on `endRound()`
+**Rationale:** Clean freeze with unambiguous state; operator controls when round 2 begins; prevents prob drift and weapon decay continuing while the audience reads results.
+**Consequence:** `endRound()` calls `pauseTick()` and sets `playing = false`. `startRound()` calls `resumeTick()` and sets `playing = true`.
+
+---
+
+### Q11: What does `resetGame()` do vs `startRound()`?
+
+**Options:** (a) Game layer reset + round sub-object back to initial shape + pause everything; vessels stay, (b) `resetGame()` calls `resetSim()` too — full nuclear reset, (c) `resetGame()` is just an alias for `startRound()`
+**Decision:** Option A — `resetGame()` resets game layer + full round sub-object to `phase: 'idle'`, `number: 0`, `scores: [0,0]`; pauses everything; vessels stay
+**Rationale:** Separates "reset game state" from "reset simulation" — operator may want to clear scores without wiping vessels.
+**Consequence:** RESET button returns to true idle state. `startRound()` only resets within-round state (`prob`, `activeWeapons`, `firstMoveFlags`) and increments `round.number`; it does not touch `scores`.
+
+---
+
+### Q12: How does the `gameFlash` div work technically?
+
+**Options:** (a) Single fixed div, CSS transition on `visible` class, `showFlash(text, durationMs)` helper, (b) CSS keyframe animation, auto-removes via `animationend`, (c) Render inside `#gameDashboard`
+**Decision:** Option A — single `#gameFlash` div, CSS opacity transition, `showFlash()` helper
+**Rationale:** Simple, no dependencies, interruptible (new flash can immediately replace old one), works at projection scale.
+**Consequence:** `index.html` gets `<div id="gameFlash"></div>`. CSS: `position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 4rem; font-weight: 900; font-family: monospace; opacity: 0; transition: opacity 0.2s`. `showFlash(text, ms=2000)` sets textContent, adds class `visible`, clears after `ms`. Called by `startRound()`, `endRound()`, `pauseRound()`, `resumeRound()`, `resetGame()`, and `fireWeapon()` (first-move prompts).
+
+---
+
+## Phase 5 Implementation Plan
+
+### Step 1 — Extend `marketState` with `round` sub-object in `js/game-state.js`
+
+**Action:** Add `round` field to `marketState`. Add `firstMoveFlags` check to `fireWeapon()` — on first disruptor fire call `showFlash('GO DEFENDER!')`, on first defender fire call `showFlash('GO DISRUPTOR!')`.
+
+**Visible change:** None until operator presses START. `fireWeapon()` now conditionally calls `showFlash()` on first move.
+
+**If skipped:** `round-controller.js` has no state object to read or write; all round functions throw.
+
+---
+
+### Step 2 — Refactor `market-tick.js`: `setInterval` → `setTimeout` chain, add `pauseTick()` / `resumeTick()`
+
+**Action:** Replace `startTick()` body with `scheduleTick(TICK_INTERVAL_MS)`. Add `pauseTick()` and `resumeTick()` as exported functions.
+
+**Visible change:** None — behavior identical to current until pause is called.
+
+**If skipped:** Pause cannot honor remaining interval time; `round-controller.js` has no pause/resume primitives.
+
+---
+
+### Step 3 — Create `js/round-controller.js` with `startRound()`, `endRound()`, `pauseRound()`, `resumeRound()`, `resetGame()`
+
+**Action:** New file. Functions:
+- `startRound()` — resets game layer, increments `round.number`, sets `phase: 'playing'`, stores `roundStartedAt`, calls `resumeTick()`, sets `playing = true`, calls `showFlash('ROUND N — BEGIN')`
+- `endRound()` — reads `hormuz_lane`, sets winner, updates `scores`, sets `phase: 'roundEnd'`, calls `pauseTick()`, sets `playing = false`, calls `showFlash('ROUND N — X WINS')`, checks best-of-3
+- `pauseRound()` — stores `pausedAt`, calls `pauseTick()`, sets `playing = false`, calls `showFlash('PAUSED')`
+- `resumeRound()` — shifts `roundStartedAt` by paused duration, calls `resumeTick()`, sets `playing = true`, calls `showFlash('RESUMED')`
+- `resetGame()` — resets everything to idle, calls `pauseTick()`, sets `playing = false`, calls `showFlash('GAME RESET')`
+
+**Visible change:** None until wired into HTML. Functions defined globally.
+
+**If skipped:** Operator buttons have no functions to call; `onclick` handlers throw.
+
+---
+
+### Step 4 — Add `#gameFlash` div and CSS to `index.html`
+
+**Action:** Add `<div id="gameFlash"></div>` before status bar. Add CSS for fixed center positioning, 4rem monospace, opacity transition. Add `showFlash()` helper as an inline script or in `round-controller.js`.
+
+**Visible change:** Nothing until `showFlash()` is called. DOM element present but invisible.
+
+**If skipped:** `showFlash()` calls throw `getElementById` null error.
+
+---
+
+### Step 5 — Add operator buttons to control panel and `#sbRound` to status bar in `index.html`
+
+**Action:** Insert `#roundControls` div below `btnPlay` in left panel with START ROUND, PAUSE, RESET buttons. Insert `<span id="sbRound">// R0 · --:-- · A0-B0</span>` between `sbTick` and `sbProb` in status bar.
+
+**Visible change:** Three new buttons appear in control panel. Status bar gains round/timer/score segment showing idle defaults.
+
+**If skipped:** Operator has no UI controls; status bar shows no round state.
+
+---
+
+### Step 6 — Add round countdown and `endRound()` trigger to `updateStats()` in `js/simulation.js`
+
+**Action:** In `updateStats()`, if `marketState.round.phase === 'playing'`: compute `remaining`, format as `mm:ss`, write to `sbRound`. If `remaining <= 0`: call `endRound()`. Otherwise populate `sbRound` with idle/roundEnd defaults.
+
+**Visible change:** Status bar timer counts down live during a round. `endRound()` fires automatically at zero.
+
+**If skipped:** Timer never displays; round never auto-ends; operator must manually trigger `endRound()`.
+
+---
+
+### Step 7 — Add `<script src="js/round-controller.js">` to `index.html` at Layer 1.5
+
+**Action:** Insert after `market-tick.js`, before `game-dashboard.js`.
+
+**Visible change:** None — scripts load silently.
+
+**If skipped:** `startRound` / `pauseRound` / `resetGame` are undefined; operator buttons throw on click.
+
+---
+
+### Step 8 — Tests in `tests/phase-05-round-controller.html`
+
+TDD slices:
+1. `startRound()` sets `phase: 'playing'`, `prob: 50`, `activeWeapons: []`, increments `round.number`
+2. `endRound()` with `hormuz_lane: 'closed'` → disruptor wins, score increments
+3. `endRound()` with `hormuz_lane: 'open'` → defender wins, score increments
+4. Best-of-3: scores `[2,0]` after `endRound()` → `phase: 'over'`
+5. `resetGame()` → `phase: 'idle'`, `scores: [0,0]`, `number: 0`
+6. `pauseRound()` freezes phase, `resumeRound()` restores it
+7. `firstMoveFlags` — first disruptor fire triggers `showFlash('GO DEFENDER!')`, flag set, second fire does not re-trigger
+
+---
+
+## Implementation Record: Phase 5 — Round Controller
+
+**Date:** 2026-04-28
+**Status:** Complete — 7 tests, all GREEN
+
+### What was built
+
+| File | Change |
+|---|---|
+| `js/game-state.js` | Added `round` sub-object to `marketState`; added `firstMoveFlags` check in `fireWeapon()` |
+| `js/market-tick.js` | Refactored `setInterval` → `setTimeout` chain; added `pauseTick()`, `resumeTick()`, `clearTimeout` guard in `resumeTick()` to prevent double-scheduling |
+| `js/round-controller.js` | New file — `startRound()`, `endRound()`, `pauseRound()`, `resumeRound()`, `togglePauseRound()`, `resetGame()` |
+| `index.html` | `#gameFlash` div + CSS; `showFlash()` inline script; `#roundControls` operator buttons (START/PAUSE/RESET); `#sbRound` span in status bar; `<script src="js/round-controller.js">` at Layer 1.5 |
+| `js/simulation.js` | `updateStats()` populates `#sbRound` with `R1 · 08:20 · A0-B0`; triggers `endRound()` when countdown hits zero |
+| `tests/phase-05-round-controller.html` | New — 7 tests, all GREEN |
+
+### marketState.round shape
+
+```js
+round: {
+  phase: 'idle',           // 'idle' | 'playing' | 'roundEnd' | 'over'
+  number: 0,               // increments on each startRound()
+  scores: [0, 0],          // [playerA, playerB] — persists across rounds
+  roles: ['disruptor', 'defender'],
+  winner: null,            // null | 'A' | 'B'
+  roundStartedAt: null,    // Date.now() at startRound()
+  pausedAt: null,          // Date.now() at pauseRound(), null when resumed
+  totalPausedMs: 0,        // accumulated pause duration for accurate countdown
+  firstMoveFlags: { disruptor: false, defender: false }
+}
+```
+
+### Round lifecycle
+
+```
+idle → startRound() → playing → endRound() → roundEnd → startRound() → playing
+                                           → over (if 2 wins reached)
+playing → pauseRound() → [paused] → resumeRound() → playing
+any → resetGame() → idle
+```
+
+### Status bar format
+
+| Phase | Display |
+|---|---|
+| idle | `// R0 · --:-- · A0-B0` |
+| playing | `// R1 · 08:20 · A0-B0` (live countdown) |
+| roundEnd / over | `// R1 END · A1-B0` |
+
+### gameFlash triggers
+
+| Event | Flash text |
+|---|---|
+| `startRound()` | `ROUND N — BEGIN` |
+| `endRound()` disruptor wins | `ROUND N — DISRUPTOR WINS` |
+| `endRound()` defender wins | `ROUND N — DEFENDER WINS` |
+| `endRound()` game over | `GAME OVER — PLAYER A/B WINS` |
+| `pauseRound()` | `PAUSED` |
+| `resumeRound()` | `RESUMED` |
+| `resetGame()` | `GAME RESET` |
+| First disruptor weapon | `GO DEFENDER!` |
+| First defender weapon | `GO DISRUPTOR!` |
+
+### Test results (tests/phase-05-round-controller.html)
+
+| Slice | Behaviour | Result |
+|---|---|---|
+| 1 | `startRound()` sets phase 'playing', prob 50, clears weapons, increments round.number | GREEN |
+| 2 | `endRound()` hormuz_lane closed → disruptor score increments, winner 'A' | GREEN |
+| 3 | `endRound()` hormuz_lane open → defender score increments, winner 'B' | GREEN |
+| 4 | Best-of-3: two disruptor wins → phase 'over', scores [2,0] | GREEN |
+| 5 | `resetGame()` → phase 'idle', scores [0,0], number 0, prob 50 | GREEN |
+| 6 | `pauseRound()` freezes tick + sim; `resumeRound()` restores both | GREEN |
+| 7 | First disruptor fire sets `firstMoveFlags.disruptor`, flashes 'GO DEFENDER!', second fire no-ops flash | GREEN |
