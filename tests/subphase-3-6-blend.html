@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Subphase 3.6 — Audience Blend Tests</title>
+<style>
+  body { font-family: monospace; padding: 20px; background: #111; color: #eee; }
+  .pass { color: #22c55e; }
+  .fail { color: #ef4444; }
+  h2 { color: #888; font-size: 12px; letter-spacing: 0.1em; margin-top: 20px; }
+  hr { border-color: #333; margin: 16px 0; }
+</style>
+</head>
+<body>
+<h1 style="font-size:13px;letter-spacing:0.1em;">SUBPHASE 3.6 · AUDIENCE BLEND</h1>
+<div id="results"></div>
+
+<!-- Mock DOM elements that market_screen.html must have after implementation -->
+<div style="display:none">
+  <span id="audiencePrice">50¢</span>
+  <span id="totalInvested">$0</span>
+  <span id="yesPrice">51¢</span>
+  <span id="noPrice">49¢</span>
+  <span id="yesChance">51% chance</span>
+  <span id="noChance">49% chance</span>
+</div>
+
+<script>
+  let passed = 0, failed = 0;
+  const out = document.getElementById('results');
+
+  function assert(id, condition, note) {
+    if (condition) {
+      passed++;
+      out.innerHTML += `<div class="pass">PASS ${id} — ${note}</div>`;
+    } else {
+      failed++;
+      out.innerHTML += `<div class="fail">FAIL ${id} — ${note}</div>`;
+    }
+  }
+
+  // ── SLICE 1: Blend formula ─────────────────────────────────────────
+  // Contract: displayProb = 0.7 * gameProb + 0.3 * audienceMarketPrice
+  out.innerHTML += '<h2>SLICE 1 · BLEND FORMULA</h2>';
+
+  function blendProb(gameProb, audiencePrice) {
+    return 0.7 * gameProb + 0.3 * audiencePrice;
+  }
+
+  // No bets yet (audiencePrice defaults to 0.5) — barely moves from game
+  assert('s1a', Math.abs(blendProb(0.51, 0.5) - 0.507) < 0.001,
+    'game=0.51 audience=0.5(default) → 0.507');
+
+  // Real scenario from screenshots: game=0.08, audience=0.53
+  assert('s1b', Math.abs(blendProb(0.08, 0.53) - 0.215) < 0.001,
+    'game=0.08 audience=0.53 → 0.215');
+
+  // Extremes: audience can't fully override game
+  assert('s1c', Math.abs(blendProb(1.0, 0.0) - 0.7) < 0.001,
+    'game=1.0 audience=0.0 → 0.7 (game floor)');
+  assert('s1d', Math.abs(blendProb(0.0, 1.0) - 0.3) < 0.001,
+    'game=0.0 audience=1.0 → 0.3 (game ceiling)');
+
+  // YES + NO always sum to exactly 1
+  const dp = blendProb(0.6, 0.4);
+  assert('s1e', Math.abs(dp + (1 - dp) - 1.0) < 0.001,
+    'displayProb + (1-displayProb) = 1.0');
+
+  // ── SLICE 2: Dollar amount calculation ─────────────────────────────
+  // Contract: totalInvested = (betsOpen + betsClosed) * 100
+  out.innerHTML += '<h2>SLICE 2 · DOLLAR AMOUNT</h2>';
+
+  function calcInvested(betsOpen, betsClosed) {
+    return (betsOpen + betsClosed) * 100;
+  }
+
+  assert('s2a', calcInvested(0, 0) === 0,       '0 bets → $0');
+  assert('s2b', calcInvested(8, 4) === 1200,     '12 bets → $1,200');
+  assert('s2c', calcInvested(1, 0) === 100,      '1 bet → $100');
+  assert('s2d', calcInvested(50, 50) === 10000,  '100 bets → $10,000');
+
+  // ── SLICE 3: Header DOM — audienceWs.onmessage updates both spans ──
+  // Contract: audiencePrice shows cents, totalInvested shows $X,XXX
+  out.innerHTML += '<h2>SLICE 3 · HEADER DOM UPDATE</h2>';
+
+  function handleAudienceMsg(msg) {
+    document.getElementById('audiencePrice').textContent =
+      Math.round(msg.marketPrice * 100) + '¢';
+    const total = (msg.betsOpen + msg.betsClosed) * 100;
+    document.getElementById('totalInvested').textContent =
+      '$' + total.toLocaleString();
+  }
+
+  handleAudienceMsg({ marketPrice: 0.53, betsOpen: 8, betsClosed: 4, connectedCount: 3 });
+
+  assert('s3a',
+    document.getElementById('audiencePrice').textContent === '53¢',
+    'audiencePrice span → "53¢"');
+  assert('s3b',
+    document.getElementById('totalInvested').textContent === '$1,200',
+    'totalInvested span → "$1,200"');
+
+  // Reset to 0 bets — dollar shows $0
+  handleAudienceMsg({ marketPrice: 0.5, betsOpen: 0, betsClosed: 0, connectedCount: 0 });
+  assert('s3c',
+    document.getElementById('totalInvested').textContent === '$0',
+    'zero bets → "$0"');
+
+  // ── SLICE 4: YES/NO DOM uses blended displayProb ───────────────────
+  // Contract: tick() computes displayProb, uses it for cent display
+  out.innerHTML += '<h2>SLICE 4 · YES/NO BLEND DISPLAY</h2>';
+
+  function renderPrices(gameProb, audienceMarketPrice) {
+    const displayProb = 0.7 * gameProb + 0.3 * audienceMarketPrice;
+    const yesCents = Math.round(displayProb * 100);
+    const noCents = 100 - yesCents;
+    document.getElementById('yesPrice').textContent = yesCents + '¢';
+    document.getElementById('noPrice').textContent = noCents + '¢';
+    document.getElementById('yesChance').textContent = yesCents + '% chance';
+    document.getElementById('noChance').textContent = noCents + '% chance';
+  }
+
+  // Screenshot scenario: game 8% (ship prob 92%), audience 53% → blended 22%
+  renderPrices(0.08, 0.53);
+  assert('s4a', document.getElementById('yesPrice').textContent === '22¢',
+    'game=8% audience=53% → YES 22¢ (blended)');
+  assert('s4b', document.getElementById('noPrice').textContent === '78¢',
+    'NO = 100 - YES → 78¢');
+  assert('s4c', document.getElementById('yesChance').textContent === '22% chance',
+    'yesChance label matches');
+
+  // Default state: game 51%, audience 50% (no bets) → 51¢ (barely changes)
+  renderPrices(0.51, 0.5);
+  assert('s4d', document.getElementById('yesPrice').textContent === '51¢',
+    'default: game=51% audience=50% → YES 51¢');
+
+  // Audience all-in on open while game says 50/50 → pulls YES up
+  renderPrices(0.5, 1.0);
+  assert('s4e', document.getElementById('yesPrice').textContent === '65¢',
+    'game=50% audience=100% → YES 65¢ (audience nudge)');
+
+  // ── SUMMARY ────────────────────────────────────────────────────────
+  out.innerHTML += `<hr>
+    <div style="font-size:13px;font-weight:500;">
+      ${passed} passed, ${failed} failed
+    </div>`;
+</script>
+</body>
+</html>

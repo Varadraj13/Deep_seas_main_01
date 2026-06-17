@@ -179,7 +179,7 @@
   <div class="contract-q">
     <span id="contractQ">When will traffic at the Strait of Hormuz return to normal?</span>
   </div>
-  <div class="vol-label">AUDIENCE <span id="audiencePrice">50¢</span></div>
+  <div class="vol-label">AUDIENCE <span id="audiencePrice">50¢</span> · <span id="totalInvested">$0</span></div>
 </header>
 
 <main>
@@ -257,13 +257,18 @@
 
   // ── STATE ────────────────────────────────────────────────────────
   let yesProb = 0.51;
+  let audienceMarketPrice = 0.5;
 
   // ── AUDIENCE WS ─────────────────────────────────────────────────
   const audienceWs = new WebSocket(SERVER_URL.replace(/^http/, 'ws'));
   audienceWs.onmessage = function(e) {
     const msg = JSON.parse(e.data);
+    audienceMarketPrice = msg.marketPrice;
     document.getElementById('audiencePrice').textContent =
       Math.round(msg.marketPrice * 100) + '¢';
+    const total = (msg.betsOpen + msg.betsClosed) * 100;
+    document.getElementById('totalInvested').textContent =
+      '$' + total.toLocaleString();
   };
 
   // ── BROADCAST LISTENER ──────────────────────────────────────────
@@ -368,13 +373,15 @@
 
   // ── UPDATE LOOP ──────────────────────────────────────────────────
   function tick() {
-    yesHistory.push(yesProb);
+    const displayProb = 0.7 * yesProb + 0.3 * audienceMarketPrice;
+
+    yesHistory.push(displayProb);
     if (yesHistory.length > HISTORY_LEN) yesHistory.shift();
-    noHistory.push(1 - yesProb);
+    noHistory.push(1 - displayProb);
     if (noHistory.length > HISTORY_LEN) noHistory.shift();
 
     // Update price displays
-    const yesCents = Math.round(yesProb * 100);
+    const yesCents = Math.round(displayProb * 100);
     const noCents = 100 - yesCents;
     document.getElementById('yesPrice').textContent = yesCents + '¢';
     document.getElementById('noPrice').textContent = noCents + '¢';
@@ -386,8 +393,8 @@
     if (noCtx)  drawChart(noCtx, noHistory, 'rgba(239,68,68,1)', document.getElementById('noChart'));
 
     // Render player tables
-    renderPlayers('yesPlayers', YES_PLAYERS, yesProb);
-    renderPlayers('noPlayers', NO_PLAYERS, yesProb);
+    renderPlayers('yesPlayers', YES_PLAYERS, displayProb);
+    renderPlayers('noPlayers', NO_PLAYERS, displayProb);
 
   }
 
