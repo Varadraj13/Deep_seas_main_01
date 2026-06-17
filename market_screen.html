@@ -190,6 +190,7 @@
         <div class="side-label">Yes</div>
         <div class="side-price" id="yesPrice">51¢</div>
         <div class="side-sub" id="yesChance">51% chance</div>
+        <div class="side-sub" id="yesInvested">$0</div>
       </div>
     </div>
     <div class="chart-wrap">
@@ -210,6 +211,7 @@
         <div class="side-label">No</div>
         <div class="side-price" id="noPrice">50¢</div>
         <div class="side-sub" id="noChance">49% chance</div>
+        <div class="side-sub" id="noInvested">$0</div>
       </div>
     </div>
     <div class="chart-wrap">
@@ -269,6 +271,10 @@
     const total = (msg.betsOpen + msg.betsClosed) * 100;
     document.getElementById('totalInvested').textContent =
       '$' + total.toLocaleString();
+    document.getElementById('yesInvested').textContent =
+      '$' + (msg.betsOpen * 100).toLocaleString();
+    document.getElementById('noInvested').textContent =
+      '$' + (msg.betsClosed * 100).toLocaleString();
   };
 
   // ── BROADCAST LISTENER ──────────────────────────────────────────

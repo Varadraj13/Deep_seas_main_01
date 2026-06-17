@@ -23,6 +23,8 @@
   <span id="noPrice">49¢</span>
   <span id="yesChance">51% chance</span>
   <span id="noChance">49% chance</span>
+  <span id="yesInvested">$0</span>
+  <span id="noInvested">$0</span>
 </div>
 
 <script>
@@ -138,6 +140,40 @@
   renderPrices(0.5, 1.0);
   assert('s4e', document.getElementById('yesPrice').textContent === '65¢',
     'game=50% audience=100% → YES 65¢ (audience nudge)');
+
+  // ── SLICE 5: Per-side invested display ────────────────────────────
+  // Contract: betsOpen → yesInvested ($), betsClosed → noInvested ($)
+  // OPEN bet = betting strait stays open = YES; CLOSED = NO
+  out.innerHTML += '<h2>SLICE 5 · PER-SIDE INVESTED</h2>';
+
+  function handleAudienceMsgFull(msg) {
+    document.getElementById('audiencePrice').textContent =
+      Math.round(msg.marketPrice * 100) + '¢';
+    const total = (msg.betsOpen + msg.betsClosed) * 100;
+    document.getElementById('totalInvested').textContent =
+      '$' + total.toLocaleString();
+    document.getElementById('yesInvested').textContent =
+      '$' + (msg.betsOpen * 100).toLocaleString();
+    document.getElementById('noInvested').textContent =
+      '$' + (msg.betsClosed * 100).toLocaleString();
+  }
+
+  handleAudienceMsgFull({ marketPrice: 0.67, betsOpen: 8, betsClosed: 4, connectedCount: 5 });
+  assert('s5a', document.getElementById('yesInvested').textContent === '$800',
+    'betsOpen=8 → yesInvested $800');
+  assert('s5b', document.getElementById('noInvested').textContent === '$400',
+    'betsClosed=4 → noInvested $400');
+
+  // YES + NO = total
+  const yv = parseInt(document.getElementById('yesInvested').textContent.replace(/\D/g,''));
+  const nv = parseInt(document.getElementById('noInvested').textContent.replace(/\D/g,''));
+  const tv = parseInt(document.getElementById('totalInvested').textContent.replace(/\D/g,''));
+  assert('s5c', yv + nv === tv, 'yesInvested + noInvested = totalInvested');
+
+  // Zero state
+  handleAudienceMsgFull({ marketPrice: 0.5, betsOpen: 0, betsClosed: 0, connectedCount: 0 });
+  assert('s5d', document.getElementById('yesInvested').textContent === '$0', 'zero bets → $0 each');
+  assert('s5e', document.getElementById('noInvested').textContent === '$0', 'zero bets → $0 each');
 
   // ── SUMMARY ────────────────────────────────────────────────────────
   out.innerHTML += `<hr>
