@@ -1,1 +1,1 @@
-const SERVER_URL = 'http://localhost:3000'; // REPLACE AFTER DEPLOY
+const SERVER_URL = 'https://deep-seas-main-01.onrender.com';
