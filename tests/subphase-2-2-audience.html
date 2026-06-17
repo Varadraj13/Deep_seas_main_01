@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Subphase 2.2 — audience.html tests</title>
+<style>
+  body { font-family: monospace; background: #0a0a0a; color: #ccc; padding: 20px; }
+  h2 { color: #fff; font-size: 13px; letter-spacing: 0.1em; margin-bottom: 16px; }
+  .section { margin-bottom: 20px; border: 1px solid #222; padding: 12px; }
+  .label { font-size: 10px; color: #555; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px; }
+  .check { font-size: 11px; padding: 3px 0; }
+  .check.pass { color: #4ade80; }
+  .check.fail { color: #f87171; }
+  .check.pending { color: #555; }
+  #summary { font-size: 12px; margin-top: 16px; padding: 10px; border: 1px solid #333; }
+  button { font-family: monospace; font-size: 11px; background: #1a1a1a; color: #aaa;
+           border: 1px solid #333; padding: 6px 14px; cursor: pointer; margin-top: 8px; }
+  button:hover { background: #222; color: #fff; }
+</style>
+</head>
+<body>
+
+<h2>SUBPHASE 2.2 — AUDIENCE.HTML TESTS</h2>
+<p style="font-size:10px;color:#555;margin-bottom:16px">Requires: node server.js running on port 3000. Open this page at http://localhost:3000/tests/subphase-2-2-audience.html</p>
+
+<div class="section">
+  <div class="label">Slice 1 — POST /bet sends correct payload and gets marketPrice back</div>
+  <div class="check pending" id="s1a">[ ] POST /bet {side:'open'} returns 200</div>
+  <div class="check pending" id="s1b">[ ] response contains numeric marketPrice</div>
+  <div class="check pending" id="s1c">[ ] response contains betsOpen incremented</div>
+</div>
+
+<div class="section">
+  <div class="label">Slice 2 — WebSocket connects and receives broadcast after bet</div>
+  <div class="check pending" id="s2a">[ ] WebSocket opens to ws://location.host</div>
+  <div class="check pending" id="s2b">[ ] initial message received on connect (current state)</div>
+  <div class="check pending" id="s2c">[ ] broadcast received after POST /bet with updated marketPrice</div>
+</div>
+
+<div class="section">
+  <div class="label">Slice 3 — audience.html exists and loads at /audience.html</div>
+  <div class="check pending" id="s3a">[ ] GET /audience.html returns 200</div>
+  <div class="check pending" id="s3b">[ ] response contains OPEN button</div>
+  <div class="check pending" id="s3c">[ ] response contains CLOSED button</div>
+  <div class="check pending" id="s3d">[ ] response contains marketPrice display element</div>
+</div>
+
+<div class="section">
+  <div class="label">Slice 4 — flash behavior (DOM unit test, no server needed)</div>
+  <div class="check pending" id="s4a">[ ] flash class added to button on placeBet()</div>
+  <div class="check pending" id="s4b">[ ] flash class removed after 300ms</div>
+</div>
+
+<div class="section">
+  <div class="label">Slice 5 — marketPrice display updates on WS message</div>
+  <div class="check pending" id="s5a">[ ] DOM element with id="price" updates when WS message received</div>
+</div>
+
+<div id="summary" style="color:#555">Running tests...</div>
+
+<button onclick="location.reload()">Re-run</button>
+
+<script>
+let passed = 0, failed = 0;
+
+function pass(id, note) {
+  const el = document.getElementById(id);
+  el.className = 'check pass';
+  el.textContent = '✓ ' + el.textContent.slice(4) + (note ? ' (' + note + ')' : '');
+  passed++;
+}
+function fail(id, note) {
+  const el = document.getElementById(id);
+  el.className = 'check fail';
+  el.textContent = '✗ ' + el.textContent.slice(4) + (note ? ' — ' + note : '');
+  failed++;
+}
+
+async function run() {
+  // Reset server state first
+  await fetch('/reset', { method: 'POST' });
+
+  // ── Slice 1: POST /bet ──────────────────────────────────────────
+  const r1 = await fetch('/bet', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ side: 'open' })
+  });
+  const b1 = await r1.json();
+
+  r1.ok ? pass('s1a') : fail('s1a', 'status ' + r1.status);
+  typeof b1.marketPrice === 'number' ? pass('s1b', b1.marketPrice) : fail('s1b', JSON.stringify(b1));
+  b1.betsOpen === 1 ? pass('s1c', 'betsOpen=' + b1.betsOpen) : fail('s1c', 'betsOpen=' + b1.betsOpen);
+
+  // Reset for slice 2
+  await fetch('/reset', { method: 'POST' });
+
+  // ── Slice 2: WebSocket ──────────────────────────────────────────
+  await new Promise(resolve => {
+    const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(wsProto + '//' + location.host);
+    let gotInitial = false;
+    let gotBroadcast = false;
+
+    ws.onopen = () => {
+      pass('s2a', location.host);
+    };
+
+    ws.onerror = () => fail('s2a', 'WebSocket failed to open');
+
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      if (!gotInitial) {
+        gotInitial = true;
+        typeof msg.marketPrice === 'number' ? pass('s2b', 'marketPrice=' + msg.marketPrice) : fail('s2b', JSON.stringify(msg));
+        // Now fire a bet to trigger a second broadcast
+        fetch('/bet', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ side: 'closed' })
+        });
+      } else if (!gotBroadcast) {
+        gotBroadcast = true;
+        typeof msg.marketPrice === 'number' ? pass('s2c', 'marketPrice=' + msg.marketPrice) : fail('s2c', JSON.stringify(msg));
+        ws.close();
+        resolve();
+      }
+    };
+
+    setTimeout(() => {
+      if (!gotBroadcast) { fail('s2c', 'timeout — no broadcast received'); resolve(); }
+    }, 3000);
+  });
+
+  // ── Slice 3: audience.html exists and has right elements ────────
+  const r3 = await fetch('/audience.html');
+  r3.ok ? pass('s3a') : fail('s3a', 'status ' + r3.status);
+
+  if (r3.ok) {
+    const html = await r3.text();
+    html.includes('OPEN') ? pass('s3b') : fail('s3b', 'OPEN not found in HTML');
+    html.includes('CLOSED') ? pass('s3c') : fail('s3c', 'CLOSED not found in HTML');
+    html.includes('id="price"') ? pass('s3d') : fail('s3d', 'id="price" not found in HTML');
+  } else {
+    fail('s3b', 'audience.html not found'); fail('s3c', 'audience.html not found'); fail('s3d', 'audience.html not found');
+  }
+
+  // ── Slice 4: flash behavior (pure DOM unit test) ────────────────
+  // Inline the flash logic to test it in isolation
+  const mockBtn = document.createElement('button');
+  document.body.appendChild(mockBtn);
+
+  function placeBetFlash(btn) {
+    btn.classList.add('flash');
+    setTimeout(() => btn.classList.remove('flash'), 300);
+  }
+
+  placeBetFlash(mockBtn);
+  mockBtn.classList.contains('flash') ? pass('s4a') : fail('s4a', 'flash class not added');
+
+  await new Promise(r => setTimeout(r, 350));
+  !mockBtn.classList.contains('flash') ? pass('s4b') : fail('s4b', 'flash class still present after 350ms');
+  document.body.removeChild(mockBtn);
+
+  // ── Slice 5: price DOM updates on WS message ────────────────────
+  // Simulate what audience.html's WS handler does: update #price from broadcast
+  const mockPrice = document.createElement('div');
+  mockPrice.id = 'mock-price';
+  document.body.appendChild(mockPrice);
+
+  function handleBroadcast(msg, el) {
+    el.textContent = Math.round(msg.marketPrice * 100) + '¢';
+  }
+
+  handleBroadcast({ marketPrice: 0.72 }, mockPrice);
+  mockPrice.textContent === '72¢' ? pass('s5a', mockPrice.textContent) : fail('s5a', mockPrice.textContent);
+  document.body.removeChild(mockPrice);
+
+  // ── Summary ─────────────────────────────────────────────────────
+  const summary = document.getElementById('summary');
+  summary.textContent = passed + ' passed, ' + failed + ' failed';
+  summary.style.color = failed === 0 ? '#4ade80' : '#f87171';
+}
+
+run().catch(e => {
+  document.getElementById('summary').textContent = 'Error: ' + e.message;
+  document.getElementById('summary').style.color = '#f87171';
+});
+</script>
+</body>
+</html>

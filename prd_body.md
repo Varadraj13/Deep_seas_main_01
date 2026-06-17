@@ -1839,3 +1839,1200 @@ any → resetGame() → idle
 | 5 | `resetGame()` → phase 'idle', scores [0,0], number 0, prob 50 | GREEN |
 | 6 | `pauseRound()` freezes tick + sim; `resumeRound()` restores both | GREEN |
 | 7 | First disruptor fire sets `firstMoveFlags.disruptor`, flashes 'GO DEFENDER!', second fire no-ops flash | GREEN |
+
+---
+
+## Post-Phase-5 Corrections — Identified Issues
+
+Four issues discovered during live testing that need to be addressed before the demo. Grouped into three phases by concern.
+
+| # | Issue | Root cause | Phase |
+|---|---|---|---|
+| 1 | gameFlash only fires on first weapon per player per round | `firstMoveFlags` guard in `game-state.js:82` prevents subsequent flashes | Phase 5a |
+| 2 | Ship speed and HORMUZ FLOW % do not change when weapons are active | `avgSpeed` (simulation.js:198) and `flowPct` (simulation.js:207) both use raw `v.speed`, ignoring `speedMult`; speed change is also instant (no lerp) | Phase 5b |
+| 3 | No End Game button — operator cannot declare a winner mid-round | No `endGameNow()` function exists; `endRound()` only feeds the best-of-3 round system | Phase 5a |
+| 4 | No live activity feed showing what weapons were played and why prob is moving | `actionLog` is internal state; no scrolling visible feed on screen or on market projection | Phase 5c |
+
+**Note on numbering:** Existing issues/06 through issues/13 define Phases 6–13 (MKTS panel, market screen extension, object detection, etc.). These correction phases are numbered 5a/5b/5c to slot between Phase 5 and the planned Phase 6 without renumbering the existing issue queue.
+
+**Note on overlap with Phase 7 (market_screen extension):** Phase 5c introduces BroadcastChannel infrastructure to sync live state from index.html to market_screen.html. Phase 7 (issues/07) specifies a similar "shared mechanism (localStorage, BroadcastChannel, or WebSocket)" requirement. Phase 5c intentionally lays that foundation early so Phase 7 can build the full market screen UI on top of it rather than having to retrofit the sync layer. Phase 7 should be scoped to the market_screen UI work (flow_ratio bar, color thresholds, audience leaderboard placeholder) and can assume the BroadcastChannel is already live.
+
+---
+
+## Grill Report: Phase 5a — gameFlash Fix + End Game Button
+
+**Date:** 2026-04-28
+**Features:** (a) Flash on every weapon fire with weapon name and effect. (b) Operator END GAME button that immediately declares the winner.
+
+---
+
+### Q1: What should the flash text say when a weapon fires?
+
+**Options:** (a) Short: `D01 ACTIVE`, (b) Rich: `DISRUPTOR · D01 STRAIT BLOCKADE +22%`, (c) Two-line: weapon name on line 1, prob change on line 2
+
+**Decision:** Option (b) — `DISRUPTOR · D01 STRAIT BLOCKADE +22%` (or `DEFENDER · R01 NAVAL ESCORT −18%`)
+
+**Rationale:** Legible at Movement Lab projection scale in one glance. Role prefix tells the audience who played. Weapon name and delta tell them what happened and how much it matters. Two-line would require layout changes; single line stays within existing `#gameFlash` CSS.
+
+**Consequence:** `fireWeapon()` must format the string at fire time: `weapon.player.toUpperCase() + ' · ' + id + ' ' + weapon.name.toUpperCase() + ' ' + sign + delta + '%'`. This replaces the `firstMoveFlags` conditional flash.
+
+---
+
+### Q2: What happens to "GO DEFENDER!" / "GO DISRUPTOR!" first-move prompts?
+
+**Options:** (a) Remove entirely — per-weapon flash replaces them, (b) Keep as a pre-flash before the weapon flash, (c) Move them to `#gameDashboard` as a persistent call-to-action
+
+**Decision:** Option (a) — remove entirely
+
+**Rationale:** The first-move prompts were designed to cue the other player. Now that every weapon fires a flash, the audience sees the play immediately — the prompt adds no information beyond what the weapon flash already communicates. Removing the `firstMoveFlags` guard also simplifies `fireWeapon()`.
+
+**Consequence:** `firstMoveFlags` field remains in `marketState.round` (round controller resets it in `startRound()`) but `fireWeapon()` no longer reads it. The field becomes unused — it can be removed in a future cleanup, but removing it now would require changing the test in `tests/phase-05-round-controller.html` (Slice 7 tests the flag behavior), so leave it in place.
+
+---
+
+### Q3: What does END GAME do — end the current round or end the whole game?
+
+**Options:** (a) Calls `endRound()` immediately, feeding into best-of-3 scoring, (b) New `endGameNow()` — reads `hormuz_lane`, immediately sets `phase: 'over'`, bypasses scoring, (c) Prompts operator to confirm before acting
+
+**Decision:** Option (b) — new `endGameNow()` that bypasses round scoring
+
+**Rationale:** The operator needs a "hard stop" that works regardless of what round it is or what the scores are. A demo can go wrong; the operator needs to be able to declare the game over on the spot. This is semantically different from `endRound()` — it's a game-layer override, not a round-level event. No confirmation needed in a live demo context; the button's label and position make its purpose clear.
+
+**Consequence:** `round-controller.js` gets a new `endGameNow()` function. It reads `hormuz_lane`, resolves a winner, sets `marketState.round.phase = 'over'`, calls `pauseTick()`, sets `playing = false`, and flashes the result. Score arrays are NOT updated — this is a declaration, not a scoring event. The new button in `#roundControls` calls `endGameNow()` via `onclick`.
+
+---
+
+### Q4: What does the END GAME flash text say?
+
+**Decision:** Two cases:
+- `hormuz_lane === 'closed'`: `STRAIT CLOSED — DISRUPTOR WINS`
+- `hormuz_lane === 'open'` (default): `STRAIT OPEN — DEFENDER WINS`
+
+Duration: 4000ms (longer than weapon flashes at 2000ms — this is the final moment of the game and should linger).
+
+---
+
+### Q5: Where does the END GAME button sit in the UI?
+
+**Options:** (a) Fourth button in `#roundControls` alongside START / PAUSE / RESET, (b) Separate `#endGameControls` div with its own section, (c) Only keyboard-accessible
+
+**Decision:** Option (a) — fourth button in `#roundControls`, styled red (`background: #7f1d1d`, `color: #fca5a5`) to distinguish it from the operational buttons
+
+**Rationale:** Operator already reaches `#roundControls`; adding a fourth button keeps all round management in one place. The red color signals "destructive / final" — distinct from the grey-styled START / PAUSE / RESET.
+
+**Consequence:** No new DOM structure. `index.html` adds one `<button>` element to the existing `#roundControls` div.
+
+---
+
+## Phase 5a Implementation Plan
+
+### Step 1 — Fix `fireWeapon()` in `js/game-state.js`
+
+**Action:** Remove the `firstMoveFlags` conditional block (lines 82–86). Add a `showFlash()` call unconditionally after the `recomputeSimMultipliers()` call, formatting the weapon name and delta:
+
+```js
+if (typeof showFlash === 'function') {
+  const sign = weapon.prob_delta >= 0 ? '+' : '';
+  showFlash(weapon.player.toUpperCase() + ' · ' + id + ' ' + weapon.name.toUpperCase().slice(0, 20) + ' ' + sign + weapon.prob_delta + '%');
+}
+```
+
+**Visible change:** Every weapon fire produces a center-screen flash. Previously only the first disruptor and first defender weapon per round triggered a flash.
+
+**If skipped:** Audience sees no visual cue for weapons 2+ in each round.
+
+---
+
+### Step 2 — Add `endGameNow()` to `js/round-controller.js`
+
+**Action:** New function appended to `round-controller.js`:
+
+```js
+function endGameNow() {
+  const lane = marketState.simMultipliers.hormuz_lane || 'open';
+  marketState.round.phase = 'over';
+  if (typeof playing !== 'undefined') playing = false;
+  if (typeof pauseTick === 'function') pauseTick();
+  const msg = lane === 'closed' ? 'STRAIT CLOSED — DISRUPTOR WINS' : 'STRAIT OPEN — DEFENDER WINS';
+  if (typeof showFlash === 'function') showFlash(msg, 4000);
+  if (typeof updateDashboard === 'function') updateDashboard();
+}
+```
+
+**Visible change:** None until operator presses END GAME.
+
+**If skipped:** No hard-stop capability; operator cannot override the round timer.
+
+---
+
+### Step 3 — Add END GAME button to `index.html`
+
+**Action:** Add a fourth button to `#roundControls`:
+
+```html
+<button onclick="endGameNow()" style="background:#7f1d1d;color:#fca5a5">END GAME</button>
+```
+
+**Visible change:** Red END GAME button appears in the operator control panel.
+
+**If skipped:** `endGameNow()` is defined but unreachable without a keyboard shortcut or console call.
+
+---
+
+### Step 4 — Tests in `tests/phase-05a-corrections.html`
+
+TDD slices:
+1. `fireWeapon('D01')` calls `showFlash` with text containing `'D01'` and `'+22'`
+2. `fireWeapon('D01')` twice — second call is a no-op (weapon already active), so `showFlash` called only once
+3. `fireWeapon('R01')` flash text contains `'DEFENDER'`
+4. `endGameNow()` with `hormuz_lane: 'closed'` → `phase: 'over'`, flash contains `'DISRUPTOR WINS'`
+5. `endGameNow()` with `hormuz_lane: 'open'` → flash contains `'DEFENDER WINS'`
+6. `endGameNow()` when `phase: 'idle'` (no round started) still resolves correctly — no throw
+
+---
+
+## Implementation Record: Phase 5a — gameFlash Fix + End Game Button
+
+**Date:** 2026-04-28
+**Status:** Complete — 6 tests, all GREEN
+
+### What was built
+
+| File | Change |
+|---|---|
+| `js/game-state.js` | Removed `firstMoveFlags` conditional block from `fireWeapon()`; added unconditional `showFlash()` on every weapon fire with format `ROLE · ID NAME ±DELTA%` |
+| `js/round-controller.js` | Added `endGameNow()` — reads `hormuz_lane`, sets `phase: 'over'`, pauses tick and sim, flashes result for 4000ms |
+| `index.html` | Added `#btnEndGame` red button below START/PAUSE/RESET row; added CSS for dark red styling |
+| `tests/phase-05-round-controller.html` | Updated Slice 7 — old `firstMoveFlags` / `'GO DEFENDER!'` assertion replaced with new per-weapon flash behavior |
+| `tests/phase-05a-corrections.html` | New — 6 tests, all GREEN |
+
+### Flash format
+
+Every `fireWeapon()` call now produces: `DISRUPTOR · D01 STRAIT CLOSURE / NAVAL BLOCKADE +22%` (or `DEFENDER · R01 ...` for defender weapons). The "GO DEFENDER!" / "GO DISRUPTOR!" first-move prompts are retired.
+
+### endGameNow() behavior
+
+```
+endGameNow()
+  → reads marketState.simMultipliers.hormuz_lane
+  → sets marketState.round.phase = 'over'
+  → pauses tick + sim (playing = false)
+  → flashes 'STRAIT CLOSED — DISRUPTOR WINS' or 'STRAIT OPEN — DEFENDER WINS' for 4000ms
+  → works from any phase (idle, playing, roundEnd) — no guard
+```
+
+### Test results (tests/phase-05a-corrections.html)
+
+| Slice | Behaviour | Result |
+|---|---|---|
+| 1 | `fireWeapon('D01')` → flash contains `'D01'` and `'+22'` | GREEN |
+| 2 | `fireWeapon('R01')` → flash contains `'DEFENDER'` | GREEN |
+| 3 | `fireWeapon('D01')` twice → second call no-op, showFlash called only once | GREEN |
+| 4 | `endGameNow()` lane closed → `phase: 'over'`, flash contains `'DISRUPTOR WINS'` | GREEN |
+| 5 | `endGameNow()` lane open → flash contains `'DEFENDER WINS'`, duration 4000ms | GREEN |
+| 6 | `endGameNow()` from `phase: 'idle'` → no throw, `phase: 'over'` | GREEN |
+
+---
+
+## Grill Report: Phase 5b — Ship Speed Responsiveness
+
+**Date:** 2026-04-28
+**Feature:** Make ship speed and flow metrics visibly respond to active weapons, with a gradual lerp so the change feels alive rather than instant.
+
+---
+
+### Q1: What exactly is broken?
+
+**Root cause confirmed from code review:**
+
+1. `simulation.js:198` — `avgSpeed` uses raw `v.speed`, not effective speed. The ship info panel and status bar never show the slowdown.
+2. `simulation.js:207` — `flowPct` (the "HORMUZ FLOW XX%" in the status bar) is computed as `avg(v.speed) / 15 * 100`, also using raw speed. HORMUZ FLOW never drops even when D01 is active.
+3. Speed change is instant — `speedMult` is read fresh each frame, so D01 firing causes an immediate snap from 1.0 to 0.05. Ships freeze mid-stride with no transition.
+
+`progressDelta` IS correctly using `effectiveSpeed` (simulation.js:66–67), so ships DO move slower on the map when weapons are active. But the displayed numbers and the feel are broken.
+
+---
+
+### Q2: Where does the lerp state live?
+
+**Options:** (a) `let currentSpeedMult = 1.0` as a local variable in `simulation.js`, (b) `marketState.currentSpeedMult` so dashboard can read it, (c) No lerp — just fix the display bug
+
+**Decision:** Option (a) — local variable in `simulation.js`
+
+**Rationale:** `currentSpeedMult` is a rendering/animation concern, not game state. It has no bearing on market probability, round outcomes, or tests. Keeping it local prevents `marketState` from accruing display-layer values. The dashboard reads `marketState.prob` for the probability display; it does not need to read `currentSpeedMult`.
+
+**Consequence:** `simulation.js` gets `let currentSpeedMult = 1.0;` at module scope. On each `updateSim()` call, it lerps toward `marketState.simMultipliers.speed_mult`. `progressDelta`, `avgSpeed`, and `flowPct` all use `currentSpeedMult`.
+
+---
+
+### Q3: What lerp coefficient produces the right feel?
+
+**Options:** (a) `0.015` per frame at ~60fps: reaches ~95% of target in ~200 frames (~3.3 seconds), (b) `0.03`: ~1.6 seconds, (c) `0.008`: ~6 seconds
+
+**Decision:** Option (a) — `0.015`
+
+**Rationale:** D01 drops speed_mult to 0.05 (near total halt). At 0.015, ships visibly slow over ~3 seconds — the audience sees the deceleration happen as a consequence of the weapon, which makes the causal chain legible. Too fast (0.03) feels like a glitch. Too slow (0.008) loses the moment.
+
+**Consequence:** Each `updateSim()` call: `const targetMult = (typeof marketState !== 'undefined') ? (marketState.simMultipliers.speed_mult || 1.0) : 1.0;` then `currentSpeedMult += (targetMult - currentSpeedMult) * 0.015;`.
+
+---
+
+### Q4: Does `flowPct` need a floor when the lane is closed?
+
+**Options:** (a) Use `currentSpeedMult` in the formula only, (b) Also clamp: if `hormuz_lane === 'closed'`, floor at a low value like 2% regardless of lerp state, (c) No floor
+
+**Decision:** Option (a) — use `currentSpeedMult` in the formula only
+
+**Rationale:** The lerp handles the transition. `hormuz_lane: 'closed'` drives `speed_mult` to 0.05, which through the lerp produces a flow near 3% at steady state. Adding an artificial floor creates divergence between what the formula reports and what the ships are physically doing. Trust the physics.
+
+**Consequence:** `flowPct` formula becomes: `Math.min(100, Math.round((avgEffectiveSpeed / 15) * 100))` where `avgEffectiveSpeed = avg(v.speed) * currentSpeedMult`.
+
+---
+
+### Q5: What about `v.speed` display in the individual ship panel?
+
+**Options:** (a) Show `v.speed * currentSpeedMult` as "current speed" in the panel, (b) Keep showing raw `v.speed` (the vessel's inherent speed), (c) Add a second "effective speed" row
+
+**Decision:** Option (a) — show `v.speed * currentSpeedMult` as the displayed speed value in the ship panel
+
+**Rationale:** A player opening a ship's panel during a blockade should see `0.7 kn` not `14 kn`. The effective speed IS what the ship is doing. The raw speed is an internal physics constant, not something the audience needs to see. One number is less confusing than two.
+
+**Consequence:** `panel-ship.js` (or wherever speed is rendered in the ship panel) must multiply `v.speed` by `currentSpeedMult` when displaying. Since `currentSpeedMult` is in `simulation.js` scope and `panel-ship.js` is loaded later, it is accessible as a global.
+
+---
+
+### Q6: Does the random walk on `v.speed` need adjustment?
+
+**Current:** `v.speed += (Math.random() - 0.5) * 0.05` and clamp to `[0.6×maxSpeed, 1.05×maxSpeed]` runs every frame.
+
+**Decision:** No change
+
+**Rationale:** The random walk on `v.speed` is the ship's "engine noise" — small variation around its rated speed. `currentSpeedMult` is the geopolitical multiplier applied on top. These are independent: a ship still varies its engine output slightly even during a blockade; its effective speed is just that small variation × 0.05. The composition is physically correct.
+
+---
+
+## Phase 5b Implementation Plan
+
+### Step 1 — Add `currentSpeedMult` lerp variable to `js/simulation.js`
+
+**Action:** Add after the `let playing, simSpeed, ...` declaration at line 4:
+
+```js
+let currentSpeedMult = 1.0;
+```
+
+**Visible change:** None — initial value matches SIM_DEFAULTS.
+
+**If skipped:** Lerp has no state to persist between frames; speed change remains instant.
+
+---
+
+### Step 2 — Lerp `currentSpeedMult` toward target in `updateSim()`
+
+**Action:** At the top of `updateSim()`, before the vessel loop, add:
+
+```js
+const targetMult = (typeof marketState !== 'undefined') ? (marketState.simMultipliers.speed_mult || 1.0) : 1.0;
+currentSpeedMult += (targetMult - currentSpeedMult) * 0.015;
+```
+
+Replace the existing per-vessel `speedMult` read (lines 65–66) with a reference to the module-level `currentSpeedMult`:
+
+```js
+// Before (per-vessel read each iteration):
+const speedMult = (typeof marketState !== 'undefined' && marketState.simMultipliers.speed_mult) || 1.0;
+const effectiveSpeed = v.speed * speedMult;
+
+// After (uses pre-computed lerped value):
+const effectiveSpeed = v.speed * currentSpeedMult;
+```
+
+**Visible change:** Ships now decelerate gradually over ~3 seconds when D01 fires, rather than snapping to near-zero instantly.
+
+**If skipped:** Speed change remains instant.
+
+---
+
+### Step 3 — Fix `avgSpeed` display in `updateStats()`
+
+**Action:** Replace line 198:
+
+```js
+// Before:
+document.getElementById('avgSpeed').textContent = (vessels.reduce((s,v)=>s+v.speed,0)/vessels.length).toFixed(1);
+
+// After:
+document.getElementById('avgSpeed').textContent = (vessels.reduce((s,v)=>s+v.speed,0)/vessels.length * currentSpeedMult).toFixed(1);
+```
+
+**Visible change:** The "Avg Kn" stat in the control panel now drops from ~14 to ~0.7 when D01 is active. This makes the weapon's physical consequence legible in the dashboard numbers.
+
+**If skipped:** Avg Kn stays at ~14 regardless of weapons — a visible lie.
+
+---
+
+### Step 4 — Fix `flowPct` in `updateStats()`
+
+**Action:** Replace line 207:
+
+```js
+// Before:
+var flowPct = vessels.length ? Math.min(100, Math.round((vessels.reduce(function(s,v){return s+v.speed;},0) / vessels.length / 15) * 100)) : 0;
+
+// After:
+var flowPct = vessels.length ? Math.min(100, Math.round((vessels.reduce(function(s,v){return s+v.speed;},0) / vessels.length * currentSpeedMult / 15) * 100)) : 0;
+```
+
+**Visible change:** "HORMUZ FLOW XX%" in the status bar now tracks weapon state. With D01 active, it drops from ~85% to ~3%. This is the most visible indicator of the game state on the main projection — it must respond.
+
+**If skipped:** HORMUZ FLOW stays at ~85% even during a full blockade — the primary visual indicator of strait disruption is broken.
+
+---
+
+### Step 5 — Fix speed display in ship panel (`js/panel-ship.js`)
+
+**Action:** Find where `v.speed` is displayed in the ship detail panel (the "Speed" or "kn" field). Multiply by `currentSpeedMult`:
+
+```js
+// Wherever v.speed is formatted for display in the ship panel:
+(v.speed * currentSpeedMult).toFixed(1) + ' kn'
+```
+
+**Visible change:** Opening a ship's panel during a blockade shows effective speed (~0.7 kn) instead of rated speed (~14 kn).
+
+**If skipped:** Ship panel shows false speed; captain's view contradicts what the map shows.
+
+---
+
+### Step 6 — Tests in `tests/phase-05b-speed.html`
+
+TDD slices:
+1. After firing D01, `currentSpeedMult` is lerping toward 0.05 after 60 simulated frames (not there yet — lerp is gradual)
+2. After 500 simulated frames with D01 active, `currentSpeedMult` is within 0.02 of 0.05
+3. After D01 decays and is removed, `currentSpeedMult` lerps back toward 1.0
+4. `flowPct` formula: at `currentSpeedMult = 0.05`, avg raw speed 14 → flowPct ≤ 5
+5. `flowPct` formula: at `currentSpeedMult = 1.0`, avg raw speed 14 → flowPct ≈ 93
+
+**Note:** These tests simulate the lerp by calling the lerp expression N times in a loop — no actual `requestAnimationFrame` needed.
+
+---
+
+## Implementation Record: Phase 5b — Ship Speed Responsiveness
+
+**Date:** 2026-04-28
+**Status:** PENDING — code written, visual behaviour not yet verified in browser
+
+### What was written
+
+| File | Change |
+|---|---|
+| `js/simulation.js` | Added `currentSpeedMult = 1.0` at module scope; added `_lerpSpeedMult(target)` and `_calcFlowPct(avgRawSpeed, mult)` helpers; lerp called at top of `updateSim()` each frame; `effectiveSpeed` now uses module-level `currentSpeedMult`; `avgSpeed` display multiplied by `currentSpeedMult`; `flowPct` rewritten to use `_calcFlowPct()` |
+| `js/panel-ship.js` | Speed display uses `v.speed * currentSpeedMult`; ETA calculation uses effective speed with division-by-zero guard |
+| `tests/phase-05b-speed.html` | 5 tests covering lerp convergence, recovery, flowPct formula at blockade and normal conditions, steady-state zero drift |
+
+### Test results (tests/phase-05b-speed.html)
+
+| Slice | Behaviour | Result |
+|---|---|---|
+| 1 | `_lerpSpeedMult` converges to 0.05 from 1.0 after 500 steps | GREEN |
+| 2 | `_lerpSpeedMult` recovers to 1.0 after switching target | GREEN |
+| 3 | `_calcFlowPct(14, 0.05)` → ≤ 5 | GREEN |
+| 4 | `_calcFlowPct(14, 1.0)` → 93 | GREEN |
+| 5 | Steady state `_lerpSpeedMult(1.0)` from 1.0 — no drift | GREEN |
+
+### What is unresolved
+
+Visual behaviour in the browser has not been verified. Specifically:
+- Ships visibly decelerating over ~3 seconds when D01 fires (lerp feel)
+- "Avg Kn" stat dropping in the control panel
+- "HORMUZ FLOW" in the status bar dropping to ~3% under D01
+- Ship panel showing ~0.7 kn not ~14 kn during blockade
+
+**To resolve:** Open `index.html`, fire D01 with key `1`, and confirm all four visual indicators respond correctly. Mark this complete once verified.
+
+---
+
+## Grill Report: Phase 5c — Live Activity Feed
+
+**Date:** 2026-04-28
+**Feature:** A scrolling real-time event feed showing weapon plays, round events, and prob milestones. Visible on the in-sim panel and on the market screen projection.
+
+---
+
+### Q1: Where does the feed live — index.html only, or also market_screen.html?
+
+**Context:** `market_screen.html` is currently completely standalone with hardcoded dummy data. It has no connection to `marketState` in `index.html`.
+
+**Options:** (a) index.html only — bottom-left `#activityFeed` panel, (b) Both — index.html panel + sync to market_screen.html via BroadcastChannel API, (c) market_screen.html only
+
+**Decision:** Option (b) — both, via BroadcastChannel
+
+**Rationale:** The audience watches the wall projection (market_screen.html), not the operator's simulation screen (index.html). If the feed is only on index.html, the audience never sees it. BroadcastChannel is the right tool — it's a browser API that lets two tabs on the same origin communicate with zero server infrastructure, zero WebSocket, zero localStorage polling. index.html posts events; market_screen.html listens and renders.
+
+**Consequence:** `game-state.js` opens a `BroadcastChannel('hormuz-game')` and posts a snapshot message on every state change. `market_screen.html` opens the same channel and updates its UI on each message. This also live-connects `market_screen.html` to the real `prob`, `flowPct`, and round state — replacing the hardcoded dummy values.
+
+---
+
+### Q2: What events populate the feed?
+
+**Options:** (a) Weapon fires only, (b) Weapon fires + round lifecycle events, (c) Weapon fires + round events + prob milestones + weapon decay notifications
+
+**Decision:** Option (c) — all four event types
+
+| Type | Example text | Trigger |
+|---|---|---|
+| `weapon` | `DISRUPTOR · D01 Strait Blockade +22% → 72%` | `fireWeapon()` |
+| `round` | `ROUND 1 STARTED · prob reset to 50%` | `startRound()`, `endRound()`, `resetGame()` |
+| `milestone` | `⚠ PROB CROSSED 65% — STRAIT CLOSING` | checked in `marketTick()` when prob crosses 65 or 35 |
+| `decay` | `D01 decayed · prob returning` | when entry removed from activeWeapons in `marketTick()` |
+
+**Rationale:** Weapon fires are the primary narrative. Round events frame the structure. Milestones are the most important audience signal (the 65% threshold is when the game tilts). Decay events explain why prob is coming back down. Together they form a complete play-by-play.
+
+---
+
+### Q3: Where does the feed data live?
+
+**Options:** (a) Reuse `marketState.actionLog` — extend it with richer fields, (b) Separate `marketState.eventFeed` array, (c) Local DOM only — no persistent state
+
+**Decision:** Option (b) — separate `marketState.eventFeed` array
+
+**Rationale:** `actionLog` was designed as a weapon-fire audit log with a specific schema (`weaponId`, `delta`, `timestamp`). Changing its schema would break Phase 1–4 tests and the `updateDashboard()` function that reads from it. A separate `eventFeed` array holds richer events with a `type` field, `text` (display string), `color` (CSS class), and `timestamp`. The `actionLog` stays untouched.
+
+**Consequence:** `marketState.eventFeed = []` added to `marketState` in `game-state.js`. New helper `addFeedEvent(type, text, color)` pushes to `eventFeed` and broadcasts via BroadcastChannel. `startRound()` does NOT clear `eventFeed` — the feed accumulates across all rounds for the full session narrative.
+
+---
+
+### Q4: How does the feed render on index.html?
+
+**Options:** (a) Bottom-left fixed panel, always visible, (b) Collapsible panel with a toggle button, (c) Replace Zone 4 (Event Log) of `#gameDashboard`
+
+**Decision:** Option (a) — new `#activityFeed` fixed panel, bottom-left of index.html
+
+**Rationale:** `#gameDashboard` already occupies the right edge. The feed belongs on the left to frame the map. Fixed position ensures it's always visible without requiring operator interaction. Replacing `#gameDashboard` Zone 4 would lose the existing compact log view.
+
+**Layout:**
+```
+┌────────────────────┐
+│ FEED                │  ← header, 9px monospace, uppercase
+├────────────────────┤
+│ [T+0043] DISRUPTOR  │  ← newest on top
+│  D01 Blockade +22%  │
+│ [T+0042] ROUND 1    │
+│  STARTED            │
+│ ...                 │  ← scrolls when overflow
+└────────────────────┘
+```
+
+Shows last 8 entries in the panel. Overflow is hidden (older entries scroll out). New entries prepend (slide in from top via CSS transition). CSS: `position: fixed; bottom: 40px; left: 10px; width: 260px; max-height: 280px; overflow: hidden`.
+
+---
+
+### Q5: How does market_screen.html receive live updates?
+
+**Decision:** BroadcastChannel named `'hormuz-game'`. Message format:
+
+```js
+{
+  type: 'state',           // always 'state' for full snapshots
+  prob: marketState.prob,
+  lane: marketState.simMultipliers.hormuz_lane,
+  activeWeapons: [...weaponIds],
+  round: { phase, number, scores, timer },
+  feed: marketState.eventFeed.slice(-20)  // last 20 events
+}
+```
+
+`market_screen.html` replaces its dummy `setInterval` update loop with a `channel.onmessage` handler that:
+1. Updates the probability numbers (yes/no prices and charts)
+2. Updates the ticker footer with live HORMUZ FLOW, vessel count, round state
+3. Renders the `feed` array as a scrolling list in a new panel
+
+---
+
+### Q6: When does index.html broadcast?
+
+**Options:** (a) Every `updateStats()` frame (~60fps) — too frequent, (b) On every `addFeedEvent()` call (weapon fires, round events, milestones), (c) On every `marketTick()` (every 20s) plus on every `addFeedEvent()`
+
+**Decision:** Option (c) — broadcast on `marketTick()` AND on `addFeedEvent()`
+
+**Rationale:** `marketTick()` keeps market_screen.html's probability chart updating every 20s even if no weapons are fired. `addFeedEvent()` ensures instantaneous updates when a weapon fires. ~60fps broadcast would generate enormous message volume for a cross-tab channel with no benefit.
+
+---
+
+### Q7: Where does `addFeedEvent()` get called from?
+
+| Caller | Event |
+|---|---|
+| `fireWeapon()` in game-state.js | weapon fire event |
+| `startRound()`, `endRound()`, `resetGame()` in round-controller.js | round lifecycle events |
+| `marketTick()` in market-tick.js | decay events, milestone crossings |
+| `endGameNow()` in round-controller.js | game-over event |
+
+**Consequence:** `addFeedEvent()` must be defined in `game-state.js` (so it's available to all callers loaded after it). It pushes to `eventFeed`, caps the array at 100 entries (drop oldest), and calls the broadcast function if BroadcastChannel is available.
+
+---
+
+## Phase 5c Implementation Plan
+
+### Step 1 — Add `eventFeed` and `addFeedEvent()` to `js/game-state.js`
+
+**Action:** Add `eventFeed: []` to `marketState`. Add function:
+
+```js
+let _feedChannel = null;
+try { _feedChannel = new BroadcastChannel('hormuz-game'); } catch(e) {}
+
+function addFeedEvent(type, text, color) {
+  const entry = { type, text, color: color || 'system', ts: Date.now(), tick: typeof simTickCount !== 'undefined' ? simTickCount : 0 };
+  marketState.eventFeed.push(entry);
+  if (marketState.eventFeed.length > 100) marketState.eventFeed.shift();
+  if (typeof renderFeed === 'function') renderFeed();
+  _broadcastState();
+}
+
+function _broadcastState() {
+  if (!_feedChannel) return;
+  const r = marketState.round;
+  _feedChannel.postMessage({
+    type: 'state',
+    prob: marketState.prob,
+    lane: marketState.simMultipliers.hormuz_lane || 'open',
+    activeWeapons: marketState.activeWeapons.map(e => e.weaponId),
+    round: { phase: r.phase, number: r.number, scores: r.scores },
+    feed: marketState.eventFeed.slice(-20)
+  });
+}
+```
+
+**Visible change:** None until feed panel added.
+
+---
+
+### Step 2 — Call `addFeedEvent()` from all event sources
+
+**Action:** Add calls in the following locations:
+
+`js/game-state.js` — in `fireWeapon()` after `recomputeSimMultipliers()`:
+```js
+const sign = weapon.prob_delta >= 0 ? '+' : '';
+addFeedEvent('weapon',
+  weapon.player.toUpperCase() + ' · ' + id + ' ' + weapon.name + ' ' + sign + weapon.prob_delta + '% → ' + Math.round(marketState.prob) + '%',
+  weapon.player === 'disruptor' ? 'disruptor' : 'defender'
+);
+```
+
+`js/round-controller.js` — in `startRound()`, `endRound()`, `resetGame()`, `endGameNow()`:
+```js
+addFeedEvent('round', 'ROUND ' + marketState.round.number + ' STARTED · prob reset to 50%', 'system');
+```
+
+`js/market-tick.js` — after weapon removal:
+```js
+addFeedEvent('decay', entry.weaponId + ' decayed · prob returning', 'system');
+```
+
+`js/market-tick.js` — prob milestone check (run once per tick, after drift/clamp):
+```js
+// Track previous prob to detect crossings
+const prevProb = marketState.prob before drift;
+if (prevProb < 65 && marketState.prob >= 65) addFeedEvent('milestone', '⚠ PROB CROSSED 65% — STRAIT CLOSING', 'disruptor');
+if (prevProb > 35 && marketState.prob <= 35) addFeedEvent('milestone', '✓ PROB CROSSED 35% — STRAIT STABLE', 'defender');
+if (prevProb >= 65 && marketState.prob < 65) addFeedEvent('milestone', 'PROB BACK BELOW 65%', 'system');
+```
+
+Also call `_broadcastState()` at the end of `marketTick()`.
+
+**Visible change:** None until feed panel added.
+
+---
+
+### Step 3 — Create `js/game-feed.js` with `renderFeed()`
+
+**Action:** New file. Pure DOM writer — reads `marketState.eventFeed`, renders to `#activityFeed` panel. Newest entry on top. Color-coded rows.
+
+```js
+function renderFeed() {
+  const el = document.getElementById('activityFeed');
+  if (!el) return;
+  const entries = marketState.eventFeed.slice(-8).reverse();
+  el.innerHTML = entries.map(function(e) {
+    const cls = 'feed-' + e.color;
+    return '<div class="feed-row ' + cls + '">[' + String(e.tick).padStart(4,'0') + '] ' + e.text + '</div>';
+  }).join('');
+}
+```
+
+**Visible change:** None until div added to index.html.
+
+---
+
+### Step 4 — Add `#activityFeed` div and CSS to `index.html`
+
+**Action:** Add `<div id="activityFeed"></div>` as a fixed bottom-left panel. Add CSS:
+
+```css
+#activityFeed {
+  position: fixed; bottom: 40px; left: 10px;
+  width: 280px; max-height: 280px; overflow: hidden;
+  background: rgba(5,5,5,0.92); border: 1px solid #1a1a1a;
+  font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+  color: #666; padding: 8px; z-index: 500;
+}
+.feed-row { padding: 2px 0; line-height: 1.5; border-bottom: 1px solid #0e0e0e; }
+.feed-disruptor { color: #f87171; }
+.feed-defender  { color: #60a5fa; }
+.feed-system    { color: #4b5563; }
+```
+
+Add `<script src="js/game-feed.js">` after `game-dashboard.js` at Layer 1.5.
+
+**Visible change:** Feed panel appears bottom-left. Populates as weapons fire and rounds progress.
+
+---
+
+### Step 5 — Connect `market_screen.html` to BroadcastChannel
+
+**Action:** In `market_screen.html`'s `<script>` block, replace the hardcoded `setInterval` update with a BroadcastChannel listener:
+
+```js
+const gameChannel = new BroadcastChannel('hormuz-game');
+gameChannel.onmessage = function(e) {
+  const msg = e.data;
+  if (msg.type !== 'state') return;
+  // Update probability display
+  const yes = Math.round(msg.prob);
+  const no = 100 - yes;
+  document.getElementById('yesPrice').textContent = yes + '¢';
+  document.getElementById('noPrice').textContent  = no + '¢';
+  document.getElementById('yesChance').textContent = yes + '% chance';
+  document.getElementById('noChance').textContent  = no + '% chance';
+  // Update ticker footer
+  document.getElementById('tick4').textContent = 'PROB ' + yes + '% · LANE ' + msg.lane.toUpperCase();
+  // Update round state footer
+  document.getElementById('roundNum').textContent = msg.round.number || '—';
+  // Render feed
+  renderMarketFeed(msg.feed);
+};
+```
+
+Add `renderMarketFeed(entries)` function that renders the last 12 feed entries in a new feed panel below the player tables.
+
+**Visible change:** When both index.html and market_screen.html are open in the same browser, market_screen.html updates live as weapons fire.
+
+**If only one tab is open:** BroadcastChannel silently has no listeners; no error. index.html works normally. market_screen.html shows its last received state.
+
+---
+
+### Step 6 — Tests in `tests/phase-05c-feed.html`
+
+TDD slices:
+1. `addFeedEvent('weapon', 'D01 +22%', 'disruptor')` — entry appears in `marketState.eventFeed`
+2. `eventFeed` caps at 100 entries — adding 101st drops the oldest
+3. `renderFeed()` produces one `.feed-row` per entry (up to 8)
+4. `fireWeapon('D01')` — `eventFeed` gains one entry with `type: 'weapon'` and text containing `'D01'`
+5. `addFeedEvent()` called 5 times — `renderFeed()` shows the 5 entries in reverse order (newest first)
+6. `startRound()` adds a `type: 'round'` event to eventFeed
+
+---
+
+## Implementation Record: Phase 5c — Live Activity Feed
+
+**Date:** —
+**Status:** PENDING — not started. Deferred to implement after Phase 8.
+
+---
+
+## Implementation Record: Phase 6 — MKTS Panel UI
+
+**Date:** —
+**Status:** PENDING — not started. Defined in `issues/06-mkts-panel-ui.md`.
+
+---
+
+## Implementation Record: Phase 7 — market_screen.html Extension
+
+**Date:** —
+**Status:** PENDING — not started. Defined in `issues/07-market-screen-extension.md`. Phase 5c BroadcastChannel infrastructure must be in place first.
+
+---
+
+## Implementation Record: Subphase 1.1 — index.html broadcasts game state
+
+**Date:** 2026-06-16
+**Status:** Complete
+
+### What was built
+
+| File | Change |
+|---|---|
+| `js/game-broadcast.js` | New file — opens `BroadcastChannel('hormuz-game')`, exposes `broadcastGameState()` |
+| `index.html` | Added `<script src="js/game-broadcast.js">` at Layer 1.5 after `game-dashboard.js` |
+| `js/game-state.js` | Added `broadcastGameState()` call at tail of `fireWeapon()` |
+| `js/market-tick.js` | Added `broadcastGameState()` call at tail of `marketTick()` |
+| `js/round-controller.js` | Added `broadcastGameState()` call at tail of `startRound()`, `endRound()`, `pauseRound()`, `resumeRound()`, `endGameNow()`, `resetGame()` |
+
+### Broadcast shape
+
+```js
+{
+  shipProbability: Math.round(marketState.prob),   // 0–100 integer
+  lane: marketState.simMultipliers.hormuz_lane,    // 'open' | 'closed'
+  activeWeapons: [...weaponIds],                   // string[]
+  round: { phase, number, scores }                 // from marketState.round
+}
+```
+
+### Architecture note
+
+`BroadcastChannel('hormuz-game')` is the outbound pipe from `index.html` to `market_screen.html` on the same machine. It is entirely separate from `BroadcastChannel('deepseas-game')` in `bootstrap.js`, which is the inbound pipe from `detector.html` carrying `{type:'FIRE_WEAPON', weaponId}`. The channel is opened once in `game-broadcast.js` and posts on every state change via the same `typeof X === 'function'` guard pattern already used by `updateDashboard()`.
+
+### Key design decision
+
+`broadcastGameState()` lives in a dedicated `js/game-broadcast.js` file (Layer 1.5) rather than inside `game-state.js`, mirroring the `game-dashboard.js` precedent: dedicated file, pure function, never mutates state.
+
+---
+
+## Implementation Record: Subphase 1.2 — market_screen.html listens, drops dummy data
+
+**Date:** 2026-06-16
+**Status:** Complete — all behaviors verified in browser
+
+### What was built
+
+| File | Change |
+|---|---|
+| `market_screen.html` | Added `BroadcastChannel('hormuz-game')` listener; removed drift logic from `tick()`; removed fake `simTick++`/`totalVol` increments and `roundSec` countdown; added `.player-table { display: none }`; set `tick3` to static `SIM TICK —` |
+| `tests/subphase-1-2-listener.html` | New — verification page that fires synthetic broadcast messages and shows expected values for `market_screen.html` to match |
+
+### Channel listener (added to market_screen.html)
+
+```js
+const hormuzChannel = new BroadcastChannel('hormuz-game');
+hormuzChannel.onmessage = function(e) {
+  const msg = e.data;
+  yesProb = (100 - msg.shipProbability) / 100;
+  document.getElementById('tick4').textContent =
+    'LANE ' + msg.lane.toUpperCase() + ' · SHIP PROB ' + msg.shipProbability + '%';
+  document.getElementById('roundNum').textContent = msg.round.number || '—';
+  document.getElementById('roundTimer').textContent = msg.round.phase.toUpperCase();
+};
+```
+
+### YES/NO semantics
+
+Contract question: "When will traffic at the Strait of Hormuz return to normal?"
+- YES = open/normal = `(100 − shipProbability)¢`
+- NO = disrupted/closed = `shipProbability¢`
+
+D01 fires (prob 50→72): YES drops to 28¢, NO jumps to 72¢. Disruptor fires → NO price jumps. Legible to audience.
+
+### tick() loop after changes
+
+`setInterval(tick, 160)` stays for smooth chart animation. `tick()` now only: pushes current `yesProb` to history, redraws charts, updates price displays. No drift, no random walk. `yesProb` is written exclusively by the channel listener.
+
+### What's still fake/static in market_screen.html
+
+| Element | Status | Reason |
+|---|---|---|
+| `tick1` — HORMUZ FLOW | Static string | Not in broadcast; lives in simulation.js |
+| `tick2` — VESSELS | Static string | Not in broadcast |
+| `tick3` — SIM TICK | Static `SIM TICK —` | Removed fake increment |
+| YES/NO player tables | Hidden | Placeholder — real audience data arrives in Subphase 2.2/2.3 |
+| `totalVol` | Static `$1,503,164` | Removed fake increment |
+
+---
+
+## Implementation Record: Subphase 2.1 — Node + Express + WebSocket server
+
+**Date:** 2026-06-16
+**Status:** Complete — 20 tests, all GREEN
+
+### What was built
+
+| File | Change |
+|---|---|
+| `.gitignore` | New — excludes `node_modules/` and `.env` |
+| `package.json` | New — `"start": "node server.js"`, dependencies `express` and `ws` |
+| `server.js` | New — full audience betting server |
+| `tests/subphase-2-1-server.js` | New — 7 behaviors, 20 assertions, all GREEN |
+
+### Server state
+
+```js
+{
+  marketPrice: 0.5,     // betsOpen / (betsOpen + betsClosed); 0.5 when no bets
+  betsOpen: 0,          // cumulative within a round
+  betsClosed: 0,
+  connectedCount: 0     // live WebSocket connections
+}
+```
+
+### Endpoints
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/healthz` | Returns `{ status: 'ok' }` |
+| `POST` | `/bet` | `{ side: 'open'\|'closed' }` — increments counter, recomputes `marketPrice`, broadcasts, returns full state |
+| `POST` | `/reset` | Zeros `betsOpen`/`betsClosed`, resets `marketPrice` to 0.5, broadcasts |
+| `WS` | `/` | On connect: sends current state. On close: decrements `connectedCount` |
+| Static | `/*` | `express.static('.')` — serves entire repo root including `audience.html` |
+
+### Key design decisions
+
+- **Bet transport**: REST POST for placing bets, WebSocket for receiving broadcasts. Clean separation: HTTP for commands, WS for subscriptions.
+- **Port**: `process.env.PORT ?? 3000` — Render-ready with no extra work.
+- **Per-round reset**: `POST /reset` is explicit, operator-controlled. Called between rounds. Each round's audience bet is a fresh independent signal.
+- **Static serving**: `express.static('.')` at repo root — phones on venue WiFi reach `audience.html` at `http://[laptop-ip]:3000/audience.html`. Same path works on Render.
+- **CORS**: `Access-Control-Allow-Origin: *` on all routes — required when `market_screen.html` or `index.html` are served from `file://`.
+
+### marketPrice formula
+
+```js
+state.marketPrice = total === 0 ? 0.5 : state.betsOpen / total;
+```
+
+Division-by-zero guard: returns 0.5 (neutral) when no bets placed. `betsOpen` counts OPEN bets (Hormuz stays open), `betsClosed` counts CLOSED bets (Hormuz disrupted). Higher `marketPrice` = more audience members betting OPEN.
+
+### Test results (tests/subphase-2-1-server.js)
+
+| Slice | Behaviour | Result |
+|---|---|---|
+| 1 | `GET /healthz` → `{status:'ok'}` | GREEN |
+| 2 | `POST /bet side=open` × 3 → `betsOpen=3`, `marketPrice>0.5` | GREEN |
+| 3 | `POST /bet side=closed` → `betsClosed=1`, `marketPrice=0` | GREEN |
+| 4 | After reset, fresh bet recalculates from zero | GREEN |
+| 5 | `POST /reset` → `marketPrice=0.5`, `betsOpen=0`, `betsClosed=0` | GREEN |
+| 6 | WS connect → broadcast received with `marketPrice`, `betsOpen`, `connectedCount` | GREEN |
+| 7 | `POST /bet` → WS clients receive broadcast immediately | GREEN |
+
+---
+
+## Implementation Record: Subphase 2.2 — audience.html (mobile betting UI)
+
+**Date:** 2026-06-17
+**Status:** Complete — 13 assertions, all GREEN
+
+### What was built
+
+| File | Change |
+|---|---|
+| `audience.html` | New — mobile-first betting UI served by `server.js` |
+| `tests/subphase-2-2-audience.html` | New — 5 slices, 13 assertions, all GREEN |
+
+### audience.html layout
+
+Three vertically-stacked sections filling `100dvh`:
+
+| Section | Element | Detail |
+|---|---|---|
+| Top | `.question` | "Will the Strait of Hormuz remain open?" — 11px, dimmed, uppercase |
+| Middle | `#price` | Current market price in cents (e.g. `50¢`) — 72px, green flash on WS update |
+| Bottom | `#btnOpen` + `#btnClosed` | 64px min-height buttons; green / red border+text, dark fill on flash |
+
+### Bet flow
+
+1. User taps OPEN or CLOSED button
+2. `placeBet(side)` fires: adds `.flash` class to button (removes after 300ms), calls `POST /bet { side }`
+3. Server updates `marketPrice`, broadcasts via WebSocket to all connected clients
+4. `ws.onmessage` on every `audience.html` tab updates `#price` and flashes green for 400ms
+
+### Key design decisions
+
+- **Relative URLs throughout**: `fetch('/bet')` and `ws://location.host` — work on `localhost:3000`, venue LAN IP, and Render with zero config. No `js/config.js` needed.
+- **Unlimited bets**: No per-session tracking. Every tap is a fresh OPEN or CLOSED signal. Matches how real prediction markets allow continuous trading.
+- **Minimal UI**: Only the price and two buttons. All collective stats (total volume, round #, bet breakdown) live on `market_screen.html` wall projection where the room can see them.
+- **Dark theme** (`#0a0a0a`): Keeps phone screens from blinding the audience in a darkened demo room.
+- **Button text**: Rendered as literal `OPEN` / `CLOSED` in HTML (not CSS `text-transform`) so test assertions on the raw HTML string pass without DOM parsing.
+- **Auto-reconnect**: `ws.onclose` reloads the page after 2 s — handles server restarts between rounds invisibly.
+
+### YES/NO semantics
+
+`marketPrice` = `betsOpen / (betsOpen + betsClosed)` = probability Hormuz stays OPEN.
+
+- OPEN bet → pushes `marketPrice` up → price shown as `marketPrice × 100 ¢`
+- CLOSED bet → pushes `marketPrice` down
+- Guard: `marketPrice = 0.5` when no bets placed
+
+### Test results (tests/subphase-2-2-audience.html)
+
+| Slice | Behaviour | Result |
+|---|---|---|
+| 1 | `POST /bet {side:'open'}` returns 200 with numeric `marketPrice` and `betsOpen=1` | GREEN |
+| 2 | WS opens, receives initial state on connect, receives broadcast after `POST /bet` | GREEN |
+| 3 | `GET /audience.html` returns 200; HTML contains `OPEN`, `CLOSED`, `id="price"` | GREEN |
+| 4 | Flash class added to button on `placeBet()`, removed after 300 ms | GREEN |
+| 5 | `#price` DOM element renders `Math.round(marketPrice × 100) + '¢'` correctly | GREEN |
+
+---
+
+## Grill Report: Subphase 2.3 — market_screen.html gains marketPrice
+
+### Q1: Where on market_screen.html does audience marketPrice live?
+
+**Options:** (a) Replace `totalVol` in header-right with `AUDIENCE 50¢`, (b) Add a full-width strip between header and main grid showing marketPrice + vote counts, (c) Use `tick1` in the footer ticker
+**Decision:** Option (a) — header-right replaces the static `totalVol` slot
+**Rationale:** Minimal — one number always in frame without adding new DOM structure or visual weight.
+**Consequence:** `id="totalVol"` and its `VOL` label are replaced; `betsOpen`/`betsClosed`/`connectedCount` not displayed.
+
+### Q2: What does the header-right slot show?
+
+**Options:** (a) Label + price only — `AUDIENCE 50¢`, (b) Label + price + vote counts — `AUDIENCE 50¢ · 12 open · 8 closed`, (c) Label + price + connected count
+**Decision:** Option (a) — `AUDIENCE 50¢` only
+**Rationale:** User explicitly wants minimal; vote counts and connected count are operational details visible on audience.html.
+**Consequence:** Only `marketPrice` is rendered from the WS broadcast; `betsOpen`, `betsClosed`, `connectedCount` are received but ignored in the DOM.
+
+### Q3: What is the WebSocket URL?
+
+**Options:** (a) Hardcode `ws://localhost:3000`, (b) Derive from `location.host` (breaks on `file://`), (c) Guard — try `location.host`, fall back to `localhost:3000`
+**Decision:** Option (a) — hardcode `ws://localhost:3000`
+**Rationale:** Roadmap explicitly defers URL config to Part 3 / Subphase 3.1; hardcoding is honest about that deferral.
+**Consequence:** Part 3 replaces this with `js/config.js` + `SERVER_URL`; no other code changes needed here.
+
+### Q4: What happens when the WebSocket drops or server isn't running?
+
+**Options:** (a) Silent — hold last value (or `50¢` default), no error shown, (b) Show `AUDIENCE —` in the label when disconnected, (c) Auto-reconnect loop with visible status
+**Decision:** Option (a) — silent, hold last value
+**Rationale:** Error states on a projector wall are embarrassing; the BroadcastChannel game data keeps working regardless; stale `50¢` is unobtrusive.
+**Consequence:** No reconnect logic needed; `ws.onclose` and `ws.onerror` are omitted or left empty.
+
+### Q5: Does audience marketPrice ever influence yesProb or the charts?
+
+**Options:** (a) Display-only — WS handler updates one DOM element only, `yesProb` never written by WS handler, (b) Blend — `yesProb` becomes weighted average of game signal and audience signal, (c) Toggle — operator switches chart between game-driven and audience-driven
+**Decision:** Option (a) — display-only, strict separation
+**Rationale:** Roadmap is explicit: "never numerically merged." The thesis point is two independent signals side by side; blending destroys the meaning of both numbers.
+**Consequence:** `yesProb` is owned exclusively by the BroadcastChannel listener; the WS handler touches only the header `AUDIENCE` display element.
+
+### Q6: What does the display show before the first WS message arrives?
+
+**Options:** (a) Always `AUDIENCE 50¢` — server default is 0.5 so this is accurate, (b) `AUDIENCE —` until first broadcast, then switches, (c) `AUDIENCE 50¢` dimmed until first bet placed
+**Decision:** Option (a) — always `AUDIENCE 50¢`
+**Rationale:** `50¢` is the honest server default (guard in `recompute()`); no state logic needed; operator and room understand context.
+**Consequence:** DOM element initialised with `50¢` in HTML; WS handler overwrites on first message.
+
+### Q7: What does the test look like?
+
+**Options:** (a) Node script only — connects WS, fires `POST /bet`, confirms broadcast shape, (b) Browser HTML test page mirroring 2.2 pattern, (c) Both Node + browser
+**Decision:** Option (a) — Node script only
+**Rationale:** WS data layer already tested in 2.1 and 2.2; the only new thing is wiring one DOM element, faster verified by opening market_screen.html in a tab.
+**Consequence:** `tests/subphase-2-3-market-ws.js` is a lightweight Node script; no new browser test page.
+
+---
+
+## Implementation Plan: Subphase 2.3
+
+### Step 1 — Replace totalVol slot in market_screen.html header
+
+**Action:** In `market_screen.html`, replace `VOL <span id="totalVol">$1,503,164</span>` with `AUDIENCE <span id="audiencePrice">50¢</span>`
+**Visible change:** Header-right shows `AUDIENCE 50¢` (static until WS connects).
+**If skipped:** No display slot for the audience price.
+
+### Step 2 — Add WebSocket connection to server.js in market_screen.html
+
+**Action:** In `market_screen.html` `<script>`, add after the BroadcastChannel block — `const audienceWs = new WebSocket('ws://localhost:3000')` with `onmessage` handler that writes `Math.round(msg.marketPrice * 100) + '¢'` to `#audiencePrice`. No `onerror`/`onclose` handlers (silent failure by design).
+**Visible change:** `AUDIENCE` number in the header updates live when phones place bets.
+**If skipped:** Header stays static at `50¢` forever.
+
+### Step 3 — Write tests/subphase-2-3-market-ws.js
+
+**Action:** Node script — reset server, open WS, confirm initial broadcast has `marketPrice`/`betsOpen`/`connectedCount`, fire `POST /bet`, confirm second broadcast has updated `marketPrice`.
+**Visible change:** None — terminal output only.
+**If skipped:** No automated verification that the WS feed the DOM wires into is correct.
+
+---
+
+## Implementation Record: Subphase 2.3 — market_screen.html gains marketPrice
+
+**Date:** 2026-06-17
+**Status:** Complete — 5 tests GREEN, live demo verified
+
+### What was built
+
+| File | Change |
+|---|---|
+| `market_screen.html` | Header-right: replaced static `VOL $1,503,164` with `AUDIENCE <span id="audiencePrice">50¢</span>` |
+| `market_screen.html` | Added `audienceWs` WebSocket block before the BroadcastChannel listener |
+| `tests/subphase-2-3-market-ws.js` | New — Node script, 5 assertions, all GREEN |
+
+### DOM change
+
+```html
+<!-- Before -->
+<div class="vol-label">VOL <span id="totalVol">$1,503,164</span></div>
+
+<!-- After -->
+<div class="vol-label">AUDIENCE <span id="audiencePrice">50¢</span></div>
+```
+
+### WebSocket block added to market_screen.html
+
+```js
+const audienceWs = new WebSocket('ws://localhost:3000');
+audienceWs.onmessage = function(e) {
+  const msg = JSON.parse(e.data);
+  document.getElementById('audiencePrice').textContent =
+    Math.round(msg.marketPrice * 100) + '¢';
+};
+```
+
+### Key design decisions
+
+- **Display-only**: `audienceWs.onmessage` touches only `#audiencePrice`. `yesProb` and the YES/NO charts are exclusively owned by the BroadcastChannel game listener — the two signals are strictly separated.
+- **Silent on disconnect**: No `onerror`/`onclose` handlers. Error states on a projector wall are worse than a stale number.
+- **Hardcoded `ws://localhost:3000`**: Part 3 (Subphase 3.1) replaces this with `js/config.js` + `SERVER_URL`.
+
+### Test results (tests/subphase-2-3-market-ws.js)
+
+| Assertion | Behaviour | Result |
+|---|---|---|
+| s1a | WS connects to `ws://localhost:3000` | GREEN |
+| s1b | Initial broadcast has numeric `marketPrice` | GREEN |
+| s1c | Initial broadcast has numeric `betsOpen` | GREEN |
+| s1d | Initial broadcast has numeric `connectedCount` | GREEN |
+| s2a | After `POST /bet {side:'open'}`, second broadcast has `marketPrice > 0.5` | GREEN |
+
+### Live demo verified
+
+`market_screen.html` and `audience.html` open in two tabs. Tapping OPEN/CLOSED on the audience page visibly updated the `AUDIENCE` number in the top-right corner of the market screen within one broadcast cycle. `yesProb` and the YES/NO charts did not move.
+
+---
+
+## Grill Report: Subphase 2.4 — local end-to-end test
+
+### Q1: Does Subphase 2.4 produce any new files?
+
+**Options:** (a) Purely manual verification — open tabs, run checklist, mark done. No new files, (b) Node script automating the bet→broadcast→price check, (c) Full automated end-to-end test covering both bet flow and isolation
+**Decision:** Option (a) — purely manual
+**Rationale:** Data-layer automation was already done in 2.1–2.3; what 2.4 checks is live visual integration across browser tabs, which is inherently manual.
+**Consequence:** No new files. Subphase closes on completion of the manual checklist.
+
+### Q2: How is shipProbability isolation verified?
+
+**Options:** (a) Code inspection — read both data flows, confirm no shared path, document as verification, (b) Live browser check — three tabs, place bet, watch chart prices don't move, (c) Both
+**Decision:** Option (a) — code inspection only
+**Rationale:** The isolation is structural: `audienceWs.onmessage` and `hormuzChannel.onmessage` write to entirely different variables and DOM elements; a live chart animation makes "did it move?" ambiguous anyway.
+**Consequence:** Isolation verified by reading `market_screen.html` — `yesProb` has exactly 2 write sites (init + BroadcastChannel listener), `audiencePrice` has exactly 1 write site (audience WS handler). No overlap.
+
+---
+
+## Implementation Record: Subphase 2.4 — local end-to-end verification
+
+**Date:** 2026-06-17
+**Status:** Complete — all acceptance criteria met
+
+### Verification checklist
+
+| Check | Method | Result |
+|---|---|---|
+| `server.js` running on port 3000 | `GET /healthz` → `{status:'ok'}` | PASS |
+| Bet on `audience.html` moves `AUDIENCE` price on `market_screen.html` | Live demo (2.3) — tapped OPEN/CLOSED, number updated within one broadcast | PASS |
+| `shipProbability` / `yesProb` untouched by audience bet | Code inspection — `yesProb` written only at init and `hormuzChannel.onmessage` (line 274); `audiencePrice` written only at `audienceWs.onmessage` (line 264) | PASS |
+
+### Isolation proof (market_screen.html)
+
+```
+yesProb write sites:     line 258 (init), line 274 (hormuzChannel.onmessage)
+audiencePrice write sites: line 264 (audienceWs.onmessage)
+Shared write sites:      NONE
+```
+
+Two completely independent data flows, two completely independent display slots. Part 2 is complete.
+
+---
+
+## Grill Report: Subphase 3.1 — deploy-readiness code
+
+### Q1: Does audience.html need js/config.js?
+
+**Options:** (a) No — leave untouched, relative URLs already work everywhere, (b) Yes — update it to match the config pattern, (c) Update only if a concrete failure case exists
+**Decision:** Option (a) — audience.html untouched
+**Rationale:** `fetch('/bet')` and `ws://location.host` are relative to the serving origin, which works identically on localhost, LAN, and Render — adding config introduces a failure mode that doesn't exist today.
+**Consequence:** Only `market_screen.html` reads from `js/config.js`; `audience.html` requires zero changes for deploy.
+
+### Q2: What does SERVER_URL look like in js/config.js?
+
+**Options:** (a) Full HTTP URL — `'http://localhost:3000'`, WS derived via `.replace(/^http/, 'ws')`, (b) Just the host — `'localhost:3000'`, WS built as `'ws://' + SERVER_URL`
+**Decision:** Option (a) — full HTTP URL
+**Rationale:** The full URL contains the protocol, so swapping `http` → `ws` and `https` → `wss` is one `.replace()` call; a bare host cannot self-select the right WS protocol after deploy.
+**Consequence:** After deploy, replacing `http://localhost:3000` with `https://your-app.onrender.com` automatically yields `wss://` — no extra logic needed anywhere.
+
+### Q3: How does market_screen.html load js/config.js?
+
+**Options:** (a) Plain `<script src="js/config.js">` before the main script block — global `const SERVER_URL`, (b) ES module import — requires `type="module"`, breaks `file://` in some browsers
+**Decision:** Option (a) — plain script tag
+**Rationale:** Matches how all other JS files are loaded in this project; works on both `file://` and Express-served contexts.
+**Consequence:** `SERVER_URL` is a global variable available to the inline script block in `market_screen.html`.
+
+---
+
+## Implementation Plan: Subphase 3.1
+
+### Step 1 — Create js/config.js
+
+**Action:** New file with one line: `const SERVER_URL = 'http://localhost:3000'; // REPLACE AFTER DEPLOY`
+**Visible change:** None — data layer only.
+**If skipped:** market_screen.html has no config to read; WS URL stays hardcoded.
+
+### Step 2 — Add script tag to market_screen.html
+
+**Action:** Add `<script src="js/config.js"></script>` in the `<head>` before any other scripts.
+**Visible change:** None — data layer only.
+**If skipped:** `SERVER_URL` is undefined; the WS block throws a ReferenceError.
+
+### Step 3 — Replace hardcoded ws://localhost:3000 in market_screen.html
+
+**Action:** Replace `new WebSocket('ws://localhost:3000')` with `new WebSocket(SERVER_URL.replace(/^http/, 'ws'))`.
+**Visible change:** None locally (behavior identical). After deploy: connects to `wss://` Render URL instead of localhost.
+**If skipped:** market_screen.html cannot reach the Render server after deploy.
+
+### Step 4 — Create render.yaml at repo root
+
+**Action:** New file declaring a Node web service: build command `npm install`, start command `npm start`, health check path `/healthz`.
+**Visible change:** None locally.
+**If skipped:** Render cannot auto-detect the build/start commands; manual config required on the Render dashboard.
+
+### Step 5 — Regression test
+
+**Action:** Re-run `node tests/subphase-2-3-market-ws.js` with SERVER_URL still pointing at localhost. All 5 assertions must stay GREEN.
+**Visible change:** Terminal output — 5 passed, 0 failed.
+**If skipped:** No confirmation that the config change didn't break the local WS connection.
+
+---
+
+## Implementation Record: Subphase 3.1 — deploy-readiness code
+
+**Date:** 2026-06-17
+**Status:** Complete — 5 regression tests GREEN, no behavior change locally
+
+### What was built
+
+| File | Change |
+|---|---|
+| `js/config.js` | New — `const SERVER_URL = 'http://localhost:3000'; // REPLACE AFTER DEPLOY` |
+| `market_screen.html` | Added `<script src="js/config.js">` in `<head>` |
+| `market_screen.html` | `new WebSocket('ws://localhost:3000')` → `new WebSocket(SERVER_URL.replace(/^http/, 'ws'))` |
+| `render.yaml` | New — Render Node web service definition |
+| `audience.html` | Untouched — relative URLs already work everywhere |
+
+### render.yaml
+
+```yaml
+services:
+  - type: web
+    name: deep-seas
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+```
+
+### WS protocol derivation
+
+```js
+SERVER_URL.replace(/^http/, 'ws')
+// 'http://localhost:3000'           → 'ws://localhost:3000'
+// 'https://deep-seas.onrender.com'  → 'wss://deep-seas.onrender.com'
+```
+
+### Regression results (tests/subphase-2-3-market-ws.js)
+
+5 passed, 0 failed — identical before and after the config change.

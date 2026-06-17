@@ -79,11 +79,11 @@ function fireWeapon(id) {
     timestamp: Date.now()
   });
 
-  if (marketState.round.phase === 'playing' && !marketState.round.firstMoveFlags[weapon.player]) {
-    marketState.round.firstMoveFlags[weapon.player] = true;
-    const msg = weapon.player === 'disruptor' ? 'GO DEFENDER!' : 'GO DISRUPTOR!';
-    if (typeof showFlash === 'function') showFlash(msg);
+  if (typeof showFlash === 'function') {
+    const sign = weapon.prob_delta >= 0 ? '+' : '';
+    showFlash(weapon.player.toUpperCase() + ' · ' + id + ' ' + weapon.name.toUpperCase() + ' ' + sign + weapon.prob_delta + '%');
   }
 
   if (typeof updateDashboard === 'function') updateDashboard();
+  if (typeof broadcastGameState === 'function') broadcastGameState();
 }

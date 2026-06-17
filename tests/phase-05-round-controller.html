@@ -196,24 +196,25 @@ test('pauseRound() pauses tick; resumeRound() resumes it', () => {
 });
 
 // ── Slice 7 ──────────────────────────────────────────────────────
-// firstMoveFlags: first disruptor fire sets flag, second fire does not re-trigger flash
+// Phase 5a: fireWeapon() flashes weapon text on every fire (supersedes firstMoveFlags prompt)
 
-test('first disruptor weapon fire sets firstMoveFlags.disruptor and flashes GO DEFENDER!', () => {
+test('fireWeapon() flashes weapon text on every fire — each weapon triggers its own flash', () => {
   resetState();
   startRound(); // phase = 'playing'
   lastFlash = null;
 
   fireWeapon('D01'); // first disruptor move
-  assert(marketState.round.firstMoveFlags.disruptor === true,
-    `expected firstMoveFlags.disruptor true after first fire`);
-  assert(lastFlash === 'GO DEFENDER!',
-    `expected flash 'GO DEFENDER!', got '${lastFlash}'`);
+  assert(lastFlash !== null,
+    `expected flash after fireWeapon('D01'), got null`);
+  assert(lastFlash.includes('D01'),
+    `expected flash to contain 'D01', got '${lastFlash}'`);
 
   lastFlash = null;
-  // D01 is active (no-op for same weapon), fire a different disruptor weapon
-  fireWeapon('D03'); // second disruptor move
-  assert(lastFlash === null,
-    `second disruptor fire should NOT re-trigger flash, got '${lastFlash}'`);
+  fireWeapon('D03'); // second disruptor move — different weapon, should also flash
+  assert(lastFlash !== null,
+    `expected flash after fireWeapon('D03'), got null`);
+  assert(lastFlash.includes('D03'),
+    `expected flash to contain 'D03', got '${lastFlash}'`);
 });
 
 // ── Summary ──────────────────────────────────────────────────────

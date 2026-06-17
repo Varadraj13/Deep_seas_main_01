@@ -4,14 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Market Screen</title>
+<script src="js/config.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400&display=swap');
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    background: #050505;
-    color: #e0e0e0;
+    background: #ffffff;
+    color: #111111;
     font-family: 'IBM Plex Mono', monospace;
     height: 100vh;
     overflow: hidden;
@@ -50,12 +51,12 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1px;
-    background: #111;
+    background: #cccccc;
     overflow: hidden;
   }
 
   .side {
-    background: #050505;
+    background: #ffffff;
     display: grid;
     grid-template-rows: auto 1fr auto;
     padding: 20px 24px 16px;
@@ -108,6 +109,7 @@
     margin-top: 12px;
     border-top: 1px solid #111;
     padding-top: 10px;
+    display: none;
   }
   .player-row {
     display: grid;
@@ -177,7 +179,7 @@
   <div class="contract-q">
     <span id="contractQ">When will traffic at the Strait of Hormuz return to normal?</span>
   </div>
-  <div class="vol-label">VOL <span id="totalVol">$1,503,164</span></div>
+  <div class="vol-label">AUDIENCE <span id="audiencePrice">50¢</span></div>
 </header>
 
 <main>
@@ -226,7 +228,7 @@
   <div class="ticker">
     <span id="tick1">HORMUZ FLOW 98%</span>
     <span id="tick2">VESSELS 30</span>
-    <span id="tick3">SIM TICK 1033</span>
+    <span id="tick3">SIM TICK —</span>
     <span id="tick4">HORMUZ · BEFORE JUN 1 · 59%</span>
   </div>
   <div class="round-state">
@@ -255,15 +257,33 @@
 
   // ── STATE ────────────────────────────────────────────────────────
   let yesProb = 0.51;
+
+  // ── AUDIENCE WS ─────────────────────────────────────────────────
+  const audienceWs = new WebSocket(SERVER_URL.replace(/^http/, 'ws'));
+  audienceWs.onmessage = function(e) {
+    const msg = JSON.parse(e.data);
+    document.getElementById('audiencePrice').textContent =
+      Math.round(msg.marketPrice * 100) + '¢';
+  };
+
+  // ── BROADCAST LISTENER ──────────────────────────────────────────
+  // Receives live game state from index.html via BroadcastChannel.
+  // YES = strait open = (100 - shipProbability). NO = disrupted = shipProbability.
+  const hormuzChannel = new BroadcastChannel('hormuz-game');
+  hormuzChannel.onmessage = function(e) {
+    const msg = e.data;
+    yesProb = (100 - msg.shipProbability) / 100;
+    document.getElementById('tick4').textContent =
+      'LANE ' + msg.lane.toUpperCase() + ' · SHIP PROB ' + msg.shipProbability + '%';
+    document.getElementById('roundNum').textContent = msg.round.number || '—';
+    document.getElementById('roundTimer').textContent = msg.round.phase.toUpperCase();
+  };
   const HISTORY_LEN = 120;
   const yesHistory = Array.from({length: HISTORY_LEN}, (_,i) =>
     0.50 + 0.08 * Math.sin(i * 0.15) + (Math.random() - 0.5) * 0.04
   );
   const noHistory = yesHistory.map(v => 1 - v);
 
-  let roundSec = 45;
-  let simTick = 1033;
-  let totalVol = 1503164;
 
   // ── CANVAS SETUP ─────────────────────────────────────────────────
   function setupCanvas(id) {
@@ -348,11 +368,6 @@
 
   // ── UPDATE LOOP ──────────────────────────────────────────────────
   function tick() {
-    // Drift probability
-    const drift = (Math.random() - 0.5) * 0.008;
-    const reversion = (0.5 - yesProb) * 0.002;
-    yesProb = Math.max(0.05, Math.min(0.95, yesProb + drift + reversion));
-
     yesHistory.push(yesProb);
     if (yesHistory.length > HISTORY_LEN) yesHistory.shift();
     noHistory.push(1 - yesProb);
@@ -374,22 +389,6 @@
     renderPlayers('yesPlayers', YES_PLAYERS, yesProb);
     renderPlayers('noPlayers', NO_PLAYERS, yesProb);
 
-    // Round timer
-    roundSec = Math.max(0, roundSec - (1/6));
-    const s = Math.floor(roundSec);
-    document.getElementById('roundTimer').textContent =
-      '00:' + String(s).padStart(2, '0');
-    if (roundSec <= 0) {
-      roundSec = 45;
-      document.getElementById('roundNum').textContent =
-        (parseInt(document.getElementById('roundNum').textContent) % 3) + 1;
-    }
-
-    // Sim ticker
-    simTick++;
-    totalVol += Math.floor(Math.random() * 120);
-    document.getElementById('tick3').textContent = 'SIM TICK ' + simTick;
-    document.getElementById('totalVol').textContent = '$' + totalVol.toLocaleString();
   }
 
   // ── INIT ─────────────────────────────────────────────────────────

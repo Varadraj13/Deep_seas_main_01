@@ -73,6 +73,7 @@
 #btnStartRound { color: #4ade80; border-color: #4ade80; }
 #btnPauseRound { color: #f59e0b; border-color: #f59e0b; }
 #btnResetGame  { color: #ef4444; border-color: #ef4444; }
+#btnEndGame    { color: #fca5a5; border-color: #7f1d1d; background: #7f1d1d; margin-top: 4px; width: 100%; }
 </style>
 </head>
 <body>
@@ -118,6 +119,7 @@
       <button class="btn" id="btnPauseRound" onclick="togglePauseRound()">PAUSE</button>
       <button class="btn" id="btnResetGame"  onclick="resetGame()">RESET</button>
     </div>
+    <button class="btn" id="btnEndGame" onclick="endGameNow()">END GAME</button>
   </div>
 
   <!-- Display controls -->
@@ -573,6 +575,7 @@ function showFlash(text, ms) {
 <script src="js/market-tick.js"></script>
 <script src="js/round-controller.js"></script>
 <script src="js/game-dashboard.js"></script>
+<script src="js/game-broadcast.js"></script>
 
 <!-- Layer 2: Map -->
 <script src="js/map-setup.js"></script>

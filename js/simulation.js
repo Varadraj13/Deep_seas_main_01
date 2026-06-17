@@ -3,6 +3,21 @@
 // ================================================================
 let playing = true, simSpeed = 5, simElapsed = 0, warningCount = 0, simTickCount = 0;
 
+// Lerped speed multiplier — smoothly tracks marketState.simMultipliers.speed_mult.
+// Keeps a gradual transition (~3s) instead of an instant snap when weapons fire.
+let currentSpeedMult = 1.0;
+
+function _lerpSpeedMult(target) {
+  currentSpeedMult += (target - currentSpeedMult) * 0.015;
+  return currentSpeedMult;
+}
+
+// Pure formula: converts avg raw speed + current mult into a 0-100 flow percentage.
+// Extracted so tests can verify the formula without the full simulation context.
+function _calcFlowPct(avgRawSpeed, mult) {
+  return Math.min(100, Math.round((avgRawSpeed * mult / 15) * 100));
+}
+
 function togglePlay() {
   playing = !playing;
   const btn = document.getElementById('btnPlay');
@@ -54,6 +69,10 @@ function updateSim(dtReal) {
   simElapsed += dtSim;
   simTickCount++;
 
+  // Lerp currentSpeedMult toward the weapon-driven target each frame
+  const targetMult = (typeof marketState !== 'undefined') ? (marketState.simMultipliers.speed_mult || 1.0) : 1.0;
+  _lerpSpeedMult(targetMult);
+
   let activeWarnings = 0;
   const heatPoints = [];
 
@@ -62,8 +81,7 @@ function updateSim(dtReal) {
     const rLen = v.totalDist;
     if (!rLen || isNaN(rLen) || rLen <= 0) { v.totalDist = routeLength(v.route) || 100; continue; }
     if (isNaN(v.speed) || v.speed <= 0) { v.speed = 12; }
-    const speedMult = (typeof marketState !== 'undefined' && marketState.simMultipliers.speed_mult) || 1.0;
-    const effectiveSpeed = v.speed * speedMult;
+    const effectiveSpeed = v.speed * currentSpeedMult;
     const progressDelta = (effectiveSpeed * dtHours) / rLen;
     if (isNaN(progressDelta)) continue;
     const oldProgress = v.progress;
@@ -195,7 +213,7 @@ function updateStats() {
   const hrs = Math.floor(simElapsed / 3600), mins = Math.floor((simElapsed % 3600) / 60);
   document.getElementById('simTime').textContent = String(hrs).padStart(2,'0')+':'+String(mins).padStart(2,'0');
   if(vessels.length) {
-    document.getElementById('avgSpeed').textContent = (vessels.reduce((s,v)=>s+v.speed,0)/vessels.length).toFixed(1);
+    document.getElementById('avgSpeed').textContent = (vessels.reduce((s,v)=>s+v.speed,0)/vessels.length * currentSpeedMult).toFixed(1);
   } else document.getElementById('avgSpeed').textContent = '0';
   document.getElementById('warnings').textContent = warningCount;
   // Status bar update
@@ -204,7 +222,8 @@ function updateStats() {
   var sbFlow = document.getElementById('sbFlow');
   if (sbTick) sbTick.textContent = 'SIM TICK ' + String(simTickCount).padStart(4, '0');
   if (sbVessels) sbVessels.textContent = 'VESSELS ' + vessels.length;
-  var flowPct = vessels.length ? Math.min(100, Math.round((vessels.reduce(function(s,v){return s+v.speed;},0) / vessels.length / 15) * 100)) : 0;
+  var avgRawSpeed = vessels.length ? vessels.reduce(function(s,v){return s+v.speed;},0) / vessels.length : 0;
+  var flowPct = vessels.length ? _calcFlowPct(avgRawSpeed, currentSpeedMult) : 0;
   if (sbFlow) sbFlow.textContent = '// HORMUZ FLOW ' + flowPct + '%';
   var sbProb = document.getElementById('sbProb');
   if (sbProb && typeof marketState !== 'undefined') {

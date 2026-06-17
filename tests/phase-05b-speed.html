@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phase 05b — Ship Speed Responsiveness</title>
+<style>
+  body { font-family: monospace; background: #0a0a0a; color: #ccc; padding: 24px; }
+  h2   { color: #cc0000; letter-spacing: 3px; font-size: 11px; margin-bottom: 16px; }
+  .pass { color: #4ade80; }
+  .fail { color: #ef4444; }
+  .result { font-size: 11px; margin: 4px 0; }
+  #summary { margin-top: 20px; font-size: 13px; letter-spacing: 2px; }
+</style>
+</head>
+<body>
+<h2>PHASE 05b — SHIP SPEED RESPONSIVENESS</h2>
+<div id="results"></div>
+<div id="summary"></div>
+
+<!-- Minimal stubs so simulation.js loads without error -->
+<script>
+  // simulation.js reads marketState.simMultipliers inside functions (not at load time)
+  // but _lerpSpeedMult() uses a local target arg, so no stub needed for lerp tests
+  // Stub updateDashboard / updateStats so simulation.js internal calls don't throw
+  function updateDashboard() {}
+</script>
+
+<script src="../js/weapons-config.js"></script>
+<script src="../js/game-state.js"></script>
+<script src="../js/simulation.js"></script>
+<script>
+
+let passed = 0, failed = 0;
+const out = document.getElementById('results');
+
+function test(name, fn) {
+  try { fn(); passed++; out.innerHTML += `<div class="result pass">✓ ${name}</div>`; }
+  catch(e) { failed++; out.innerHTML += `<div class="result fail">✗ ${name} — ${e.message}</div>`; }
+}
+
+function assert(condition, msg) {
+  if (!condition) throw new Error(msg || 'assertion failed');
+}
+
+// ── Slice 1 (tracer) ─────────────────────────────────────────────
+// Lerp converges: 500 steps toward 0.05 from 1.0 lands within 0.02 of target
+
+test('_lerpSpeedMult converges to 0.05 from 1.0 after 500 steps', () => {
+  currentSpeedMult = 1.0;
+
+  for (let i = 0; i < 500; i++) _lerpSpeedMult(0.05);
+
+  assert(typeof currentSpeedMult === 'number',
+    'currentSpeedMult should be a number');
+  assert(Math.abs(currentSpeedMult - 0.05) < 0.02,
+    `expected currentSpeedMult within 0.02 of 0.05 after 500 steps, got ${currentSpeedMult.toFixed(4)}`);
+});
+
+// ── Slice 2 ──────────────────────────────────────────────────────
+// Lerp recovers: after reaching near 0.05, switching target to 1.0 and
+// running 500 more steps brings it back within 0.02 of 1.0
+
+test('_lerpSpeedMult recovers back toward 1.0 when target switches', () => {
+  currentSpeedMult = 1.0;
+
+  // Drive down to near 0.05
+  for (let i = 0; i < 300; i++) _lerpSpeedMult(0.05);
+  assert(currentSpeedMult < 0.3,
+    `expected currentSpeedMult below 0.3 after 300 steps toward 0.05, got ${currentSpeedMult.toFixed(4)}`);
+
+  // Recover back toward 1.0
+  for (let i = 0; i < 500; i++) _lerpSpeedMult(1.0);
+
+  assert(Math.abs(currentSpeedMult - 1.0) < 0.02,
+    `expected currentSpeedMult within 0.02 of 1.0 after recovery, got ${currentSpeedMult.toFixed(4)}`);
+});
+
+// ── Slice 3 ──────────────────────────────────────────────────────
+// flowPct formula: D01 active (mult = 0.05), avg raw speed 14 → ≤ 5%
+
+test('_calcFlowPct(14, 0.05) returns ≤ 5 — strait near-halted', () => {
+  const pct = _calcFlowPct(14, 0.05);
+
+  assert(typeof pct === 'number',
+    '_calcFlowPct should return a number');
+  assert(pct <= 5,
+    `expected flowPct ≤ 5 when mult=0.05, got ${pct}`);
+  assert(pct >= 0,
+    `expected flowPct ≥ 0, got ${pct}`);
+});
+
+// ── Slice 4 ──────────────────────────────────────────────────────
+// flowPct formula: no weapons active (mult = 1.0), avg raw speed 14 → ~93%
+
+test('_calcFlowPct(14, 1.0) returns ~93 — normal strait flow', () => {
+  const pct = _calcFlowPct(14, 1.0);
+
+  assert(pct >= 90 && pct <= 96,
+    `expected flowPct between 90 and 96 when mult=1.0, got ${pct}`);
+});
+
+// ── Slice 5 ──────────────────────────────────────────────────────
+// Steady state: lerp at 1.0→1.0 produces no drift
+
+test('_lerpSpeedMult(1.0) from 1.0 does not drift — steady state stays at 1.0', () => {
+  currentSpeedMult = 1.0;
+
+  for (let i = 0; i < 10; i++) _lerpSpeedMult(1.0);
+
+  assert(currentSpeedMult === 1.0,
+    `expected currentSpeedMult exactly 1.0 at steady state, got ${currentSpeedMult}`);
+});
+
+// ── Summary ──────────────────────────────────────────────────────
+const total = passed + failed;
+const color = failed === 0 ? '#4ade80' : '#ef4444';
+document.getElementById('summary').innerHTML =
+  `<span style="color:${color}">${passed}/${total} PASSED${failed ? ' — ' + failed + ' FAILED' : ' — ALL GREEN'}</span>`;
+</script>
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phase 05a — gameFlash Fix + End Game Button</title>
+<style>
+  body { font-family: monospace; background: #0a0a0a; color: #ccc; padding: 24px; }
+  h2   { color: #cc0000; letter-spacing: 3px; font-size: 11px; margin-bottom: 16px; }
+  .pass { color: #4ade80; }
+  .fail { color: #ef4444; }
+  .result { font-size: 11px; margin: 4px 0; }
+  #summary { margin-top: 20px; font-size: 13px; letter-spacing: 2px; }
+</style>
+</head>
+<body>
+<h2>PHASE 05a — GAMEFLASH FIX + END GAME BUTTON</h2>
+<div id="results"></div>
+<div id="summary"></div>
+
+<!-- Stubs for globals not present outside full sim -->
+<div id="gameFlash" style="display:none"></div>
+<script>
+  let playing = true;
+  let tickPaused = false;
+  function pauseTick()  { tickPaused = true;  }
+  function resumeTick() { tickPaused = false; }
+  // Flash stub — captures last message and duration for assertions
+  let lastFlash = null;
+  let lastFlashDuration = null;
+  function showFlash(text, duration) {
+    lastFlash = text;
+    lastFlashDuration = duration || 2000;
+  }
+</script>
+
+<script src="../js/weapons-config.js"></script>
+<script src="../js/game-state.js"></script>
+<script src="../js/round-controller.js"></script>
+<script>
+
+let passed = 0, failed = 0;
+const out = document.getElementById('results');
+
+function test(name, fn) {
+  try { fn(); passed++; out.innerHTML += `<div class="result pass">✓ ${name}</div>`; }
+  catch(e) { failed++; out.innerHTML += `<div class="result fail">✗ ${name} — ${e.message}</div>`; }
+}
+
+function assert(condition, msg) {
+  if (!condition) throw new Error(msg || 'assertion failed');
+}
+
+function resetState() {
+  marketState.prob = 50;
+  marketState.tickCount = 0;
+  marketState.activeWeapons = [];
+  marketState.simMultipliers = { speed_mult: 1.0, spawn_rate_mult: 1.0, hormuz_lane: 'open' };
+  marketState.actionLog = [];
+  marketState.round = {
+    phase: 'idle',
+    number: 0,
+    scores: [0, 0],
+    roles: ['disruptor', 'defender'],
+    winner: null,
+    roundStartedAt: null,
+    pausedAt: null,
+    totalPausedMs: 0,
+    firstMoveFlags: { disruptor: false, defender: false }
+  };
+  playing = true;
+  tickPaused = false;
+  lastFlash = null;
+  lastFlashDuration = null;
+}
+
+// ── Slice 1 (tracer) ─────────────────────────────────────────────
+// Every fireWeapon() call triggers showFlash with the weapon id and delta
+
+test('fireWeapon(D01) flashes text containing weapon id and prob delta', () => {
+  resetState();
+
+  fireWeapon('D01');
+
+  assert(lastFlash !== null,
+    'expected showFlash to be called, got null');
+  assert(lastFlash.includes('D01'),
+    `expected flash to contain 'D01', got: '${lastFlash}'`);
+  assert(lastFlash.includes('+22'),
+    `expected flash to contain '+22', got: '${lastFlash}'`);
+});
+
+// ── Slice 2 ──────────────────────────────────────────────────────
+// Flash text includes the player role prefix
+
+test('fireWeapon(R01) flash text contains DEFENDER', () => {
+  resetState();
+
+  fireWeapon('R01');
+
+  assert(lastFlash !== null,
+    'expected showFlash to be called, got null');
+  assert(lastFlash.includes('DEFENDER'),
+    `expected flash to contain 'DEFENDER', got: '${lastFlash}'`);
+});
+
+// ── Slice 3 ──────────────────────────────────────────────────────
+// Second call for same weapon is a no-op — showFlash not called again
+
+test('fireWeapon(D01) twice — second call is no-op, showFlash called only once', () => {
+  resetState();
+
+  fireWeapon('D01');
+  const firstFlash = lastFlash;
+  lastFlash = null;
+
+  fireWeapon('D01'); // D01 already active → no-op
+
+  assert(firstFlash !== null,
+    'first fireWeapon(D01) should have triggered a flash');
+  assert(lastFlash === null,
+    `second fireWeapon(D01) should be a no-op, but got flash: '${lastFlash}'`);
+});
+
+// ── Slice 4 ──────────────────────────────────────────────────────
+// endGameNow() with lane closed → phase 'over', flash contains 'DISRUPTOR WINS'
+
+test('endGameNow() with hormuz_lane closed → phase over, flash contains DISRUPTOR WINS', () => {
+  resetState();
+  marketState.simMultipliers.hormuz_lane = 'closed';
+
+  endGameNow();
+
+  assert(marketState.round.phase === 'over',
+    `expected phase 'over', got '${marketState.round.phase}'`);
+  assert(lastFlash !== null,
+    'expected showFlash to be called');
+  assert(lastFlash.includes('DISRUPTOR WINS'),
+    `expected 'DISRUPTOR WINS' in flash, got: '${lastFlash}'`);
+});
+
+// ── Slice 5 ──────────────────────────────────────────────────────
+// endGameNow() with lane open (default) → flash contains 'DEFENDER WINS'
+
+test('endGameNow() with hormuz_lane open → flash contains DEFENDER WINS', () => {
+  resetState();
+  // hormuz_lane defaults to 'open' in SIM_DEFAULTS
+
+  endGameNow();
+
+  assert(lastFlash !== null,
+    'expected showFlash to be called');
+  assert(lastFlash.includes('DEFENDER WINS'),
+    `expected 'DEFENDER WINS' in flash, got: '${lastFlash}'`);
+  assert(lastFlashDuration === 4000,
+    `expected flash duration 4000ms, got ${lastFlashDuration}`);
+});
+
+// ── Slice 6 ──────────────────────────────────────────────────────
+// endGameNow() works from any phase — no throw from 'idle'
+
+test('endGameNow() from phase idle does not throw and sets phase over', () => {
+  resetState();
+  // phase = 'idle', no round started
+
+  let threw = false;
+  try { endGameNow(); } catch(e) { threw = true; }
+
+  assert(!threw,
+    'endGameNow() should not throw when called from idle phase');
+  assert(marketState.round.phase === 'over',
+    `expected phase 'over', got '${marketState.round.phase}'`);
+});
+
+// ── Summary ──────────────────────────────────────────────────────
+const total = passed + failed;
+const color = failed === 0 ? '#4ade80' : '#ef4444';
+document.getElementById('summary').innerHTML =
+  `<span style="color:${color}">${passed}/${total} PASSED${failed ? ' — ' + failed + ' FAILED' : ' — ALL GREEN'}</span>`;
+</script>
+</body>
+</html>

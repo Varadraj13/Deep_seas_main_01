@@ -83,13 +83,14 @@ function updateShipPanelLive() {
   if (!v) return;
   const pos = positionOnRoute(v.route, v.progress);
 
-  document.getElementById('spSpeed').textContent = v.speed.toFixed(1);
+  document.getElementById('spSpeed').textContent = (v.speed * (typeof currentSpeedMult !== 'undefined' ? currentSpeedMult : 1.0)).toFixed(1);
   document.getElementById('spHeading').textContent = pos.bearing.toFixed(0) + '\u00B0';
   document.getElementById('spFuelRate').textContent = v.baseFuelRate.toFixed(2);
 
   const distTrav = v.progress * v.totalDist;
   const distRem = (1 - v.progress) * v.totalDist;
-  const etaHours = distRem / v.speed;
+  const effectiveSpd = v.speed * (typeof currentSpeedMult !== 'undefined' ? currentSpeedMult : 1.0);
+  const etaHours = distRem / (effectiveSpd || 0.001);
   document.getElementById('spDistTrav').textContent = distTrav.toFixed(0) + ' nm';
   document.getElementById('spDistRem').textContent = distRem.toFixed(0) + ' nm';
   document.getElementById('spETA').textContent = etaHours.toFixed(1) + ' hrs';

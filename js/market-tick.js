@@ -74,6 +74,7 @@ function marketTick() {
   marketState.prob = Math.max(0, Math.min(100, marketState.prob));
 
   if (typeof updateDashboard === 'function') updateDashboard();
+  if (typeof broadcastGameState === 'function') broadcastGameState();
 }
 
 let _tickTimer = null;

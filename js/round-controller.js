@@ -25,6 +25,7 @@ function startRound() {
   if (typeof resumeTick === 'function') resumeTick();
   if (typeof showFlash === 'function') showFlash('ROUND ' + marketState.round.number + ' — BEGIN');
   if (typeof updateDashboard === 'function') updateDashboard();
+  if (typeof broadcastGameState === 'function') broadcastGameState();
 }
 
 function endRound() {
@@ -55,6 +56,7 @@ function endRound() {
   if (typeof playing !== 'undefined') playing = false;
   if (typeof pauseTick === 'function') pauseTick();
   if (typeof updateDashboard === 'function') updateDashboard();
+  if (typeof broadcastGameState === 'function') broadcastGameState();
 }
 
 function pauseRound() {
@@ -63,6 +65,7 @@ function pauseRound() {
   if (typeof playing !== 'undefined') playing = false;
   if (typeof pauseTick === 'function') pauseTick();
   if (typeof showFlash === 'function') showFlash('PAUSED');
+  if (typeof broadcastGameState === 'function') broadcastGameState();
   const btn = document.getElementById('btnPauseRound');
   if (btn) btn.textContent = 'RESUME';
 }
@@ -76,6 +79,7 @@ function resumeRound() {
   if (typeof playing !== 'undefined') playing = true;
   if (typeof resumeTick === 'function') resumeTick();
   if (typeof showFlash === 'function') showFlash('RESUMED');
+  if (typeof broadcastGameState === 'function') broadcastGameState();
   const btn = document.getElementById('btnPauseRound');
   if (btn) btn.textContent = 'PAUSE';
 }
@@ -83,6 +87,19 @@ function resumeRound() {
 function togglePauseRound() {
   if (marketState.round.pausedAt !== null) resumeRound();
   else pauseRound();
+}
+
+function endGameNow() {
+  const lane = marketState.simMultipliers.hormuz_lane || 'open';
+  marketState.round.phase = 'over';
+  if (typeof playing !== 'undefined') playing = false;
+  if (typeof pauseTick === 'function') pauseTick();
+  const msg = lane === 'closed'
+    ? 'STRAIT CLOSED — DISRUPTOR WINS'
+    : 'STRAIT OPEN — DEFENDER WINS';
+  if (typeof showFlash === 'function') showFlash(msg, 4000);
+  if (typeof updateDashboard === 'function') updateDashboard();
+  if (typeof broadcastGameState === 'function') broadcastGameState();
 }
 
 function resetGame() {
@@ -106,4 +123,5 @@ function resetGame() {
   if (typeof pauseTick === 'function') pauseTick();
   if (typeof showFlash === 'function') showFlash('GAME RESET');
   if (typeof updateDashboard === 'function') updateDashboard();
+  if (typeof broadcastGameState === 'function') broadcastGameState();
 }
