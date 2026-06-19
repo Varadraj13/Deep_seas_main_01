@@ -71,7 +71,7 @@
     out.innerHTML += '<h2>SLICE 4 · HIERARCHY — MODES NESTED UNDER INDEX</h2>';
 
     // INDEX link must still exist
-    if (html.includes('href="index.html"')) pass('cc4a', 'INDEX link (href="index.html") still present');
+    if (html.includes('href="simulator.html"')) pass('cc4a', 'INDEX link (href="simulator.html") still present');
     else fail('cc4a', 'INDEX link missing');
 
     // Sub-group CSS class or element
@@ -80,7 +80,7 @@
     else fail('cc4b', 'no sub-group styling found');
 
     // Mode buttons appear AFTER index.html link in document order
-    const indexPos  = html.indexOf('href="index.html"');
+    const indexPos  = html.indexOf('href="simulator.html"');
     const mode01Pos = html.search(/MODE\s*01|mode.01/i);
     const mode02Pos = html.search(/MODE\s*02|mode.02/i);
 
@@ -96,8 +96,8 @@
     out.innerHTML += '<h2>SLICE 5 · INDEX CLICK TRIGGERS MODE 01</h2>';
 
     // The index.html anchor should have an onclick that posts video_playback
-    const indexAnchorRegion = html.slice(html.indexOf('href="index.html"') - 100,
-                                         html.indexOf('href="index.html"') + 200);
+    const indexAnchorRegion = html.slice(html.indexOf('href="simulator.html"') - 100,
+                                         html.indexOf('href="simulator.html"') + 200);
     if (/video_playback/i.test(indexAnchorRegion))
       pass('cc5a', 'INDEX anchor region references video_playback broadcast');
     else fail('cc5a', 'INDEX anchor does not trigger video_playback broadcast');

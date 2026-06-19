@@ -31,7 +31,7 @@
 
     let html = '';
     try {
-      const res = await fetch('../index.html');
+      const res = await fetch('../simulator.html');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       html = await res.text();
       pass('m1a', 'index.html readable');

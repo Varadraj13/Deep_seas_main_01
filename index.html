@@ -3,641 +3,118 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Strait of Hormuz - Maritime Traffic Simulator</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<link rel="stylesheet" href="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js" />
-<link rel="stylesheet" href="css/main.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<title>Control Center — Deep Seas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-/* ── Game Dashboard ─────────────────────────────────────── */
-#gameDashboard {
-  position: fixed; top: 12px; right: 244px;
-  width: 260px; max-height: calc(100vh - 60px);
-  background: rgba(10,10,10,0.92);
-  border: 1px solid rgba(255,255,255,0.08);
-  font-family: monospace; font-size: 11px; color: #ccc;
-  z-index: 900; overflow-y: auto;
-  display: flex; flex-direction: column;
-  scrollbar-width: thin; scrollbar-color: #222 transparent;
-}
-#gameDashboard section {
-  padding: 10px 14px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-#gameDashboard section::before {
-  display: block; font-size: 8px; letter-spacing: 2px;
-  color: rgba(255,255,255,0.25); margin-bottom: 6px;
-}
-#gdProb::before       { content: 'PROBABILITY'; }
-#gdLastAction::before { content: 'LAST ACTION'; }
-#gdActive::before     { content: 'ACTIVE WEAPONS'; }
-#gdLog::before        { content: 'EVENT LOG'; }
-.gd-prob-value {
-  font-size: 28px; font-weight: bold;
-  letter-spacing: 3px; line-height: 1; margin-bottom: 4px;
-}
-.gd-prob-bar { font-size: 13px; letter-spacing: 1px; }
-.prob-red   .gd-prob-value, .prob-red   .gd-prob-bar { color: #ef4444; }
-.prob-amber .gd-prob-value, .prob-amber .gd-prob-bar { color: #f59e0b; }
-.prob-green .gd-prob-value, .prob-green .gd-prob-bar { color: #4ade80; }
-.gd-weapon-id {
-  color: #fff; font-size: 11px; margin-bottom: 4px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.gd-cause  { color: #f59e0b; margin-bottom: 3px; }
-.gd-effect { color: rgba(255,255,255,0.45); font-size: 10px; padding-left: 8px; margin: 1px 0; }
-.gd-active-row { color: #4ade80; margin: 2px 0; }
-.gd-log-row { color: rgba(255,255,255,0.35); font-size: 10px; margin: 2px 0; }
-.gd-empty  { color: rgba(255,255,255,0.18); font-style: italic; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
 
-/* ── Game Flash ─────────────────────────────────────────────── */
-#gameFlash {
-  position: fixed; top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 4rem; font-weight: 900;
-  font-family: monospace; color: #fff;
-  opacity: 0; pointer-events: none;
-  transition: opacity 0.2s ease;
-  z-index: 9999;
-  text-align: center;
-  text-shadow: 0 0 60px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.9);
-  letter-spacing: 4px;
-}
-#gameFlash.visible { opacity: 1; }
+  body {
+    background: #0a0a0a;
+    color: #cccccc;
+    font-family: 'IBM Plex Mono', monospace;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 48px;
+  }
 
-/* ── Round controls ─────────────────────────────────────────── */
-#roundControls { margin-top: 8px; }
-#roundControls .btn-row { display: flex; gap: 4px; }
-#roundControls .btn { flex: 1; font-size: 9px; padding: 5px 2px; }
-#btnStartRound { color: #4ade80; border-color: #4ade80; }
-#btnPauseRound { color: #f59e0b; border-color: #f59e0b; }
-#btnResetGame  { color: #ef4444; border-color: #ef4444; }
-#btnEndGame    { color: #fca5a5; border-color: #7f1d1d; background: #7f1d1d; margin-top: 4px; width: 100%; }
+  .title {
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: #444;
+  }
+
+  .nav {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 320px;
+  }
+
+  .nav a {
+    display: block;
+    padding: 16px 24px;
+    border: 1px solid #222;
+    color: #ccc;
+    text-decoration: none;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    font-weight: 400;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  .nav a:hover {
+    border-color: #888;
+    color: #fff;
+  }
+
+  .nav a .page-label {
+    display: block;
+  }
+
+  .sub-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-left: 20px;
+    border-left: 1px solid #222;
+  }
+
+  .sub-btn {
+    background: transparent;
+    border: 1px solid #1a1a1a;
+    color: #555;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    padding: 10px 16px;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  .sub-btn:hover {
+    border-color: #666;
+    color: #ccc;
+  }
 </style>
 </head>
 <body>
 
-<!-- ── VIDEO PLAYBACK MODE (default) ───────────────────────────────── -->
-<div id="video-mode" style="position:fixed;inset:0;background:#ffffff;z-index:9999;">
-  <video id="bgVideo" autoplay loop muted playsinline
-    style="width:100vw;height:100vh;object-fit:cover;display:block;"></video>
-</div>
+<div class="title">Deep Seas · Control Center</div>
 
-<!-- ── SIMULATION MODE ─────────────────────────────────────────────── -->
-<div id="sim-mode" style="display:none;">
+<nav class="nav">
+  <a href="simulator.html" target="_blank" onclick="broadcast('video_playback')">
+    <span class="page-label">Index</span>
+  </a>
+  <div class="sub-group">
+    <button class="sub-btn" onclick="broadcast('video_playback')">Mode 01 — Video Playback</button>
+    <button class="sub-btn" onclick="broadcast('simulation')">Mode 02 — Simulation</button>
+  </div>
+  <a href="market_screen.html" target="_blank">
+    <span class="page-label">Market Screen</span>
+  </a>
+  <a href="audience.html" target="_blank">
+    <span class="page-label">Audience</span>
+  </a>
+  <a href="detector.html" target="_blank">
+    <span class="page-label">Detector</span>
+  </a>
+  <a href="base.html" target="_blank">
+    <span class="page-label">Base</span>
+  </a>
+</nav>
 
-<div id="map"></div>
-
-<!-- ===== CONTROL PANEL ===== -->
-<div id="controls">
-  <h2>STRAIT OF HORMUZ</h2>
-  <div class="ctrl-subtitle">TRAFFIC CONTROL SYS</div>
-  <div class="stats">
-    <div class="stat-item"><div class="stat-val" id="vesselCount">0</div><div class="stat-lbl">Vessels</div></div>
-    <div class="stat-item"><div class="stat-val" id="simTime">00:00</div><div class="stat-lbl">Sim Time</div></div>
-    <div class="stat-item"><div class="stat-val" id="avgSpeed">0</div><div class="stat-lbl">Avg Kn</div></div>
-    <div class="stat-item"><div class="stat-val" id="warnings">0</div><div class="stat-lbl">Alerts</div></div>
-  </div>
-
-  <!-- Sim controls -->
-  <div class="ctrl-group" style="margin-top:10px">
-    <label>Simulation</label>
-    <div class="btn-row">
-      <button class="btn active" id="btnPlay" onclick="togglePlay()">PLAY</button>
-      <button class="btn" onclick="stepOnce()">STEP</button>
-      <button class="btn" onclick="resetSim()">RST</button>
-    </div>
-  </div>
-  <div class="ctrl-group">
-    <label>SPEED // <span id="speedLabel">5X</span></label>
-    <input type="range" id="speedSlider" min="1" max="50" value="5" oninput="setSpeed(this.value)">
-  </div>
-  <div class="ctrl-group">
-    <div class="btn-row">
-      <button class="btn" onclick="addRandomVessel()">+ADD</button>
-      <button class="btn" onclick="removeLastVessel()">-RMV</button>
-    </div>
-  </div>
-
-  <!-- Round controls -->
-  <div class="ctrl-group" id="roundControls">
-    <label>ROUND</label>
-    <div class="btn-row">
-      <button class="btn" id="btnStartRound" onclick="startRound()">START</button>
-      <button class="btn" id="btnPauseRound" onclick="togglePauseRound()">PAUSE</button>
-      <button class="btn" id="btnResetGame"  onclick="resetGame()">RESET</button>
-    </div>
-    <button class="btn" id="btnEndGame" onclick="endGameNow()">END GAME</button>
-  </div>
-
-  <!-- Display controls -->
-  <div class="ctrl-group">
-    <label>Display</label>
-    <div class="btn-row">
-      <button class="btn" id="btnNight" onclick="toggleNight()">NGT</button>
-      <button class="btn" id="btnTrails" onclick="toggleTrails()">TRL</button>
-      <button class="btn" id="btnRoutes" onclick="toggleRoutes()">RTE</button>
-      <button class="btn" id="btnHeat" onclick="toggleHeatmap()">HT</button>
-      <button class="btn" id="btnGFW" onclick="toggleGFW()">GFW</button>
-      <button class="btn" id="btnDB" onclick="toggleDBPanel()">DB</button>
-      <button class="btn" id="btnDrag" onclick="toggleDragMode()">DRG</button>
-      <button class="btn" id="btnHand" onclick="toggleHandMode()">HAND</button>
-      <button class="btn" id="btnEasyHands" onclick="toggleEasyHands()">ESYHD</button>
-    </div>
-  </div>
-
-  <!-- Tabs: Filter | Analytics | Env | Econ -->
-  <div class="tab-bar">
-    <button class="tab-btn active" onclick="switchTab('filter',this)">Filter</button>
-    <button class="tab-btn" onclick="switchTab('environ',this)">Env</button>
-    <button class="tab-btn" onclick="switchTab('econ',this)">Econ</button>
-    <button class="tab-btn" onclick="switchTab('export',this)">Data</button>
-  </div>
-
-  <!-- Filter Tab -->
-  <div class="tab-content active" id="tab-filter">
-    <div class="filter-row">
-      <select id="filterType" onchange="applyFilters()">
-        <option value="">All Types</option>
-        <option value="tanker">Tanker</option>
-        <option value="container">Container</option>
-        <option value="cargo">Cargo</option>
-        <option value="bulk">Bulk</option>
-        <option value="lng">LNG</option>
-      </select>
-      <select id="filterFlag" onchange="applyFilters()">
-        <option value="">All Flags</option>
-      </select>
-    </div>
-    <div class="filter-row">
-      <select id="filterOrigin" onchange="applyFilters()">
-        <option value="">All Origins</option>
-      </select>
-      <select id="filterDest" onchange="applyFilters()">
-        <option value="">All Dest</option>
-      </select>
-    </div>
-    <div class="filter-row">
-      <input type="text" id="searchVessel" placeholder="Search name/IMO..." oninput="applyFilters()">
-    </div>
-    <div id="filterResults" style="font-size:10px;color:#444444;margin-top:2px;"></div>
-  </div>
-
-  <!-- Environmental Tab -->
-  <div class="tab-content" id="tab-environ">
-    <div class="sp-grid">
-      <div class="sp-field"><div class="sp-field-label">Total CO2</div><div class="sp-field-value" id="envCO2">0 t</div></div>
-      <div class="sp-field"><div class="sp-field-label">Total SOx</div><div class="sp-field-value" id="envSOx">0 t</div></div>
-      <div class="sp-field"><div class="sp-field-label">Total NOx</div><div class="sp-field-value" id="envNOx">0 t</div></div>
-      <div class="sp-field"><div class="sp-field-label">Fuel Used</div><div class="sp-field-value" id="envFuel">0 t</div></div>
-    </div>
-    <div style="margin-top:8px">
-      <h4 style="font-size:8px;color:#444444;text-transform:uppercase;margin-bottom:4px;letter-spacing:2px;font-weight:400">Fuel by Type</h4>
-      <div id="envFuelBreakdown"></div>
-    </div>
-  </div>
-
-  <!-- Economic Tab -->
-  <div class="tab-content" id="tab-econ">
-    <div class="sp-grid">
-      <div class="sp-field sp-wide"><div class="sp-field-label">Total Cargo Value in Strait</div><div class="sp-field-value" id="econTotal">$0</div></div>
-      <div class="sp-field"><div class="sp-field-label">Containers</div><div class="sp-field-value" id="econTEU">0 TEU</div></div>
-      <div class="sp-field"><div class="sp-field-label">Oil/Fuel</div><div class="sp-field-value" id="econOil">0 bbl</div></div>
-    </div>
-    <div style="margin-top:8px">
-      <h4 style="font-size:8px;color:#444444;text-transform:uppercase;margin-bottom:4px;letter-spacing:2px;font-weight:400">Top Corridors</h4>
-      <div id="econCorridors"></div>
-    </div>
-  </div>
-
-  <!-- Export Tab -->
-  <div class="tab-content" id="tab-export">
-    <div class="btn-row" style="margin-bottom:6px">
-      <button class="btn" onclick="exportJSON()">JSON</button>
-      <button class="btn" onclick="exportCSV()">CSV</button>
-    </div>
-    <div class="btn-row">
-      <button class="btn" onclick="saveState()">SAVE</button>
-      <button class="btn" onclick="loadState()">LOAD</button>
-    </div>
-    <div id="exportStatus" style="font-size:9px;color:#cc0000;margin-top:6px;letter-spacing:1px"></div>
-  </div>
-
-  <!-- Legend -->
-  <div class="ctrl-group" style="margin-top:6px">
-    <label>Legend</label>
-    <div class="legend">
-      <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>Tanker</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>Container</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Cargo</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#a855f7"></div>Bulk</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>LNG</div>
-    </div>
-  </div>
-
-  <!-- Tactical Detection Link -->
-  <div class="ctrl-group" style="margin-top:6px;border-top:1px solid #1a1a1a;padding-top:8px">
-    <a href="detector.html" class="btn" style="display:block;text-align:center;text-decoration:none;padding:5px 8px">TACTICAL DETECTION</a>
-  </div>
-
-  <!-- GFW Vessel Results (populated on map click when GFW active) -->
-  <div id="vessel-results" style="display:none">
-    <div class="vr-header">
-      <span class="vr-title">VESSELS AT LOCATION</span>
-      <button class="vr-clear" onclick="clearVesselResults()">CLEAR</button>
-    </div>
-    <div class="vr-coords" id="vrCoords"></div>
-    <div class="vr-body" id="vrBody">
-      <div class="vr-empty">Click map with GFW active to query vessels</div>
-    </div>
-  </div>
-</div>
-
-<!-- ===== SHIP DETAIL PANEL ===== -->
-<div id="shipPanel">
-  <div class="sp-header">
-    <button class="sp-close" onclick="closeShipPanel()">&times;</button>
-    <div class="sp-name" id="spName">--</div>
-    <span class="sp-badge" id="spBadge">--</span>
-    <div class="sp-imo" id="spImo">--</div>
-  </div>
-
-  <!-- Live Telemetry -->
-  <div class="sp-section">
-    <h3>Live Telemetry</h3>
-    <div class="sp-telemetry">
-      <div class="sp-tele-item"><div class="sp-tele-val" id="spSpeed">--</div><div class="sp-tele-lbl">Knots</div></div>
-      <div class="sp-tele-item"><div class="sp-tele-val" id="spHeading">--</div><div class="sp-tele-lbl">Heading</div></div>
-      <div class="sp-tele-item"><div class="sp-tele-val" id="spFuelRate">--</div><div class="sp-tele-lbl">t/hr fuel</div></div>
-    </div>
-    <div class="sp-chart-container"><canvas id="spSpeedChart"></canvas></div>
-  </div>
-
-  <!-- Identity -->
-  <div class="sp-section">
-    <h3>Vessel Identity</h3>
-    <div class="sp-grid">
-      <div class="sp-field"><div class="sp-field-label">Flag</div><div class="sp-field-value" id="spFlag">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Owner</div><div class="sp-field-value" id="spOwner">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Call Sign</div><div class="sp-field-value" id="spCallSign">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">MMSI</div><div class="sp-field-value" id="spMMSI">--</div></div>
-    </div>
-  </div>
-
-  <!-- Technical Specs -->
-  <div class="sp-section">
-    <h3>Technical Specifications</h3>
-    <div class="sp-grid">
-      <div class="sp-field"><div class="sp-field-label">DWT</div><div class="sp-field-value" id="spDWT">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Length</div><div class="sp-field-value" id="spLength">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Beam</div><div class="sp-field-value" id="spBeam">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Draft</div><div class="sp-field-value" id="spDraft">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Max Speed</div><div class="sp-field-value" id="spMaxSpeed">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Fuel Type</div><div class="sp-field-value" id="spFuelType">--</div></div>
-    </div>
-  </div>
-
-  <!-- Cargo -->
-  <div class="sp-section">
-    <h3>Cargo Manifest</h3>
-    <div class="sp-grid">
-      <div class="sp-field sp-wide"><div class="sp-field-label">Cargo</div><div class="sp-field-value" id="spCargoType">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Quantity</div><div class="sp-field-value" id="spCargoQty">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Est. Value</div><div class="sp-field-value" id="spCargoValue">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Hazmat</div><div class="sp-field-value" id="spHazmat">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Classification</div><div class="sp-field-value" id="spCargoClass">--</div></div>
-    </div>
-    <div style="margin-top:8px">
-      <div class="sp-field-label">Load Factor</div>
-      <div class="sp-cargo-bar"><div class="sp-cargo-fill" id="spLoadBar" style="width:0;background:#cc0000"></div></div>
-    </div>
-    <div class="sp-chart-container" style="height:100px;margin-top:8px"><canvas id="spCargoChart"></canvas></div>
-  </div>
-
-  <!-- Route -->
-  <div class="sp-section">
-    <h3>Route &amp; Navigation</h3>
-    <div class="sp-grid" style="margin-bottom:8px">
-      <div class="sp-field"><div class="sp-field-label">Origin</div><div class="sp-field-value" id="spOrigin">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Destination</div><div class="sp-field-value" id="spDest">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Dist Traveled</div><div class="sp-field-value" id="spDistTrav">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Dist Remaining</div><div class="sp-field-value" id="spDistRem">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">ETA</div><div class="sp-field-value" id="spETA">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Progress</div><div class="sp-field-value" id="spProgress">--</div></div>
-    </div>
-    <div class="sp-route-timeline" id="spTimeline"></div>
-  </div>
-
-  <!-- Emissions -->
-  <div class="sp-section">
-    <h3>Emissions Estimate</h3>
-    <div class="sp-grid">
-      <div class="sp-field"><div class="sp-field-label">CO2/hr</div><div class="sp-field-value" id="spCO2">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">SOx/hr</div><div class="sp-field-value" id="spSOx">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">NOx/hr</div><div class="sp-field-value" id="spNOx">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Trip Total CO2</div><div class="sp-field-value" id="spTripCO2">--</div></div>
-    </div>
-  </div>
-</div>
-
-<!-- ===== PORT DETAIL PANEL ===== -->
-<div id="portPanel">
-  <div class="pp-header">
-    <button class="sp-close" onclick="closePortPanel()">&times;</button>
-    <div class="pp-name" id="ppName">--</div>
-    <div class="pp-sub" id="ppSub">--</div>
-  </div>
-
-  <div class="pp-section">
-    <h3>Port Statistics</h3>
-    <div class="pp-stats-grid">
-      <div class="pp-stat"><div class="pp-stat-val" id="ppShipsDay">--</div><div class="pp-stat-lbl">Ships/Day</div></div>
-      <div class="pp-stat"><div class="pp-stat-val" id="ppCapacity">--</div><div class="pp-stat-lbl">Capacity</div></div>
-      <div class="pp-stat"><div class="pp-stat-val" id="ppDwell">--</div><div class="pp-stat-lbl">Avg Dwell</div></div>
-    </div>
-  </div>
-
-  <div class="pp-section">
-    <h3>Incoming Traffic</h3>
-    <div class="pp-ship-list" id="ppIncoming"></div>
-  </div>
-
-  <div class="pp-section">
-    <h3>Departing Traffic</h3>
-    <div class="pp-ship-list" id="ppDeparting"></div>
-  </div>
-
-  <div class="pp-section">
-    <h3>Cargo Processing</h3>
-    <div class="sp-grid" style="margin-bottom:8px">
-      <div class="sp-field"><div class="sp-field-label">Received</div><div class="sp-field-value" id="ppReceived">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Shipped</div><div class="sp-field-value" id="ppShipped">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Transshipment</div><div class="sp-field-value" id="ppTransship">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Local Delivery</div><div class="sp-field-value" id="ppLocal">--</div></div>
-    </div>
-    <h3>Top Commodities</h3>
-    <div id="ppCommodities"></div>
-  </div>
-
-  <div class="pp-section">
-    <h3>Economic Dashboard</h3>
-    <div class="sp-grid">
-      <div class="sp-field sp-wide"><div class="sp-field-label">Daily Cargo Value</div><div class="sp-field-value" id="ppDailyValue">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Mfg Inputs</div><div class="sp-field-value" id="ppMfg">--</div></div>
-      <div class="sp-field"><div class="sp-field-label">Consumer Goods</div><div class="sp-field-value" id="ppConsumer">--</div></div>
-    </div>
-    <h3 style="margin-top:8px">Top Trading Partners</h3>
-    <div id="ppPartners"></div>
-    <div class="pp-chart"><canvas id="ppChart"></canvas></div>
-  </div>
-</div>
-
-<!-- ===== ANALYTICS PANEL ===== -->
-<div id="analyticsPanel">
-  <button class="ap-toggle" onclick="toggleAnalytics()">ANALYTICS</button>
-  <div class="ap-header">
-    <h3>REAL-TIME ANALYTICS</h3>
-    <button class="sp-close" onclick="toggleAnalytics()" style="position:static;font-size:16px">&times;</button>
-  </div>
-  <div class="ap-body">
-    <div class="ap-chart-panel">
-      <h4>Port Throughput</h4>
-      <div class="ap-chart-wrap"><canvas id="chartThroughput"></canvas></div>
-    </div>
-    <div class="ap-chart-panel">
-      <h4>Cargo Distribution</h4>
-      <div class="ap-chart-wrap"><canvas id="chartCargo"></canvas></div>
-    </div>
-    <div class="ap-chart-panel">
-      <h4>Traffic Density</h4>
-      <div class="ap-chart-wrap"><canvas id="chartDensity"></canvas></div>
-    </div>
-    <div class="ap-chart-panel">
-      <h4>Trade Corridors</h4>
-      <div class="ap-chart-wrap"><canvas id="chartCorridors"></canvas></div>
-    </div>
-  </div>
-</div>
-
-<!-- ===== DRAG ROUTE PREVIEW OVERLAY ===== -->
-<div id="dragOverlay">
-  <div class="drag-title">ROUTE CHANGE PREVIEW</div>
-  <div class="drag-compare">
-    <div class="drag-col">
-      <div class="drag-col-header">Current Route</div>
-      <div class="drag-metric"><div class="drag-metric-label">Distance</div><div class="drag-metric-value" id="dragOldDist">--</div></div>
-      <div class="drag-metric"><div class="drag-metric-label">Est. Time</div><div class="drag-metric-value" id="dragOldTime">--</div></div>
-      <div class="drag-metric"><div class="drag-metric-label">Fuel Cost</div><div class="drag-metric-value" id="dragOldFuel">--</div></div>
-      <div class="drag-metric"><div class="drag-metric-label">Profit</div><div class="drag-metric-value" id="dragOldProfit">--</div></div>
-    </div>
-    <div class="drag-arrow">&#10132;</div>
-    <div class="drag-col">
-      <div class="drag-col-header">New Route</div>
-      <div class="drag-metric"><div class="drag-metric-label">Distance</div><div class="drag-metric-value" id="dragNewDist">--</div></div>
-      <div class="drag-metric"><div class="drag-metric-label">Est. Time</div><div class="drag-metric-value" id="dragNewTime">--</div></div>
-      <div class="drag-metric"><div class="drag-metric-label">Fuel Cost</div><div class="drag-metric-value" id="dragNewFuel">--</div></div>
-      <div class="drag-metric"><div class="drag-metric-label">Profit</div><div class="drag-metric-value" id="dragNewProfit">--</div></div>
-    </div>
-  </div>
-  <div style="text-align:center;margin-top:6px">
-    <div class="drag-metric"><div class="drag-metric-label">Net Impact</div><div class="drag-metric-value" id="dragNetImpact">--</div></div>
-  </div>
-  <div class="drag-actions">
-    <button class="btn" onclick="confirmDrag()">CONFIRM</button>
-    <button class="btn" onclick="cancelDrag()">CANCEL</button>
-  </div>
-</div>
-
-<!-- ===== KALSHI PREDICTION MARKET OVERLAY ===== -->
-<div id="kalshiOverlay">
-  <div class="kalshi-header">PREDICTION MARKETS</div>
-  <div class="kalshi-subtitle">MARITIME DERIVATIVES</div>
-  <div class="market-row">
-    <div class="market-question" id="mq-0"></div>
-    <div class="market-data">
-      <div class="market-prob" id="prob-0">--</div>
-      <div class="market-yes" id="yes-0">--</div>
-      <div class="market-no" id="no-0">--</div>
-      <canvas class="market-sparkline" id="spark-0" width="60" height="24"></canvas>
-    </div>
-  </div>
-  <div class="market-row">
-    <div class="market-question" id="mq-1"></div>
-    <div class="market-data">
-      <div class="market-prob" id="prob-1">--</div>
-      <div class="market-yes" id="yes-1">--</div>
-      <div class="market-no" id="no-1">--</div>
-      <canvas class="market-sparkline" id="spark-1" width="60" height="24"></canvas>
-    </div>
-  </div>
-  <div class="market-row">
-    <div class="market-question" id="mq-2"></div>
-    <div class="market-data">
-      <div class="market-prob" id="prob-2">--</div>
-      <div class="market-yes" id="yes-2">--</div>
-      <div class="market-no" id="no-2">--</div>
-      <canvas class="market-sparkline" id="spark-2" width="60" height="24"></canvas>
-    </div>
-  </div>
-  <div class="kalshi-footer"><span id="kalshi-volume"></span> YOU MOVED THE MARKET.</div>
-</div>
-
-<!-- ===== DATABASE STATS PANEL ===== -->
-<div id="dbStatsPanel">
-  <h3><span class="db-indicator"></span> LIVE TRADE DATABASE</h3>
-  <div class="db-section">
-    <div class="db-highlight" style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-      <div><div class="db-highlight-val" id="dbTotalRev">$0</div><div class="db-highlight-lbl">Total Revenue</div></div>
-      <div><div class="db-highlight-val" id="dbTotalProfit">$0</div><div class="db-highlight-lbl">Net Profit</div></div>
-    </div>
-  </div>
-  <div class="db-section">
-    <h4>Fleet Performance</h4>
-    <div class="db-row"><span class="db-row-label">Deliveries Completed</span><span class="db-row-value" id="dbDeliveries">0</span></div>
-    <div class="db-row"><span class="db-row-label">Total Distance (nm)</span><span class="db-row-value" id="dbTotalDist">0</span></div>
-    <div class="db-row"><span class="db-row-label">Total Fuel (tons)</span><span class="db-row-value" id="dbTotalFuelDB">0</span></div>
-    <div class="db-row"><span class="db-row-label">Avg Efficiency</span><span class="db-row-value" id="dbEfficiency">--</span></div>
-    <div class="db-row"><span class="db-row-label">Avg Cost/nm</span><span class="db-row-value" id="dbCostPerNm">--</span></div>
-    <div class="db-row"><span class="db-row-label">Avg Revenue/Route</span><span class="db-row-value" id="dbRevPerRoute">--</span></div>
-    <div class="db-row"><span class="db-row-label">Route Changes</span><span class="db-row-value" id="dbRouteChanges">0</span></div>
-  </div>
-  <div class="db-section">
-    <h4>Top Performing Ships</h4>
-    <div id="dbTopShips"></div>
-  </div>
-  <div class="db-section">
-    <h4>Route Efficiency Ranking</h4>
-    <div id="dbRouteRank"></div>
-  </div>
-  <div class="db-section">
-    <h4>Profit Over Time</h4>
-    <div class="db-chart-mini"><canvas id="dbProfitChart"></canvas></div>
-  </div>
-  <div class="db-section">
-    <h4>Recent Events</h4>
-    <div id="dbEvents" style="max-height:120px;overflow-y:auto"></div>
-  </div>
-  <div style="margin-top:6px">
-    <button class="btn" onclick="exportDBData()" style="width:100%">EXPORT DB</button>
-  </div>
-</div>
-
-<!-- Heatmap legend -->
-<div class="heatmap-legend" id="heatLegend">
-  <div>Traffic Density</div>
-  <div class="hm-gradient"></div>
-  <div style="display:flex;justify-content:space-between"><span>Low</span><span>High</span></div>
-</div>
-
-<!-- GFW bottom panel removed — results now shown in right-side control panel -->
-
-<!-- Collision warning -->
-<div class="collision-warning" id="collisionWarning">! COLLISION WARNING -- VESSELS IN CLOSE PROXIMITY</div>
-
-<!-- MediaPipe slow-load fallback banner -->
-<div class="mediapipe-warning" id="mediapipe-warning">! HAND TRACKING SLOW // MOUSE DRAG ACTIVE</div>
-
-<!-- Game Flash -->
-<div id="gameFlash"></div>
 <script>
-function showFlash(text, ms) {
-  ms = ms || 2000;
-  var el = document.getElementById('gameFlash');
-  if (!el) return;
-  el.textContent = text;
-  el.classList.add('visible');
-  clearTimeout(el._flashTimer);
-  el._flashTimer = setTimeout(function() { el.classList.remove('visible'); }, ms);
-}
+  function broadcast(mode) {
+    new BroadcastChannel('hormuz-mode').postMessage({ mode: mode });
+  }
 </script>
-
-<!-- Game Dashboard -->
-<div id="gameDashboard">
-  <section id="gdProb"></section>
-  <section id="gdLastAction"></section>
-  <section id="gdActive"></section>
-  <section id="gdLog"></section>
-</div>
-
-<!-- Status bar -->
-<div id="statusBar">
-  <span id="sbTick">SIM TICK 0000</span>
-  <span id="sbRound">// R0 · --:-- · A0-B0</span>
-  <span id="sbProb">// PROB 50%</span>
-  <span id="sbVessels">VESSELS 0</span>
-  <span id="sbFlow">// HORMUZ FLOW 0%</span>
-</div>
-
-<!-- Hand tracking elements -->
-<video id="handVideo" autoplay playsinline style="display:none;"></video>
-<canvas id="handDebug" width="640" height="480" style="position:fixed; right:12px; bottom:12px; width:320px; height:240px; z-index:9999; border:1px solid rgba(255,255,255,0.2); border-radius:10px; display:none;"></canvas>
-
-<!-- Layer 1: Foundation -->
-<script src="js/config-data.js"></script>
-<script src="js/markets.js"></script>
-<script src="js/utils.js"></script>
-
-<!-- Layer 1.5: Game -->
-<script src="js/weapons-config.js"></script>
-<script src="js/game-state.js"></script>
-<script src="js/market-tick.js"></script>
-<script src="js/round-controller.js"></script>
-<script src="js/game-dashboard.js"></script>
-<script src="js/game-broadcast.js"></script>
-
-<!-- Layer 2: Map -->
-<script src="js/map-setup.js"></script>
-
-<!-- Layer 3: GFW -->
-<script src="js/gfw.js"></script>
-
-<!-- Layer 4: Core sim -->
-<script src="js/financials.js"></script>
-<script src="js/vessel-creation.js"></script>
-<script src="js/simulation.js"></script>
-
-<!-- Layer 5: DB -->
-<script src="js/database.js"></script>
-
-<!-- Layer 6: Panels -->
-<script src="js/panel-ship.js"></script>
-<script src="js/panel-port.js"></script>
-<script src="js/panel-analytics.js"></script>
-<script src="js/panel-db.js"></script>
-
-<!-- Layer 7: Interaction -->
-<script src="js/drag.js"></script>
-<script src="js/filters.js"></script>
-
-<!-- Layer 8: Hand gesture -->
-<script src="js/hand-gesture.js"></script>
-
-<!-- Layer 9: Bootstrap -->
-<script src="js/bootstrap.js"></script>
-<script>startTick();</script>
-
-</div><!-- /#sim-mode -->
-
-<!-- ── MODE SWITCHING via BroadcastChannel ─────────────────────────── -->
-<script>
-  (function() {
-    const modeChannel = new BroadcastChannel('hormuz-mode');
-    modeChannel.onmessage = function(e) {
-      const mode = e.data && e.data.mode;
-      if (mode === 'video_playback') {
-        document.getElementById('video-mode').style.display = 'block';
-        document.getElementById('sim-mode').style.display = 'none';
-      } else if (mode === 'simulation') {
-        document.getElementById('video-mode').style.display = 'none';
-        document.getElementById('sim-mode').style.display = 'block';
-        // Leaflet calculates tile grid against container dimensions at init time.
-        // Container was hidden (0×0) so we must invalidate after it becomes visible.
-        requestAnimationFrame(function() { map.invalidateSize(); });
-      }
-    };
-  })();
-</script>
-
 </body>
 </html>
