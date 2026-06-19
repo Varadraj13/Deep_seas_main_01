@@ -3528,3 +3528,77 @@ const SERVER_URL = 'https://deep-seas-main-01.onrender.com';
 - Added `BroadcastChannel('hormuz-mode').onmessage` IIFE at bottom: `video_playback` ↔ `simulation` toggle
 - No `invalidateSize` needed — neither page has a Leaflet map
 - detector.html camera rAF loop keeps running behind `display:none` — instant switch back to simulation
+
+---
+
+## Major UI Redesign — FigJam Session 2026-06-18
+
+### Full Weapon Table (from weapons-config.js)
+
+| ID  | Name                              | Player    | Speed |
+|-----|-----------------------------------|-----------|-------|
+| D01 | Strait closure / naval blockade   | disruptor | fast  |
+| D02 | Sanctions package                 | disruptor | slow  |
+| D03 | Tanker seizure                    | disruptor | fast  |
+| D04 | Drone / missile strike on port    | disruptor | fast  |
+| D05 | Insurance market suspension       | disruptor | slow  |
+| D06 | Cyber attack on port logistics    | disruptor | fast  |
+| R01 | Naval escort / freedom of nav.    | defender  | fast  |
+| R02 | Emergency re-flagging             | defender  | fast  |
+| R03 | Alternative route activation      | defender  | fast  |
+| R04 | Diplomatic back-channel           | defender  | slow  |
+| R05 | Strategic petroleum reserve rel.  | defender  | slow  |
+| R06 | Coalition formation               | defender  | slow  |
+
+Physical objects currently mapped (tm_model_02/label-map.json):
+- Object 01 → D01, Pret Cup → D02, Snacks → R01, Sparkling water → R02
+- D03–D06, R03–R06: physical objects TBD (user will train new model entries)
+- Satellite images: D01.jpg … D06.jpg, R01.jpg … R06.jpg (user will provide)
+
+---
+
+### Phased Implementation Plan
+
+#### Phase A — Vertical Slice (connection test, no visual redesign)
+1. `base.html`: expand from 4 → 12 weapons (D01-D06 left, R01-R06 right)
+2. `detector.html`: default-load `tm_model_02` instead of first manifest entry
+3. `detector.html`: add minimal weapon-fired stub display (div shows weaponId + weaponName on BroadcastChannel `deepseas-game` event)
+4. Test: place Object 01 → D01 fires → stub shows "Strait closure / naval blockade"
+- **Channel name**: `BroadcastChannel('deepseas-game')` (already in detector.html)
+
+#### Phase B — Simulator cleanup
+- REMOVE from `simulator.html`: `#gameDashboard` HTML + CSS, `#collisionWarning`, all of `#controls` below the stats (lines 103–242: PLAY/STEP/RST, speed slider, +ADD/-RMV, START/PAUSE/RESET, END GAME, display toggles, filter/env/econ/data tabs, legend, tactical detection link)
+- KEEP in `#controls`: header (STRAIT OF HORMUZ / TRAFFIC CONTROL SYS) + 4 stats (vesselCount, simTime, avgSpeed, warnings)
+- KEEP: `#statusBar`, `#vessel-results` (GFW click popup)
+- SET: map zoom 8, center [25.5, 56.8] to match screenshot
+- SET: GFW layer on by default (call `toggleGFW()` at end of bootstrap)
+- ADD: context label bottom-left — "VESSEL TRAFFIC · STRAIT OF HORMUZ · SIMULATED FROM 2023 AIS DATA"
+
+#### Phase C — Detector.html full redesign
+- Aesthetic: dark background (#080808 kept), newspaper typography — Playfair Display (headlines) + EB Garamond (body) via Google Fonts
+- Layout (4 panels):
+  - Top-left: live camera feed (`#webcam`)
+  - Top-right: probability score + weapon actions (moved from simulator's `#gameDashboard`)
+  - Bottom-left: weapon trigger panel ("WEAPON FIRED! [weapon name]" + satellite image triggered by `deepseas-game` event)
+  - Bottom-right: Bloomberg-style stock news table (static placeholder; dynamic later)
+- Scrolling headline ticker across full width: "THE STRAIT OF HORMUZ TODAY WAS SUBJECT TO A..."
+- Auto-load `tm_model_02` (not first manifest entry)
+- Satellite image: `images/[weaponId].jpg` (e.g. `images/D01.jpg`) — user will provide files
+- News content: `.md` files per weapon — user will provide; static placeholder for now
+- Sound: pre-recorded AI voice per weapon — user will wire separately
+- BroadcastChannel `deepseas-game` drives: weapon trigger display, satellite image, probability panel updates
+
+#### Phase D — Control center additions (next session)
+- Move simulator controls (PLAY/STEP/RST, START/PAUSE/RESET, END GAME, speed, filters) into `control-center.html`
+
+---
+
+### Resolved Design Questions
+
+- Newspaper aesthetic on dark bg: borrow Playfair Display + EB Garamond typography, keep #080808 background
+- All 12 weapons fire weapon-triggered events (not just D01)
+- Satellite image naming: `images/[weaponId].jpg`
+- Bloomberg panel: static placeholder now, dynamic on weapon fire later
+- Scope order: base.html (Phase A, immediate) → simulator cleanup (Phase B) → detector redesign (Phase C) → control-center (Phase D, next session)
+- Detector model: default to `tm_model_02`, not first manifest entry
+- base.html for D03-D06, R03-R06: show weapon info without physical object name (TBD)

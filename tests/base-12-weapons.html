@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>base.html — 12 Weapons Tests</title>
+<style>
+  body { font-family: monospace; padding: 20px; background: #111; color: #eee; }
+  .pass { color: #22c55e; }
+  .fail { color: #ef4444; }
+  h2 { color: #888; font-size: 12px; letter-spacing: 0.1em; margin-top: 20px; }
+  hr { border-color: #333; margin: 16px 0; }
+</style>
+</head>
+<body>
+<h1 style="font-size:13px;letter-spacing:0.1em;">BASE · 12 WEAPONS TESTS</h1>
+<div id="results"></div>
+
+<script>
+  const out = document.getElementById('results');
+  let passed = 0, failed = 0;
+
+  function pass(id, note) { passed++; out.innerHTML += `<div class="pass">PASS ${id} — ${note}</div>`; }
+  function fail(id, note) { failed++; out.innerHTML += `<div class="fail">FAIL ${id} — ${note}</div>`; }
+  function summary() {
+    out.innerHTML += `<hr><div style="font-size:13px;font-weight:500;">${passed} passed, ${failed} failed</div>`;
+  }
+
+  async function run() {
+    let html = '';
+    try {
+      const res = await fetch('../base.html');
+      if (!res.ok) throw new Error(res.status);
+      html = await res.text();
+      pass('bw0', 'base.html readable');
+    } catch(e) { fail('bw0', `not readable: ${e.message}`); summary(); return; }
+
+    // ── SLICE 1: All 12 weapon IDs present ───────────────────────────
+    out.innerHTML += '<h2>SLICE 1 · ALL 12 WEAPON IDS</h2>';
+
+    const ids = ['D01','D02','D03','D04','D05','D06','R01','R02','R03','R04','R05','R06'];
+    ids.forEach((id, i) => {
+      if (html.includes(id)) pass(`bw1${String.fromCharCode(97+i)}`, `${id} present`);
+      else fail(`bw1${String.fromCharCode(97+i)}`, `${id} missing`);
+    });
+
+    // ── SLICE 2: All 12 weapon names present ─────────────────────────
+    out.innerHTML += '<h2>SLICE 2 · ALL 12 WEAPON NAMES</h2>';
+
+    const names = [
+      ['D01', 'Strait closure'],
+      ['D02', 'Sanctions'],
+      ['D03', 'Tanker seizure'],
+      ['D04', 'Drone'],
+      ['D05', 'Insurance market'],
+      ['D06', 'Cyber attack'],
+      ['R01', 'Naval escort'],
+      ['R02', 're-flag'],
+      ['R03', 'Alternative route'],
+      ['R04', 'Diplomatic'],
+      ['R05', 'petroleum reserve'],
+      ['R06', 'Coalition'],
+    ];
+    names.forEach(([id, fragment], i) => {
+      if (html.toLowerCase().includes(fragment.toLowerCase()))
+        pass(`bw2${String.fromCharCode(97+i)}`, `${id} name ("${fragment}") present`);
+      else
+        fail(`bw2${String.fromCharCode(97+i)}`, `${id} name ("${fragment}") missing`);
+    });
+
+    // ── SLICE 3: Layout — left/right columns intact ───────────────────
+    out.innerHTML += '<h2>SLICE 3 · COLUMN LAYOUT</h2>';
+
+    const hasLeftPos = /position\s*:\s*fixed[^}]*left\s*:\s*0|left\s*:\s*0[^}]*position\s*:\s*fixed/i.test(html);
+    if (hasLeftPos) pass('bw3a', 'left column fixed at left:0');
+    else fail('bw3a', 'no fixed left-edge column');
+
+    const hasRightPos = /position\s*:\s*fixed[^}]*right\s*:\s*0|right\s*:\s*0[^}]*position\s*:\s*fixed/i.test(html);
+    if (hasRightPos) pass('bw3b', 'right column fixed at right:0');
+    else fail('bw3b', 'no fixed right-edge column');
+
+    // ── SLICE 4: Disruptor IDs on left, defender IDs on right ────────
+    out.innerHTML += '<h2>SLICE 4 · SIDES — DISRUPTOR LEFT / DEFENDER RIGHT</h2>';
+
+    // Match the actual HTML divs, not CSS class rules
+    const leftColMatch  = html.match(/<div[^>]+class="[^"]*col-left[^"]*"[\s\S]*?<\/div>\s*\n?\s*<!--/);
+    const rightColMatch = html.match(/<div[^>]+class="[^"]*col-right[^"]*"[\s\S]*/);
+
+    const leftHtml  = leftColMatch  ? leftColMatch[0]  : '';
+    const rightHtml = rightColMatch ? rightColMatch[0] : '';
+
+    ['D01','D02','D03','D04','D05','D06'].forEach((id, i) => {
+      if (leftHtml.includes(id))
+        pass(`bw4${String.fromCharCode(97+i)}`, `${id} in left (disruptor) column`);
+      else
+        fail(`bw4${String.fromCharCode(97+i)}`, `${id} not found in left column`);
+    });
+
+    ['R01','R02','R03','R04','R05','R06'].forEach((id, i) => {
+      if (rightHtml.includes(id))
+        pass(`bw4${String.fromCharCode(103+i)}`, `${id} in right (defender) column`);
+      else
+        fail(`bw4${String.fromCharCode(103+i)}`, `${id} not found in right column`);
+    });
+
+    summary();
+  }
+
+  run();
+</script>
+</body>
+</html>
