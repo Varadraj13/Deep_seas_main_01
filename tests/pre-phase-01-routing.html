@@ -41,8 +41,8 @@
     // ── Exclusion zones ──────────────────────────────────────────────
     // Musandam Peninsula bounding box
     const MUSANDAM = { latMin: 25.9, latMax: 26.4, lngMin: 56.15, lngMax: 56.55 };
-    // Qeshm Island bounding box
-    const QESHM   = { latMin: 26.5, latMax: 26.9, lngMin: 55.5, lngMax: 56.3 };
+    // Qeshm Island bounding box — island extends east to ~lng 56.9
+    const QESHM   = { latMin: 26.5, latMax: 26.9, lngMin: 55.5, lngMax: 56.9 };
 
     function insideBox(lat, lng, box) {
       return lat >= box.latMin && lat <= box.latMax &&
@@ -154,6 +154,38 @@
         });
       });
       assert(bad.length === 0, `${bad.length} violations; first: ${bad[0]}`);
+    });
+
+    test('12. Outbound lane clears Iranian coast in Gulf of Oman', () => {
+      // Piecewise linear approximation of Iranian coast south edge, minus 0.4° buffer.
+      // Reference: Bandar-e Jask at lat 25.64, lng 57.77.
+      // Any outbound waypoint east of lng 56.9 must sit below this corridor.
+      const CORRIDOR = [
+        [56.9, 25.8],
+        [57.5, 25.3],
+        [58.0, 24.9],
+        [59.0, 24.5],
+      ];
+      function maxSafeLat(lng) {
+        if (lng <= CORRIDOR[0][0]) return 99;
+        if (lng >= CORRIDOR[CORRIDOR.length - 1][0]) return CORRIDOR[CORRIDOR.length - 1][1];
+        for (let i = 0; i < CORRIDOR.length - 1; i++) {
+          if (lng >= CORRIDOR[i][0] && lng <= CORRIDOR[i + 1][0]) {
+            const t = (lng - CORRIDOR[i][0]) / (CORRIDOR[i + 1][0] - CORRIDOR[i][0]);
+            return CORRIDOR[i][1] + t * (CORRIDOR[i + 1][1] - CORRIDOR[i][1]);
+          }
+        }
+        return 99;
+      }
+      const bad = [];
+      SHIPPING_LANES.outbound.forEach(([lat, lng], i) => {
+        if (lng > 56.9) {
+          const maxLat = maxSafeLat(lng);
+          if (lat > maxLat)
+            bad.push(`outbound[${i}] (${lat}, ${lng}) lat ${lat} > corridor max ${maxLat.toFixed(2)}`);
+        }
+      });
+      assert(bad.length === 0, bad.join('; '));
     });
 
     // ── Summary ────────────────────────────────────────────────────

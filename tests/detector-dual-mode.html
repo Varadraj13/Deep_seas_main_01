@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>detector.html Dual-Mode Tests</title>
+<style>
+  body { font-family: monospace; padding: 20px; background: #111; color: #eee; }
+  .pass { color: #22c55e; }
+  .fail { color: #ef4444; }
+  h2 { color: #888; font-size: 12px; letter-spacing: 0.1em; margin-top: 20px; }
+  hr { border-color: #333; margin: 16px 0; }
+</style>
+</head>
+<body>
+<h1 style="font-size:13px;letter-spacing:0.1em;">DETECTOR · DUAL-MODE TESTS</h1>
+<div id="results"></div>
+
+<script>
+  const out = document.getElementById('results');
+  let passed = 0, failed = 0;
+
+  function pass(id, note) { passed++; out.innerHTML += `<div class="pass">PASS ${id} — ${note}</div>`; }
+  function fail(id, note) { failed++; out.innerHTML += `<div class="fail">FAIL ${id} — ${note}</div>`; }
+  function summary() {
+    out.innerHTML += `<hr><div style="font-size:13px;font-weight:500;">${passed} passed, ${failed} failed</div>`;
+  }
+
+  async function run() {
+    // ── SLICE 1: Both mode sections exist ────────────────────────────
+    out.innerHTML += '<h2>SLICE 1 · MODE SECTIONS</h2>';
+
+    let html = '';
+    try {
+      const res = await fetch('../detector.html');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      html = await res.text();
+      pass('dt1a', 'detector.html readable');
+    } catch(e) {
+      fail('dt1a', `not readable: ${e.message}`);
+      summary(); return;
+    }
+
+    if (html.includes('id="video-mode"')) pass('dt1b', '#video-mode section exists');
+    else fail('dt1b', '#video-mode section missing');
+
+    if (html.includes('id="sim-mode"')) pass('dt1c', '#sim-mode section exists');
+    else fail('dt1c', '#sim-mode section missing');
+
+    // ── SLICE 2: video element with correct attributes ────────────────
+    out.innerHTML += '<h2>SLICE 2 · VIDEO ELEMENT</h2>';
+
+    if (html.includes('<video')) pass('dt2a', '<video> element present');
+    else fail('dt2a', 'no <video> element found');
+
+    if (/id="bgVideo"/.test(html)) pass('dt2b', 'video has id="bgVideo"');
+    else fail('dt2b', 'video missing id="bgVideo" (webcam video must not count)');
+
+    if (/autoplay/i.test(html)) pass('dt2c', 'video has autoplay');
+    else fail('dt2c', 'video missing autoplay');
+
+    if (/\bloop\b/i.test(html)) pass('dt2d', 'video has loop');
+    else fail('dt2d', 'video missing loop');
+
+    if (/\bmuted\b/i.test(html)) pass('dt2e', 'video has muted');
+    else fail('dt2e', 'video missing muted');
+
+    if (/playsinline/i.test(html)) pass('dt2f', 'video has playsinline');
+    else fail('dt2f', 'video missing playsinline');
+
+    // ── SLICE 3: Default state ────────────────────────────────────────
+    out.innerHTML += '<h2>SLICE 3 · DEFAULT STATE</h2>';
+
+    const simHidden = /id="sim-mode"[^>]*display\s*:\s*none/i.test(html);
+    if (simHidden) pass('dt3a', '#sim-mode starts hidden (display:none)');
+    else fail('dt3a', '#sim-mode does not start hidden');
+
+    const videoVisible = !/id="video-mode"[^>]*display\s*:\s*none/i.test(html);
+    if (videoVisible) pass('dt3b', '#video-mode starts visible (no display:none)');
+    else fail('dt3b', '#video-mode starts hidden — should be default visible');
+
+    // ── SLICE 4: BroadcastChannel listener ───────────────────────────
+    out.innerHTML += '<h2>SLICE 4 · BROADCASTCHANNEL LISTENER</h2>';
+
+    if (html.includes("'hormuz-mode'") || html.includes('"hormuz-mode"'))
+      pass('dt4a', "BroadcastChannel('hormuz-mode') referenced");
+    else fail('dt4a', "hormuz-mode channel not found in script");
+
+    if (/video_playback/i.test(html)) pass('dt4b', "'video_playback' mode string present");
+    else fail('dt4b', "'video_playback' string missing from script");
+
+    if (/simulation/i.test(html)) pass('dt4c', "'simulation' mode string present");
+    else fail('dt4c', "'simulation' string missing from script");
+
+    if (/onmessage|addEventListener\s*\(\s*['"]message['"]/i.test(html))
+      pass('dt4d', 'message handler wired up');
+    else fail('dt4d', 'no onmessage / addEventListener found for channel');
+
+    // ── SLICE 5: Video mode styling ───────────────────────────────────
+    out.innerHTML += '<h2>SLICE 5 · VIDEO MODE STYLING</h2>';
+
+    const hasWhite = /#ffffff|#fff(?!\w)|background:\s*white|background-color:\s*white/i.test(html);
+    if (hasWhite) pass('dt5a', 'white background present in page');
+    else fail('dt5a', 'no white background found');
+
+    const fullBleed = /100vw|100vh|width\s*:\s*100%/i.test(html);
+    if (fullBleed) pass('dt5b', 'full-bleed sizing (100vw/100vh/100%) present');
+    else fail('dt5b', 'no full-bleed sizing found for video');
+
+    summary();
+  }
+
+  run();
+</script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control Center — Deep Seas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0a;
+    color: #cccccc;
+    font-family: 'IBM Plex Mono', monospace;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 48px;
+  }
+
+  .title {
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: #444;
+  }
+
+  .nav {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 320px;
+  }
+
+  .nav a {
+    display: block;
+    padding: 16px 24px;
+    border: 1px solid #222;
+    color: #ccc;
+    text-decoration: none;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    font-weight: 400;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  .nav a:hover {
+    border-color: #888;
+    color: #fff;
+  }
+
+  .nav a .page-label {
+    display: block;
+  }
+
+  .sub-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-left: 20px;
+    border-left: 1px solid #222;
+  }
+
+  .sub-btn {
+    background: transparent;
+    border: 1px solid #1a1a1a;
+    color: #555;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    padding: 10px 16px;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  .sub-btn:hover {
+    border-color: #666;
+    color: #ccc;
+  }
+</style>
+</head>
+<body>
+
+<div class="title">Deep Seas · Control Center</div>
+
+<nav class="nav">
+  <a href="index.html" target="_blank" onclick="broadcast('video_playback')">
+    <span class="page-label">Index</span>
+  </a>
+  <div class="sub-group">
+    <button class="sub-btn" onclick="broadcast('video_playback')">Mode 01 — Video Playback</button>
+    <button class="sub-btn" onclick="broadcast('simulation')">Mode 02 — Simulation</button>
+  </div>
+  <a href="market_screen.html" target="_blank">
+    <span class="page-label">Market Screen</span>
+  </a>
+  <a href="audience.html" target="_blank">
+    <span class="page-label">Audience</span>
+  </a>
+  <a href="detector.html" target="_blank">
+    <span class="page-label">Detector</span>
+  </a>
+  <a href="base.html" target="_blank">
+    <span class="page-label">Base</span>
+  </a>
+</nav>
+
+<script>
+  function broadcast(mode) {
+    new BroadcastChannel('hormuz-mode').postMessage({ mode: mode });
+  }
+</script>
+</body>
+</html>

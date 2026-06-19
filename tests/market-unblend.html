@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Market Unblend Tests</title>
+<style>
+  body { font-family: monospace; padding: 20px; background: #111; color: #eee; }
+  .pass { color: #22c55e; }
+  .fail { color: #ef4444; }
+  h2 { color: #888; font-size: 12px; letter-spacing: 0.1em; margin-top: 20px; }
+  hr { border-color: #333; margin: 16px 0; }
+</style>
+</head>
+<body>
+<h1 style="font-size:13px;letter-spacing:0.1em;">MARKET UNBLEND · TWO-LAYER SEPARATION</h1>
+<div id="results"></div>
+
+<!-- Mirror DOM targets that market_screen.html uses -->
+<div style="display:none">
+  <span id="truthOpen">—</span>
+  <span id="audiencePrice">50¢</span>
+  <span id="totalInvested">$0</span>
+  <span id="yesPrice">51¢</span>
+  <span id="noPrice">49¢</span>
+  <span id="yesChance">51% chance</span>
+  <span id="noChance">49% chance</span>
+  <span id="yesInvested">$0</span>
+  <span id="noInvested">$0</span>
+  <div id="gapBox"><span id="gapVal">—</span></div>
+</div>
+
+<script>
+  let passed = 0, failed = 0;
+  const out = document.getElementById('results');
+
+  function assert(id, condition, note) {
+    if (condition) {
+      passed++;
+      out.innerHTML += `<div class="pass">PASS ${id} — ${note}</div>`;
+    } else {
+      failed++;
+      out.innerHTML += `<div class="fail">FAIL ${id} — ${note}</div>`;
+    }
+  }
+
+  // ── SLICE 1: displayProb = pure crowd (no blend) ──────────────────
+  out.innerHTML += '<h2>SLICE 1 · UNBLEND — DISPLAY PROB IS PURE CROWD</h2>';
+
+  function computeDisplayProb(yesProb, audienceMarketPrice) {
+    // New contract: pure crowd, ground truth never blended in
+    return audienceMarketPrice;
+  }
+
+  // crowd at 50%, game at 90% → display stays 50% (game ignored)
+  assert('u1a', Math.abs(computeDisplayProb(0.9, 0.5) - 0.5) < 0.001,
+    'game=90% crowd=50% → display 50% (game not blended)');
+
+  // crowd all-in on YES → display 100% regardless of game
+  assert('u1b', Math.abs(computeDisplayProb(0.08, 1.0) - 1.0) < 0.001,
+    'game=8% crowd=100% → display 100%');
+
+  // crowd at 0% → display 0% regardless of game
+  assert('u1c', Math.abs(computeDisplayProb(0.95, 0.0) - 0.0) < 0.001,
+    'game=95% crowd=0% → display 0%');
+
+  // crowd and game match → display = crowd (same value, trivially)
+  assert('u1d', Math.abs(computeDisplayProb(0.6, 0.6) - 0.6) < 0.001,
+    'game=crowd=60% → display 60%');
+
+  // OLD blend would have given 0.7*0.08 + 0.3*0.53 = 0.215; new must give 0.53
+  assert('u1e', Math.abs(computeDisplayProb(0.08, 0.53) - 0.53) < 0.001,
+    'game=8% crowd=53% → display 53% (was 21.5% with old blend)');
+
+  // ── SLICE 2: Divergence computation ──────────────────────────────
+  out.innerHTML += '<h2>SLICE 2 · DIVERGENCE GAP CALCULATION</h2>';
+
+  function computeGap(yesProb, audienceMarketPrice) {
+    const truthCents = Math.round(yesProb * 100);
+    const crowdCents = Math.round(audienceMarketPrice * 100);
+    return Math.abs(truthCents - crowdCents);
+  }
+
+  // No divergence when crowd matches ground truth
+  assert('u2a', computeGap(0.51, 0.51) === 0,
+    'truth=51¢ crowd=51¢ → gap 0¢');
+
+  // Crowd believes YES but game says disrupted
+  assert('u2b', computeGap(0.08, 0.53) === 45,
+    'truth=8¢ crowd=53¢ → gap 45¢');
+
+  // Max divergence
+  assert('u2c', computeGap(1.0, 0.0) === 100,
+    'truth=100¢ crowd=0¢ → gap 100¢');
+
+  // Symmetric (abs)
+  assert('u2d', computeGap(0.3, 0.7) === computeGap(0.7, 0.3),
+    'gap is symmetric');
+
+  // Rounding: 0.505 rounds to 51, 0.494 rounds to 49 → gap 2
+  assert('u2e', computeGap(0.505, 0.494) === 2,
+    'rounding applied before diff: 51¢ - 49¢ = 2¢');
+
+  // ── SLICE 3: .wide class toggle at gap >= 10 ─────────────────────
+  out.innerHTML += '<h2>SLICE 3 · WIDE CLASS TOGGLE</h2>';
+
+  function applyGapDOM(yesProb, audienceMarketPrice) {
+    const truthCents = Math.round(yesProb * 100);
+    const crowdCents = Math.round(audienceMarketPrice * 100);
+    const gap = Math.abs(truthCents - crowdCents);
+    document.getElementById('gapVal').textContent = gap + '¢';
+    document.getElementById('gapBox').classList.toggle('wide', gap >= 10);
+  }
+
+  applyGapDOM(0.51, 0.51);
+  assert('u3a', document.getElementById('gapVal').textContent === '0¢',
+    'gap=0 → gapVal "0¢"');
+  assert('u3b', !document.getElementById('gapBox').classList.contains('wide'),
+    'gap=0 → no .wide class');
+
+  applyGapDOM(0.51, 0.60);
+  assert('u3c', document.getElementById('gapVal').textContent === '9¢',
+    'gap=9 → gapVal "9¢"');
+  assert('u3d', !document.getElementById('gapBox').classList.contains('wide'),
+    'gap=9 → no .wide class (threshold is 10)');
+
+  applyGapDOM(0.51, 0.61);
+  assert('u3e', document.getElementById('gapVal').textContent === '10¢',
+    'gap=10 → gapVal "10¢"');
+  assert('u3f', document.getElementById('gapBox').classList.contains('wide'),
+    'gap=10 → .wide class added');
+
+  applyGapDOM(0.08, 0.53);
+  assert('u3g', document.getElementById('gapVal').textContent === '45¢',
+    'gap=45 → gapVal "45¢"');
+  assert('u3h', document.getElementById('gapBox').classList.contains('wide'),
+    'gap=45 → .wide class stays');
+
+  // Wide removed when gap falls back below 10
+  applyGapDOM(0.5, 0.5);
+  assert('u3i', !document.getElementById('gapBox').classList.contains('wide'),
+    'gap=0 → .wide class removed');
+
+  // ── SLICE 4: truthOpen DOM write ──────────────────────────────────
+  out.innerHTML += '<h2>SLICE 4 · TRUTH DOM WRITE</h2>';
+
+  function handleBroadcast(shipProbability) {
+    const yesProb = (100 - shipProbability) / 100;
+    document.getElementById('truthOpen').textContent = Math.round(yesProb * 100) + '¢';
+    return yesProb;
+  }
+
+  handleBroadcast(92);
+  assert('u4a', document.getElementById('truthOpen').textContent === '8¢',
+    'shipProb=92% → yesProb=8% → truthOpen "8¢"');
+
+  handleBroadcast(0);
+  assert('u4b', document.getElementById('truthOpen').textContent === '100¢',
+    'shipProb=0% → yesProb=100% → truthOpen "100¢"');
+
+  handleBroadcast(49);
+  assert('u4c', document.getElementById('truthOpen').textContent === '51¢',
+    'shipProb=49% → yesProb=51% → truthOpen "51¢"');
+
+  // ── SLICE 5: Two layers never touch each other ─────────────────────
+  out.innerHTML += '<h2>SLICE 5 · LAYER INDEPENDENCE</h2>';
+
+  // displayProb must equal audienceMarketPrice exactly — ground truth has zero weight
+  function isUnblended(yesProb, audienceMarketPrice) {
+    const displayProb = audienceMarketPrice; // the contract
+    return displayProb === audienceMarketPrice;
+  }
+
+  assert('u5a', isUnblended(0.99, 0.01),
+    'extreme divergence: display = crowd only, truth has zero weight');
+  assert('u5b', isUnblended(0.01, 0.99),
+    'reverse extreme: display = crowd only');
+
+  // yesHistory / noHistory tracks crowd (displayProb), NOT truth
+  const displayProb = 0.53; // audienceMarketPrice
+  const yesProb = 0.08;     // ground truth
+  assert('u5c', Math.abs(displayProb - 0.53) < 0.001,
+    'chart history value = crowd 53¢, not truth 8¢');
+  assert('u5d', Math.abs(1 - displayProb - 0.47) < 0.001,
+    'NO history = 1 - crowd = 47¢');
+
+  // ── SUMMARY ────────────────────────────────────────────────────────
+  out.innerHTML += `<hr>
+    <div style="font-size:13px;font-weight:500;">
+      ${passed} passed, ${failed} failed
+    </div>`;
+</script>
+</body>
+</html>

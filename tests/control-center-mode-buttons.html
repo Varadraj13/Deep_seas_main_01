@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Control Center Mode Buttons Tests</title>
+<style>
+  body { font-family: monospace; padding: 20px; background: #111; color: #eee; }
+  .pass { color: #22c55e; }
+  .fail { color: #ef4444; }
+  h2 { color: #888; font-size: 12px; letter-spacing: 0.1em; margin-top: 20px; }
+  hr { border-color: #333; margin: 16px 0; }
+</style>
+</head>
+<body>
+<h1 style="font-size:13px;letter-spacing:0.1em;">CONTROL CENTER · MODE BUTTONS TESTS</h1>
+<div id="results"></div>
+
+<script>
+  const out = document.getElementById('results');
+  let passed = 0, failed = 0;
+
+  function pass(id, note) { passed++; out.innerHTML += `<div class="pass">PASS ${id} — ${note}</div>`; }
+  function fail(id, note) { failed++; out.innerHTML += `<div class="fail">FAIL ${id} — ${note}</div>`; }
+  function summary() {
+    out.innerHTML += `<hr><div style="font-size:13px;font-weight:500;">${passed} passed, ${failed} failed</div>`;
+  }
+
+  async function run() {
+    // ── SLICE 1: File readable ────────────────────────────────────────
+    out.innerHTML += '<h2>SLICE 1 · FILE</h2>';
+
+    let html = '';
+    try {
+      const res = await fetch('../control-center.html');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      html = await res.text();
+      pass('cc1a', 'control-center.html readable');
+    } catch(e) {
+      fail('cc1a', `not readable: ${e.message}`);
+      summary(); return;
+    }
+
+    // ── SLICE 2: MODE 01 and MODE 02 buttons exist ───────────────────
+    out.innerHTML += '<h2>SLICE 2 · MODE BUTTONS PRESENT</h2>';
+
+    const hasMode01 = /MODE\s*01|mode.01|mode_01/i.test(html);
+    if (hasMode01) pass('cc2a', 'MODE 01 label present');
+    else fail('cc2a', 'MODE 01 label not found');
+
+    const hasMode02 = /MODE\s*02|mode.02|mode_02/i.test(html);
+    if (hasMode02) pass('cc2b', 'MODE 02 label present');
+    else fail('cc2b', 'MODE 02 label not found');
+
+    // ── SLICE 3: BroadcastChannel usage ──────────────────────────────
+    out.innerHTML += '<h2>SLICE 3 · BROADCASTCHANNEL IN CONTROL CENTER</h2>';
+
+    if (html.includes("'hormuz-mode'") || html.includes('"hormuz-mode"'))
+      pass('cc3a', "hormuz-mode channel referenced in script");
+    else fail('cc3a', "hormuz-mode channel not found");
+
+    if (/video_playback/i.test(html)) pass('cc3b', "'video_playback' broadcast payload present");
+    else fail('cc3b', "'video_playback' payload missing");
+
+    if (/simulation/i.test(html)) pass('cc3c', "'simulation' broadcast payload present");
+    else fail('cc3c', "'simulation' payload missing");
+
+    if (/postMessage/i.test(html)) pass('cc3d', 'postMessage call present');
+    else fail('cc3d', 'no postMessage found');
+
+    // ── SLICE 4: Sub-group hierarchy under INDEX ─────────────────────
+    out.innerHTML += '<h2>SLICE 4 · HIERARCHY — MODES NESTED UNDER INDEX</h2>';
+
+    // INDEX link must still exist
+    if (html.includes('href="index.html"')) pass('cc4a', 'INDEX link (href="index.html") still present');
+    else fail('cc4a', 'INDEX link missing');
+
+    // Sub-group CSS class or element
+    const hasSubGroup = /sub-group|sub-btn|sub_group|subgroup|sub\.btn/i.test(html);
+    if (hasSubGroup) pass('cc4b', 'sub-group / sub-btn CSS class present');
+    else fail('cc4b', 'no sub-group styling found');
+
+    // Mode buttons appear AFTER index.html link in document order
+    const indexPos  = html.indexOf('href="index.html"');
+    const mode01Pos = html.search(/MODE\s*01|mode.01/i);
+    const mode02Pos = html.search(/MODE\s*02|mode.02/i);
+
+    if (indexPos !== -1 && mode01Pos > indexPos)
+      pass('cc4c', 'MODE 01 appears after INDEX link in DOM order');
+    else fail('cc4c', 'MODE 01 not after INDEX link in DOM');
+
+    if (indexPos !== -1 && mode02Pos > mode01Pos)
+      pass('cc4d', 'MODE 02 appears after MODE 01 in DOM order');
+    else fail('cc4d', 'MODE 02 not after MODE 01 in DOM');
+
+    // ── SLICE 5: INDEX click also triggers video_playback ────────────
+    out.innerHTML += '<h2>SLICE 5 · INDEX CLICK TRIGGERS MODE 01</h2>';
+
+    // The index.html anchor should have an onclick that posts video_playback
+    const indexAnchorRegion = html.slice(html.indexOf('href="index.html"') - 100,
+                                         html.indexOf('href="index.html"') + 200);
+    if (/video_playback/i.test(indexAnchorRegion))
+      pass('cc5a', 'INDEX anchor region references video_playback broadcast');
+    else fail('cc5a', 'INDEX anchor does not trigger video_playback broadcast');
+
+    summary();
+  }
+
+  run();
+</script>
+</body>
+</html>

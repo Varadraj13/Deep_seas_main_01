@@ -78,6 +78,15 @@
 </head>
 <body>
 
+<!-- ── VIDEO PLAYBACK MODE (default) ───────────────────────────────── -->
+<div id="video-mode" style="position:fixed;inset:0;background:#ffffff;z-index:9999;">
+  <video id="bgVideo" autoplay loop muted playsinline
+    style="width:100vw;height:100vh;object-fit:cover;display:block;"></video>
+</div>
+
+<!-- ── SIMULATION MODE ─────────────────────────────────────────────── -->
+<div id="sim-mode" style="display:none;">
+
 <div id="map"></div>
 
 <!-- ===== CONTROL PANEL ===== -->
@@ -607,6 +616,28 @@ function showFlash(text, ms) {
 <!-- Layer 9: Bootstrap -->
 <script src="js/bootstrap.js"></script>
 <script>startTick();</script>
+
+</div><!-- /#sim-mode -->
+
+<!-- ── MODE SWITCHING via BroadcastChannel ─────────────────────────── -->
+<script>
+  (function() {
+    const modeChannel = new BroadcastChannel('hormuz-mode');
+    modeChannel.onmessage = function(e) {
+      const mode = e.data && e.data.mode;
+      if (mode === 'video_playback') {
+        document.getElementById('video-mode').style.display = 'block';
+        document.getElementById('sim-mode').style.display = 'none';
+      } else if (mode === 'simulation') {
+        document.getElementById('video-mode').style.display = 'none';
+        document.getElementById('sim-mode').style.display = 'block';
+        // Leaflet calculates tile grid against container dimensions at init time.
+        // Container was hidden (0×0) so we must invalidate after it becomes visible.
+        requestAnimationFrame(function() { map.invalidateSize(); });
+      }
+    };
+  })();
+</script>
 
 </body>
 </html>

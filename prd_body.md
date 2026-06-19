@@ -3036,3 +3036,495 @@ SERVER_URL.replace(/^http/, 'ws')
 ### Regression results (tests/subphase-2-3-market-ws.js)
 
 5 passed, 0 failed — identical before and after the config change.
+
+---
+
+## Subphase 3.4 — Implementation Record
+
+**Date:** 2026-06-17
+**Commit:** b48b852
+
+### Change made
+
+`js/config.js` — one line updated:
+
+```js
+// before
+const SERVER_URL = 'http://localhost:3000'; // REPLACE AFTER DEPLOY
+
+// after
+const SERVER_URL = 'https://deep-seas-main-01.onrender.com';
+```
+
+### Effect
+
+- `market_screen.html` WebSocket now connects to `wss://deep-seas-main-01.onrender.com` (the `replace(/^http/, 'ws')` pattern converts `https://` → `wss://` automatically)
+- `audience.html` is unaffected — it uses relative URLs (`/bet`, `ws://location.host`) served by the same Render instance
+
+### Verification (Subphase 3.5 — HUMAN)
+
+- Phone on cellular, laptop on WiFi
+- Open `audience.html` at `https://deep-seas-main-01.onrender.com/audience.html`
+- Tap OPEN or CLOSED
+- Confirm AUDIENCE price updates on `market_screen.html`
+- Confirm YES/NO price (yesProb from BroadcastChannel) is unaffected by the tap
+
+---
+
+## Subphase 3.6 — Grill Report: Audience Bets Influence Market Probability
+
+**Date:** 2026-06-17
+
+### Q1: What role should the audience play in the probability?
+
+**Options:** (a) Blend — 70% game × 30% audience, (b) Replace — audience ratio becomes yesProb entirely, (c) Delta/nudge — audience adds ±offset to game probability
+**Decision:** Option A — 70/30 blend: `displayProb = 0.7 × gameProb + 0.3 × audiencePrice`
+**Rationale:** Game stays in control so players see their decisions matter, but audience visibly moves the YES/NO prices in real time.
+**Consequence:** Both signals must be stored as separate variables in market_screen.html; `yesProb` (game) and `audienceMarketPrice` (bets) are combined only at render time inside `tick()`.
+
+---
+
+### Q2: What does "total investment" mean?
+
+**Options:** (a) Show raw bet counts (OPEN 8 · CLOSED 4), (b) Simulate dollar amount ($100 per tap), (c) Show participant count (connectedCount)
+**Decision:** Option B — simulate dollars: `totalInvested = (betsOpen + betsClosed) × $100`
+**Rationale:** Looks like a real prediction market with zero new server logic — betsOpen and betsClosed already come in every WebSocket message.
+**Consequence:** The value is pure theater; no real money tracked. betsOpen + betsClosed already in server payload so no server.js changes needed.
+
+---
+
+### Q3: Where does total investment display?
+
+**Options:** (a) Footer ticker as VOL $1,200, (b) Header next to AUDIENCE — `AUDIENCE 53¢ · $1,200`, (c) New line below YES/NO prices per side
+**Decision:** Option B — header: `AUDIENCE 53¢ · $1,200`
+**Rationale:** Keeps all audience-related data (price + investment) in one place at the top of the screen.
+**Consequence:** Header HTML needs a second span `totalInvested`; both are updated together inside `audienceWs.onmessage`.
+
+---
+
+### Q4: Does the blend live only on market_screen.html or does index.html also see it?
+
+**Options:** (a) Visual only on market_screen — index.html untouched, (b) index.html also shows blended prob via WS, (c) Separate operator-only number
+**Decision:** Option A — visual only on market_screen.html
+**Rationale:** index.html is the game controller; showing crowd noise there would confuse the player.
+**Consequence:** Zero changes to BroadcastChannel protocol, index.html, or server.js. All logic is confined to market_screen.html.
+
+---
+
+## Subphase 3.6 — Implementation Plan
+
+### Step 1 — Add `totalInvested` span to header HTML (`market_screen.html`)
+- **Action:** Change `<div class="vol-label">AUDIENCE <span id="audiencePrice">50¢</span></div>` to include `· <span id="totalInvested">$0</span>`
+- **Visible:** Header now reads `AUDIENCE 50¢ · $0`
+- **Breaks if skipped:** JS update will throw `getElementById('totalInvested') is null`
+
+### Step 2 — Add `audienceMarketPrice` state variable (`market_screen.html`)
+- **Action:** Add `let audienceMarketPrice = 0.5;` alongside `let yesProb = 0.51;` in the STATE block
+- **Visible:** None — data layer only
+- **Breaks if skipped:** `tick()` blend formula references an undefined variable
+
+### Step 3 — Update `audienceWs.onmessage` to store price and compute dollars (`market_screen.html`)
+- **Action:** Store `audienceMarketPrice = msg.marketPrice`, compute `(msg.betsOpen + msg.betsClosed) * 100`, update both `audiencePrice` and `totalInvested` spans
+- **Visible:** Header AUDIENCE cents + dollar amount both update on each bet
+- **Breaks if skipped:** `audienceMarketPrice` stays 0.5 forever; header shows stale $0
+
+### Step 4 — Replace `yesProb` with `displayProb` inside `tick()` (`market_screen.html`)
+- **Action:** At top of `tick()` compute `const displayProb = 0.7 * yesProb + 0.3 * audienceMarketPrice;` and use `displayProb` everywhere `yesProb` was used for price display, chart history push, and P&L calc
+- **Visible:** YES/NO cent prices and charts now reflect blended value — audience bets visibly move the big numbers
+- **Breaks if skipped:** Audience bets have no effect on YES/NO display (current behavior)
+
+---
+
+## Subphase 3.6 — Implementation Record
+
+**Date:** 2026-06-17
+**Commit:** 568abae
+**Tests:** 17 passed, 0 failed (`tests/subphase-3-6-blend.html`)
+
+### Changes made
+
+**`market_screen.html`** — 4 edits:
+
+1. Header HTML: `AUDIENCE <span id="audiencePrice">50¢</span> · <span id="totalInvested">$0</span>`
+2. State block: added `let audienceMarketPrice = 0.5;`
+3. `audienceWs.onmessage`: stores `audienceMarketPrice = msg.marketPrice`, computes `(betsOpen + betsClosed) * 100`, updates both header spans
+4. `tick()`: computes `const displayProb = 0.7 * yesProb + 0.3 * audienceMarketPrice` and uses `displayProb` for all price display, chart history, and P&L
+
+**`tests/subphase-3-6-blend.html`** — NEW, 17 assertions across 4 slices:
+- Slice 1: blend formula (5 assertions)
+- Slice 2: dollar calc (4 assertions)
+- Slice 3: header DOM update (3 assertions)
+- Slice 4: YES/NO display (5 assertions)
+
+### Behavior after this subphase
+
+- Audience tapping OPEN/CLOSED → AUDIENCE cents + dollar amount update in header
+- YES/NO big prices = 70% game state + 30% audience bet ratio
+- Game player in index.html is unaffected — yesProb still set by BroadcastChannel only
+- Render will pick up the changes on next deploy (auto-deploys from main branch)
+
+---
+
+## Subphase 3.6b — Implementation Record: Per-Side Invested Display
+
+**Date:** 2026-06-17
+**Commit:** 584c179
+**Tests:** 22 passed, 0 failed (`tests/subphase-3-6-blend.html`)
+
+### Changes made
+
+**`market_screen.html`:**
+- Added `<div class="side-sub" id="yesInvested">$0</div>` under YES side price
+- Added `<div class="side-sub" id="noInvested">$0</div>` under NO side price
+- `audienceWs.onmessage` now updates both: `betsOpen × $100 → yesInvested`, `betsClosed × $100 → noInvested`
+
+**`tests/subphase-3-6-blend.html`:**
+- Added Slice 5 (5 assertions): per-side dollar amounts, sum integrity, zero state
+
+---
+
+## Pre-Phase 1b — Grill Report: Ship Routing Visual Quality
+
+**Date:** 2026-06-18
+**Tests:** 11/11 passed (`tests/pre-phase-01-routing.html`)
+**File modified:** `js/config-data.js` — `SHIPPING_LANES` constant rewritten
+
+### Q1: Is the current routing quality sufficient for the show, or does it need more refinement?
+
+**Options:** (a) Accept current routing — 11/11 tests green, routes visually smooth, (b) Add more waypoints to further smooth curves, (c) Switch to a spline/curve interpolation library
+
+**Decision:** Option (a) — accept current routing after the +5 intermediate waypoints added this session
+
+**Rationale:** Tests confirm no waypoints land in exclusion zones, no consecutive gap > 1.2°; the dense arc approach (25-30 waypoints per lane) prevents straight-line interpolation from cutting through coastal features. Visual quality is sufficient for a thesis demo projection at show distance.
+
+**Consequence:** Routing is locked. Future sessions should not modify `SHIPPING_LANES` unless a specific visual defect is identified and reported.
+
+---
+
+### Q2: Should inbound and outbound lanes be visually separated (collision/separation enforcement)?
+
+**Options:** (a) No — the TSS polyline overlays already show lanes as distinct colors; jitter naturally offsets individual ships, (b) Yes — enforce a minimum lat offset between lanes in the narrows, (c) Yes — use a lateral offset constant applied at render time
+
+**Decision:** Option (a) — no additional separation logic needed
+
+**Rationale:** The real Hormuz TSS has inbound (south/Oman) and outbound (north/Iran) lanes separated by ~10 nautical miles. The waypoints already encode this separation: inbound sits at lat ~26.47-26.48 through the narrows, outbound at lat ~26.52-26.55. Jitter (strait: 0.008°) keeps ships within their respective lanes without overlap.
+
+**Consequence:** No lane-separation code added. If two ships visually cross, it's a jitter edge case acceptable for the demo context.
+
+---
+
+### Implementation record
+
+**Iteration 1 (initial fix):** Changed `inbound[2]` from `[24.3, 58.5]` to `[23.9, 59.0]`; replaced outbound tail waypoints to close spacing > 1.2°. Test 3 failure resolved. 10/11 → 11/11 before redesign.
+
+**Iteration 2 (major redesign):** Rewrote both lanes from ~12 waypoints to ~25-27 waypoints each. Core insight: exclusion zone tests check waypoint positions only — straight-line interpolation between widely-spaced waypoints still crosses land. Solution: dense waypoints with tight spacing (0.1-0.2°) in the Musandam approach arc and narrows transition zones. Inbound arc staged through `[26.42, 56.58]` (lat > 26.4 before entering lng < 56.55). Outbound threaded `[26.48, 56.28]` (lat < 26.5) then `[26.52, 56.35]` (lng > 56.3 permits lat > 26.5).
+
+**Iteration 3 (+5 intermediate waypoints):** Added 2 waypoints to inbound approach arc (`[25.57, 56.93]`, `[25.72, 56.77]`), 1 to inbound narrows exit (`[26.32, 55.9]`), 2 to outbound descent (`[26.3, 56.9]`, `[26.1, 57.12]`). Final count: inbound 30 waypoints, outbound 26 waypoints. 11/11 confirmed.
+
+**Iteration 4 (Qeshm narrows fix):** Outbound narrows at lat 26.52–26.55 were visually on Qeshm Island (south coast ~lat 26.5 extends to lng 56.9, not 56.3 as the test assumed). Fixed by dropping narrows to lat 26.42–26.43. Expanded Qeshm bbox in test from lngMax 56.3 → 56.9. 11/11 confirmed.
+
+**Iteration 5 (Iranian coast / Bandar-e Jask fix):** Added T12 (RED) — piecewise Iranian coast corridor constraint for outbound waypoints east of lng 56.9. Test exposed 6 waypoints above the corridor (lat 25.1–26.2 at lng 57.0–58.1). Fixed by replacing the outbound Gulf of Oman descent with a steeper southward path staying ~0.4° below the Iranian coast. 12/12 confirmed.
+
+---
+
+## market_screen.html — Two-Layer Separation (Unblend)
+
+**Date:** 2026-06-18
+**Tests:** 22/22 passed (`tests/market-unblend.html`)
+**File modified:** `market_screen.html`
+
+### Design decision
+
+`shipProbability` (ground truth, BroadcastChannel) and `marketPrice` (crowd bets, WebSocket) are two separate layers. The piece is the gap between them. They must never be averaged or blended — blending erases the tension that is the entire point.
+
+### Changes
+
+**1. Unblend tick():**
+- Before: `const displayProb = 0.7 * yesProb + 0.3 * audienceMarketPrice`
+- After: `const displayProb = audienceMarketPrice`
+- YES/NO charts and prices now show pure crowd belief only
+
+**2. Divergence display in tick():**
+- `truthCents = round(yesProb*100)`, `crowdCents = round(audienceMarketPrice*100)`
+- `gap = abs(truthCents - crowdCents)` → written to `#gapVal`
+- `#gapBox.classList.toggle('wide', gap >= 10)` → turns value red at ≥10¢ gap
+
+**3. Header band — three columns:**
+- Removed: `AUDIENCE <audiencePrice> · <totalInvested>`
+- Added: GROUND TRUTH `#truthOpen` / THE MARKET `#audiencePrice` / DIVERGENCE `#gapBox #gapVal`
+- `#totalInvested` kept hidden (WS handler still writes to it)
+- CSS: `.header-layers` flex row, `.header-layer` column, `.layer-label` 8px uppercase, `.layer-val` 20px light; `#gapBox.wide .layer-val { color: #ef4444 }`
+
+**4. BroadcastChannel handler:** writes `Math.round(yesProb*100) + '¢'` to `#truthOpen` on every game tick
+
+**5. Question:** `#contractQ` → "Will the Strait of Hormuz remain open?"
+
+---
+
+## Control Center + base.html — Grill Report
+
+**Date:** 2026-06-18
+
+### Q1: Which pages belong on the control center?
+
+**Options:** (a) All four existing pages, (b) Three (index, market_screen, audience), (c) All four plus tests section
+**Decision:** Option (a) — index, market_screen, audience, detector
+**Rationale:** All four are live show infrastructure; operator needs one place to open everything on show day.
+**Consequence:** control-center.html has 5 launch buttons (the four existing pages + base.html, which is created as part of this same task).
+
+---
+
+### Q2: What does clicking a button do?
+
+**Options:** (a) Opens in new tab, (b) Opens in same tab, (c) Single "Open all" button
+**Decision:** Option (a) — each button opens in a new tab
+**Rationale:** All four pages must be open simultaneously; new tab is simple and popup-blocker-safe.
+**Consequence:** Operator clicks all buttons once at setup; tabs persist for the full show.
+
+---
+
+### Q3: Should the control center automate which physical display each page opens on?
+
+**Options:** (a) Label + slot assignment UI with reassignment dropdowns, (b) Static labels only, (c) Drag-to-display manually
+**Decision:** Option (c) — operator drags tabs to the right display manually
+**Rationale:** Browsers cannot target specific physical displays; manual drag is simpler and more reliable under show-day pressure.
+**Consequence:** control-center.html is a pure launcher — no slot state, no localStorage, no reassignment UI.
+
+---
+
+### Q4: What information does each button show?
+
+**Options:** (a) Page name only, (b) Page name + Creston slot label, (c) Page name + slot + description
+**Decision:** Option (a) — page name only
+**Rationale:** Operator pre-sets everything before the show; minimal labels reduce visual noise.
+**Consequence:** Buttons show: INDEX / MARKET SCREEN / AUDIENCE / DETECTOR / BASE.
+
+---
+
+### Q5: Aesthetic?
+
+**Options:** (a) Match IBM Plex Mono black-white project style, (b) Plain utilitarian, (c) Distinct background color
+**Decision:** Option (a) — match project aesthetic
+**Rationale:** 10 lines of CSS, looks intentional, consistent with all other pages.
+**Consequence:** control-center.html uses same font, black background, uppercase mono labels as market_screen.html.
+
+---
+
+### Q6: base.html content and layout?
+
+**Options:** (a) Object name + weapon name only, (b) Object + weapon name + one-line consequence, (c) Full weapon card
+**Decision:** Option (b) — object + weapon name + consequence, with layout constraint
+**Layout constraint:** Left and right edges of the page only — center remains pure white and empty so the physical prop can be placed in front of the projection without visual interference.
+**Rationale:** Audience needs to know what happens when they place an object; one line is readable at projection distance.
+**Consequence:** base.html has two columns absolutely positioned at left and right edges, center is untouched white.
+
+---
+
+### Implementation Plan
+
+**Step 1 — Create `base.html`**
+- Pure white background (`#ffffff`)
+- IBM Plex Mono font, dark text
+- Left column (position: fixed, left edge): disruptor objects from tm_model_02 (Pret Cup → D02, Object 01 → D01)
+- Right column (position: fixed, right edge): defender objects (Snacks → R01, Sparkling water → R02)
+- Each entry: object name (large), weapon name (medium), one-line consequence (small, muted)
+- Center: empty white — nothing
+- What user sees: projection-ready reference card with props info flanking empty center stage
+- What breaks if skipped: Creston (4) has no content
+
+**Step 2 — Create `control-center.html`**
+- Black background, IBM Plex Mono
+- Title: DEEP SEAS · CONTROL CENTER
+- 5 large buttons: INDEX / MARKET SCREEN / AUDIENCE / DETECTOR / BASE — each `target="_blank"`
+- What user sees: single-page launcher for all show pages
+- What breaks if skipped: operator has no unified launch point
+
+---
+
+### Implementation Record
+
+**Date:** 2026-06-18
+**Tests:** 16/16 (`tests/control-center-structure.html`) + 20/20 (`tests/base-page-structure.html`)
+**Files created:** `control-center.html`, `base.html`
+
+**`base.html`:**
+- White body (`#ffffff`), IBM Plex Mono, overflow hidden
+- `.col-left { position: fixed; left: 0; }` — disruptor column (D01 Object 01, D02 Pret Cup)
+- `.col-right { position: fixed; right: 0; }` — defender column (R01 Snacks, R02 Sparkling water)
+- Each entry: object name (15px 500 uppercase), weapon ID (9px, red for disruptor / green for defender), weapon name (11px), consequence (10px 300 muted)
+- Center: untouched white — no elements
+
+**`control-center.html`:**
+- Black body (`#0a0a0a`), IBM Plex Mono, centered flex column
+- Title: "DEEP SEAS · CONTROL CENTER" (10px, 0.28em spacing, muted)
+- 5 anchor links in a 320px column, each `target="_blank"`, border on hover
+- Labels: Index / Market Screen / Audience / Detector / Base
+
+---
+
+## index.html Dual-Mode — Grill Report
+
+**Date:** 2026-06-18
+
+### Q1: Single page or two separate files?
+
+**Options:** (a) Two separate files, (b) One page with URL parameter, (c) One page with two internal sections toggled in-place
+**Decision:** Option (c) — single `index.html`, two internal sections, toggled in-place
+**Rationale:** Live performance context — switching tabs or reloading in front of an audience is unacceptable; in-place toggle has zero visible browser chrome.
+**Consequence:** `index.html` wraps existing simulation content in `#sim-mode` and adds a new `#video-mode` section; no new HTML files created.
+
+---
+
+### Q2: What triggers the mode switch?
+
+**Options:** (a) BroadcastChannel from control-center.html, (b) localStorage + storage event, (c) Keypress on the projector window
+**Decision:** Option (a) — BroadcastChannel on channel `hormuz-mode`
+**Rationale:** Already used in the codebase (`hormuz-game`); sub-1ms cross-tab on same machine; operator never needs to focus the projector window.
+**Consequence:** control-center.html broadcasts `{ mode: 'video_playback' }` or `{ mode: 'simulation' }`; `index.html` listens and switches.
+
+---
+
+### Q3: Control center hierarchy for INDEX?
+
+**Options:** (a) INDEX becomes non-clickable label, (b) INDEX stays clickable + MODE 01/02 sub-buttons below, (c) No INDEX label, two peer buttons
+**Decision:** Option (b) — INDEX opens `index.html` (new tab, defaults to MODE 01); MODE 01 / MODE 02 are indented sub-buttons that broadcast the switch signal
+**Operator flow:** Click INDEX → drag to Creston (3) → use MODE 01 / MODE 02 from laptop to switch live
+**Rationale:** Clicking INDEX also triggers MODE 01 so the page always starts in video_playback; sub-buttons handle all subsequent switches.
+**Consequence:** control-center.html needs a sub-group CSS pattern and two `<button>` elements that call `BroadcastChannel.postMessage`.
+
+---
+
+### Q4: video_playback section content?
+
+**Options:** (a) Blank white only, (b) White + hidden video placeholder, (c) White + full-bleed `<video>` element, no src
+**Decision:** Option (c) — full-bleed `<video>` element, `src` empty, white background shows through
+**Rationale:** Structure is ready; dropping a video file in later requires only adding a `src` attribute.
+**Consequence:** `#video-mode` contains `<video id="bgVideo" autoplay loop muted playsinline>` sized to 100vw × 100vh with white body behind it.
+
+---
+
+### Q5: Transition style?
+
+**Options:** (a) Instant switch, (b) 500ms fade, (c) 1.5–2s cinematic fade
+**Decision:** Option (a) — instant switch (`display` toggle only)
+**Rationale:** On a live stage, a mis-timed half-fade is more embarrassing than a crisp cut; instant is unambiguous.
+**Consequence:** No CSS transition needed; mode switch is a `display:none` / `display:block` toggle on `#video-mode` and `#sim-mode`.
+
+---
+
+### Implementation Plan
+
+**Step 1 — Modify `index.html`**
+- Wrap all existing body content in `<div id="sim-mode" style="display:none">…</div>`
+- Add `<div id="video-mode">` above it: white body, full-bleed `<video id="bgVideo" autoplay loop muted playsinline></video>`
+- Add BroadcastChannel listener on `'hormuz-mode'`: `{ mode: 'video_playback' }` → show `#video-mode`, hide `#sim-mode`; `{ mode: 'simulation' }` → reverse
+- Default state on load: `#video-mode` visible, `#sim-mode` hidden
+- What user sees: index.html opens as white page with video element; simulation hidden until MODE 02 fired
+- What breaks if skipped: BroadcastChannel messages have no listener; mode switching silently does nothing
+
+**Step 2 — Modify `control-center.html`**
+- INDEX `<a>` now also calls `new BroadcastChannel('hormuz-mode').postMessage({ mode: 'video_playback' })` on click (in addition to opening new tab) — sets default mode
+- Add CSS for `.sub-group` (indented, border-left) and `.sub-btn` (smaller, same mono style)
+- Add MODE 01 button: broadcasts `{ mode: 'video_playback' }`
+- Add MODE 02 button: broadcasts `{ mode: 'simulation' }`
+- What user sees: INDEX link + two indented sub-buttons below it on control-center.html
+- What breaks if skipped: operator has no way to trigger mode switch from laptop
+
+---
+
+### Implementation Record
+
+**Date:** 2026-06-18
+**Tests:** index-dual-mode (all green) + control-center-mode-buttons (all green)
+**Files modified:** `index.html`, `control-center.html`
+
+**`index.html` changes:**
+- Added `#video-mode` div immediately after `<body>`: `position:fixed; inset:0; background:#ffffff; z-index:9999` — sits above everything
+- `<video id="bgVideo" autoplay loop muted playsinline style="width:100vw;height:100vh;object-fit:cover">` inside it — full-bleed, no src yet
+- Wrapped all existing body content in `<div id="sim-mode" style="display:none">`
+- Added `BroadcastChannel('hormuz-mode').onmessage` listener in an IIFE at bottom of body: `video_playback` → shows `#video-mode`, hides `#sim-mode`; `simulation` → reverse
+
+**`control-center.html` changes:**
+- Added `.sub-group` (flex column, `padding-left:20px`, `border-left:1px solid #222`) and `.sub-btn` CSS (9px mono, transparent bg, hover brightens)
+- INDEX `<a>` gains `onclick="broadcast('video_playback')"` — opens page AND fires MODE 01 simultaneously
+- Two `.sub-btn` elements below INDEX: "Mode 01 — Video Playback" and "Mode 02 — Simulation"
+- `broadcast(mode)` helper at bottom: `new BroadcastChannel('hormuz-mode').postMessage({ mode })`
+
+---
+
+## Grill Report — Dual-Mode for market_screen.html + detector.html
+
+**Date:** 2026-06-18
+**Feature:** Extend video_playback / simulation dual-mode to market_screen.html and detector.html, matching the pattern already implemented in index.html.
+
+### Q1: Simultaneous vs independent mode switching
+
+**Options:** (a) All three pages switch simultaneously via single broadcast, (b) independent per-page controls, (c) index + market grouped, detector independent
+**Decision:** Option a — one MODE 01/02 press switches all three pages at once
+**Rationale:** On show day you want a single button to transition the entire room, not three presses with the risk of leaving one display stuck
+**Consequence:** No new buttons needed in control-center.html; existing MODE 01/02 broadcast already reaches all pages on `hormuz-mode`
+
+### Q2: Video element per page
+
+**Options:** (a) Same blank white + `<video>` placeholder on each page, (b) each page plays a different video, (c) only index.html plays video, others go pure white
+**Decision:** Option a — same blank white + `<video id="bgVideo">` placeholder on each
+**Rationale:** Consistent "dark before show" state across all Crestons; video src can be filled in per-page later without restructuring
+**Consequence:** All three pages look identical in video_playback mode; operator can differentiate later by setting different src values
+
+### Q3: Control center changes needed
+
+**Options:** (a) No changes — existing MODE 01/02 already broadcasts to all listeners, (b) add per-page sub-buttons, (c) rename MODE labels to reflect all-page scope
+**Decision:** Option a — no changes to control-center.html
+**Rationale:** BroadcastChannel fan-out is automatic; adding more buttons contradicts the simultaneous-switching decision from Q1
+**Consequence:** control-center.html stays as-is; test suite for it remains green
+
+### Q4: Camera detection loop behavior in video_playback mode
+
+**Options:** (a) Visually hide only — `display:none` on `#sim-mode`, camera stays warm in background, (b) stop stream + cancel rAF loop, (c) pause video feed, keep model loaded
+**Decision:** Option a — just hide, camera keeps running
+**Rationale:** Stopping camera means 1-3s restart on MODE 02 switch; on show day a lag at wrong moment is worse than background CPU
+**Consequence:** Switching back to simulation on detector.html is truly instant; camera stays live behind the white screen
+
+### Implementation Plan
+
+**Step 1 — Write tests/market-dual-mode.html** (RED)
+- File created: `tests/market-dual-mode.html`
+- Tests: #video-mode exists, #sim-mode exists, video element attrs, default state, hormuz-mode channel, white bg + full-bleed
+- User sees: RED test results
+- Breaks if skipped: no coverage for market_screen changes
+
+**Step 2 — Write tests/detector-dual-mode.html** (RED)
+- File created: `tests/detector-dual-mode.html`
+- Same 5 slices as market test, targeting detector.html
+- User sees: RED test results
+- Breaks if skipped: no coverage for detector changes
+
+**Step 3 — Implement market_screen.html**
+- File modified: `market_screen.html`
+- Add `#video-mode` div (white bg, full-bleed `<video id="bgVideo" autoplay loop muted playsinline>`) immediately after `<body>`
+- Wrap all existing body content in `<div id="sim-mode" style="display:none">`
+- Add BroadcastChannel('hormuz-mode') listener at bottom: video_playback → show video-mode / hide sim-mode; simulation → reverse
+- No `invalidateSize` needed (no Leaflet map)
+- User sees: market_screen.html opens as white screen; MODE 02 reveals market UI
+- Breaks if skipped: market screen doesn't switch with rest of show
+
+**Step 4 — Implement detector.html**
+- File modified: `detector.html`
+- Same structure as Step 3
+- Camera rAF loop keeps running behind `display:none` — instant switch back
+- User sees: detector.html opens as white screen; MODE 02 reveals camera feed + detection bars
+- Breaks if skipped: detector screen stays on camera feed during video_playback phase
+
+### Implementation Record
+
+**Date:** 2026-06-18
+**Tests:** market-dual-mode (all green) + detector-dual-mode (all green)
+**Files modified:** `market_screen.html`, `detector.html`
+
+**Pattern applied to both (identical to index.html):**
+- Added `#video-mode` div immediately after `<body>`: `position:fixed; inset:0; background:#ffffff; z-index:9999`
+- `<video id="bgVideo" autoplay loop muted playsinline style="width:100vw;height:100vh;object-fit:cover">` inside it — no src
+- Wrapped all existing body content in `<div id="sim-mode" style="display:none">`
+- Added `BroadcastChannel('hormuz-mode').onmessage` IIFE at bottom: `video_playback` ↔ `simulation` toggle
+- No `invalidateSize` needed — neither page has a Leaflet map
+- detector.html camera rAF loop keeps running behind `display:none` — instant switch back to simulation

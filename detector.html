@@ -206,6 +206,15 @@ body {
 </head>
 <body>
 
+<!-- ── VIDEO PLAYBACK MODE (default) ───────────────────────────────── -->
+<div id="video-mode" style="position:fixed;inset:0;background:#ffffff;z-index:9999;">
+  <video id="bgVideo" autoplay loop muted playsinline
+    style="width:100vw;height:100vh;object-fit:cover;display:block;"></video>
+</div>
+
+<!-- ── SIMULATION MODE ─────────────────────────────────────────────── -->
+<div id="sim-mode" style="display:none;">
+
 <!-- Back navigation -->
 <div id="backNav">
   <a href="index.html">← HORMUZ SIM</a>
@@ -745,5 +754,25 @@ function setAdState(msg) {
 // ================================================================
 loadManifest();
 </script>
+
+</div><!-- /#sim-mode -->
+
+<!-- ── MODE SWITCHING via BroadcastChannel ─────────────────────────── -->
+<script>
+  (function() {
+    const modeChannel = new BroadcastChannel('hormuz-mode');
+    modeChannel.onmessage = function(e) {
+      const mode = e.data && e.data.mode;
+      if (mode === 'video_playback') {
+        document.getElementById('video-mode').style.display = 'block';
+        document.getElementById('sim-mode').style.display = 'none';
+      } else if (mode === 'simulation') {
+        document.getElementById('video-mode').style.display = 'none';
+        document.getElementById('sim-mode').style.display = 'block';
+      }
+    };
+  })();
+</script>
+
 </body>
 </html>

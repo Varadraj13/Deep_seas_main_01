@@ -39,12 +39,30 @@
   .contract-q span {
     color: #e0e0e0;
   }
-  .vol-label {
-    font-size: 10px;
-    color: #444;
-    letter-spacing: 0.1em;
+  .header-layers {
+    display: flex;
+    gap: 32px;
+    align-items: baseline;
   }
-  .vol-label span { color: #888; }
+  .header-layer {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  .layer-label {
+    font-size: 8px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #444;
+  }
+  .layer-val {
+    font-size: 20px;
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    color: #111;
+  }
+  #gapBox .layer-val { color: #111; }
+  #gapBox.wide .layer-val { color: #ef4444; }
 
   /* MAIN GRID */
   main {
@@ -175,11 +193,34 @@
 </head>
 <body>
 
+<!-- ── VIDEO PLAYBACK MODE (default) ───────────────────────────────── -->
+<div id="video-mode" style="position:fixed;inset:0;background:#ffffff;z-index:9999;">
+  <video id="bgVideo" autoplay loop muted playsinline
+    style="width:100vw;height:100vh;object-fit:cover;display:block;"></video>
+</div>
+
+<!-- ── SIMULATION MODE ─────────────────────────────────────────────── -->
+<div id="sim-mode" style="display:none;">
+
 <header>
   <div class="contract-q">
-    <span id="contractQ">When will traffic at the Strait of Hormuz return to normal?</span>
+    <span id="contractQ">Will the Strait of Hormuz remain open?</span>
   </div>
-  <div class="vol-label">AUDIENCE <span id="audiencePrice">50¢</span> · <span id="totalInvested">$0</span></div>
+  <div class="header-layers">
+    <div class="header-layer">
+      <span class="layer-label">Ground Truth</span>
+      <span class="layer-val" id="truthOpen">—</span>
+    </div>
+    <div class="header-layer">
+      <span class="layer-label">The Market</span>
+      <span class="layer-val" id="audiencePrice">50¢</span>
+    </div>
+    <div class="header-layer" id="gapBox">
+      <span class="layer-label">Divergence</span>
+      <span class="layer-val" id="gapVal">—</span>
+    </div>
+  </div>
+  <span id="totalInvested" style="display:none">$0</span>
 </header>
 
 <main>
@@ -284,6 +325,7 @@
   hormuzChannel.onmessage = function(e) {
     const msg = e.data;
     yesProb = (100 - msg.shipProbability) / 100;
+    document.getElementById('truthOpen').textContent = Math.round(yesProb * 100) + '¢';
     document.getElementById('tick4').textContent =
       'LANE ' + msg.lane.toUpperCase() + ' · SHIP PROB ' + msg.shipProbability + '%';
     document.getElementById('roundNum').textContent = msg.round.number || '—';
@@ -379,7 +421,13 @@
 
   // ── UPDATE LOOP ──────────────────────────────────────────────────
   function tick() {
-    const displayProb = 0.7 * yesProb + 0.3 * audienceMarketPrice;
+    const displayProb = audienceMarketPrice;
+
+    const truthCents = Math.round(yesProb * 100);
+    const crowdCents = Math.round(audienceMarketPrice * 100);
+    const gap = Math.abs(truthCents - crowdCents);
+    document.getElementById('gapVal').textContent = gap + '¢';
+    document.getElementById('gapBox').classList.toggle('wide', gap >= 10);
 
     yesHistory.push(displayProb);
     if (yesHistory.length > HISTORY_LEN) yesHistory.shift();
@@ -418,5 +466,26 @@
     noCtx = setupCanvas('noChart');
   });
 </script>
+
+</div><!-- /#sim-mode -->
+
+<!-- ── MODE SWITCHING via BroadcastChannel ─────────────────────────── -->
+<script>
+  (function() {
+    const modeChannel = new BroadcastChannel('hormuz-mode');
+    modeChannel.onmessage = function(e) {
+      const mode = e.data && e.data.mode;
+      if (mode === 'video_playback') {
+        document.getElementById('video-mode').style.display = 'block';
+        document.getElementById('sim-mode').style.display = 'none';
+      } else if (mode === 'simulation') {
+        document.getElementById('video-mode').style.display = 'none';
+        // display:contents makes #sim-mode invisible to layout so body's grid applies to its children directly
+        document.getElementById('sim-mode').style.display = 'contents';
+      }
+    };
+  })();
+</script>
+
 </body>
 </html>

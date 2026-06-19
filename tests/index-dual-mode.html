@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>index.html Dual-Mode Tests</title>
+<style>
+  body { font-family: monospace; padding: 20px; background: #111; color: #eee; }
+  .pass { color: #22c55e; }
+  .fail { color: #ef4444; }
+  h2 { color: #888; font-size: 12px; letter-spacing: 0.1em; margin-top: 20px; }
+  hr { border-color: #333; margin: 16px 0; }
+</style>
+</head>
+<body>
+<h1 style="font-size:13px;letter-spacing:0.1em;">INDEX · DUAL-MODE STRUCTURE TESTS</h1>
+<div id="results"></div>
+
+<script>
+  const out = document.getElementById('results');
+  let passed = 0, failed = 0;
+
+  function pass(id, note) { passed++; out.innerHTML += `<div class="pass">PASS ${id} — ${note}</div>`; }
+  function fail(id, note) { failed++; out.innerHTML += `<div class="fail">FAIL ${id} — ${note}</div>`; }
+  function summary() {
+    out.innerHTML += `<hr><div style="font-size:13px;font-weight:500;">${passed} passed, ${failed} failed</div>`;
+  }
+
+  async function run() {
+    // ── SLICE 1: Both mode sections exist ────────────────────────────
+    out.innerHTML += '<h2>SLICE 1 · MODE SECTIONS</h2>';
+
+    let html = '';
+    try {
+      const res = await fetch('../index.html');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      html = await res.text();
+      pass('m1a', 'index.html readable');
+    } catch(e) {
+      fail('m1a', `index.html not readable: ${e.message}`);
+      summary(); return;
+    }
+
+    if (html.includes('id="video-mode"')) pass('m1b', '#video-mode section exists');
+    else fail('m1b', '#video-mode section missing');
+
+    if (html.includes('id="sim-mode"')) pass('m1c', '#sim-mode section exists');
+    else fail('m1c', '#sim-mode section missing');
+
+    // ── SLICE 2: video element inside #video-mode ─────────────────────
+    out.innerHTML += '<h2>SLICE 2 · VIDEO ELEMENT</h2>';
+
+    if (html.includes('<video')) pass('m2a', '<video> element present');
+    else fail('m2a', 'no <video> element found');
+
+    if (/id="bgVideo"/.test(html)) pass('m2b', 'video has id="bgVideo"');
+    else fail('m2b', 'video missing id="bgVideo"');
+
+    if (/autoplay/i.test(html)) pass('m2c', 'video has autoplay');
+    else fail('m2c', 'video missing autoplay');
+
+    if (/\bloop\b/i.test(html)) pass('m2d', 'video has loop');
+    else fail('m2d', 'video missing loop');
+
+    if (/\bmuted\b/i.test(html)) pass('m2e', 'video has muted');
+    else fail('m2e', 'video missing muted');
+
+    if (/playsinline/i.test(html)) pass('m2f', 'video has playsinline');
+    else fail('m2f', 'video missing playsinline');
+
+    // ── SLICE 3: Default state — video visible, sim hidden ───────────
+    out.innerHTML += '<h2>SLICE 3 · DEFAULT STATE</h2>';
+
+    // sim-mode must start hidden (display:none inline or via default CSS)
+    const simHidden = /id="sim-mode"[^>]*display\s*:\s*none|id="sim-mode"[^>]*style="[^"]*display\s*:\s*none/i.test(html);
+    if (simHidden) pass('m3a', '#sim-mode starts hidden (display:none)');
+    else fail('m3a', '#sim-mode does not start hidden');
+
+    // video-mode must NOT have display:none on it by default
+    const videoVisible = !/id="video-mode"[^>]*display\s*:\s*none/i.test(html);
+    if (videoVisible) pass('m3b', '#video-mode starts visible (no display:none)');
+    else fail('m3b', '#video-mode starts hidden — should be default visible');
+
+    // ── SLICE 4: BroadcastChannel on hormuz-mode ─────────────────────
+    out.innerHTML += '<h2>SLICE 4 · BROADCASTCHANNEL LISTENER</h2>';
+
+    if (html.includes("'hormuz-mode'") || html.includes('"hormuz-mode"'))
+      pass('m4a', "BroadcastChannel('hormuz-mode') referenced");
+    else fail('m4a', "hormuz-mode channel not found in script");
+
+    if (/video_playback/i.test(html)) pass('m4b', "'video_playback' mode string present");
+    else fail('m4b', "'video_playback' string missing from script");
+
+    if (/simulation/i.test(html)) pass('m4c', "'simulation' mode string present");
+    else fail('m4c', "'simulation' string missing from script");
+
+    // onmessage or addEventListener for the channel
+    if (/onmessage|addEventListener\s*\(\s*['"]message['"]/i.test(html))
+      pass('m4d', 'message handler wired up');
+    else fail('m4d', 'no onmessage / addEventListener found for channel');
+
+    // ── SLICE 5: video-mode has white background ──────────────────────
+    out.innerHTML += '<h2>SLICE 5 · VIDEO MODE STYLING</h2>';
+
+    const hasWhite = /#ffffff|#fff(?!\w)|background:\s*white|background-color:\s*white/i.test(html);
+    if (hasWhite) pass('m5a', 'white background present in page');
+    else fail('m5a', 'no white background found');
+
+    // video element should fill screen
+    const videoFullBleed = /100vw|100vh|width\s*:\s*100%/i.test(html);
+    if (videoFullBleed) pass('m5b', 'full-bleed sizing (100vw/100vh/100%) present');
+    else fail('m5b', 'no full-bleed sizing found for video');
+
+    summary();
+  }
+
+  run();
+</script>
+</body>
+</html>

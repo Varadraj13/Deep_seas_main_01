@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Object Reference — Deep Seas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #ffffff;
+    font-family: 'IBM Plex Mono', monospace;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .col {
+    top: 0;
+    width: 300px;
+    height: 100vh;
+    padding: 48px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 48px;
+  }
+
+  .col-left  { position: fixed; left: 0; }
+  .col-right { position: fixed; right: 0; }
+
+  .col-heading {
+    font-size: 8px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #aaa;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 10px;
+  }
+
+  .entry {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .entry-object {
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #111;
+  }
+
+  .entry-weapon-id {
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .disruptor .entry-weapon-id { color: #ef4444; }
+  .defender  .entry-weapon-id { color: #22c55e; }
+
+  .entry-weapon-name {
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+    color: #333;
+  }
+
+  .entry-consequence {
+    font-size: 10px;
+    font-weight: 300;
+    color: #888;
+    letter-spacing: 0.03em;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+
+<!-- LEFT COLUMN — Disruptor objects -->
+<div class="col col-left">
+  <div class="col-heading">Disruptor</div>
+
+  <div class="entry disruptor">
+    <div class="entry-object">Object 01</div>
+    <div class="entry-weapon-id">D01</div>
+    <div class="entry-weapon-name">Strait closure / naval blockade</div>
+    <div class="entry-consequence">Ships halt. Spawn rate −80%.<br>Lane goes dark on map.</div>
+  </div>
+
+  <div class="entry disruptor">
+    <div class="entry-object">Pret Cup</div>
+    <div class="entry-weapon-id">D02</div>
+    <div class="entry-weapon-name">Sanctions package</div>
+    <div class="entry-consequence">Ship speed −40%. Cargo value drops.<br>Builds slowly. Compounds.</div>
+  </div>
+</div>
+
+<!-- RIGHT COLUMN — Defender objects -->
+<div class="col col-right">
+  <div class="col-heading">Defender</div>
+
+  <div class="entry defender">
+    <div class="entry-object">Snacks</div>
+    <div class="entry-weapon-id">R01</div>
+    <div class="entry-weapon-name">Naval escort / freedom of navigation</div>
+    <div class="entry-consequence">Ships resume in contested lane.<br>Counters strait closure. Degrades slowly.</div>
+  </div>
+
+  <div class="entry defender">
+    <div class="entry-object">Sparkling water</div>
+    <div class="entry-weapon-id">R02</div>
+    <div class="entry-weapon-name">Emergency re-flagging</div>
+    <div class="entry-consequence">Seized vessel returns under new flag.<br>Lasts most of round.</div>
+  </div>
+</div>
+
+</body>
+</html>

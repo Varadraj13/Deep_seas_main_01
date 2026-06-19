@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>base.html Structure Tests</title>
+<style>
+  body { font-family: monospace; padding: 20px; background: #111; color: #eee; }
+  .pass { color: #22c55e; }
+  .fail { color: #ef4444; }
+  h2 { color: #888; font-size: 12px; letter-spacing: 0.1em; margin-top: 20px; }
+  hr { border-color: #333; margin: 16px 0; }
+</style>
+</head>
+<body>
+<h1 style="font-size:13px;letter-spacing:0.1em;">BASE PAGE · STRUCTURE TESTS</h1>
+<div id="results"></div>
+
+<script>
+  const out = document.getElementById('results');
+  let passed = 0, failed = 0;
+
+  function pass(id, note) {
+    passed++;
+    out.innerHTML += `<div class="pass">PASS ${id} — ${note}</div>`;
+  }
+  function fail(id, note) {
+    failed++;
+    out.innerHTML += `<div class="fail">FAIL ${id} — ${note}</div>`;
+  }
+  function summary() {
+    out.innerHTML += `<hr><div style="font-size:13px;font-weight:500;">
+      ${passed} passed, ${failed} failed
+    </div>`;
+  }
+
+  async function run() {
+    // ── SLICE 1: File exists ──────────────────────────────────────────
+    out.innerHTML += '<h2>SLICE 1 · FILE EXISTS</h2>';
+
+    let html = '';
+    try {
+      const res = await fetch('../base.html');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      html = await res.text();
+      pass('b1a', 'base.html exists and is readable');
+    } catch (e) {
+      fail('b1a', `base.html not found: ${e.message}`);
+      summary();
+      return;
+    }
+
+    // ── SLICE 2: White background ─────────────────────────────────────
+    out.innerHTML += '<h2>SLICE 2 · WHITE BACKGROUND</h2>';
+
+    const hasWhiteBg = /#ffffff|#fff(?!\w)|background:\s*white|background-color:\s*white/i.test(html);
+    if (hasWhiteBg) pass('b2a', 'white background (#fff / #ffffff) in CSS');
+    else fail('b2a', 'no white background found');
+
+    // Body background specifically (not just any element)
+    const bodyWhite = /body\s*\{[^}]*(?:background|background-color)\s*:\s*(?:#fff(?!\w)|#ffffff|white)/i.test(html);
+    if (bodyWhite) pass('b2b', 'body element has white background');
+    else fail('b2b', 'body background is not white');
+
+    // ── SLICE 3: All four object → weapon entries present ────────────
+    out.innerHTML += '<h2>SLICE 3 · OBJECT → WEAPON ENTRIES</h2>';
+
+    // Objects from tm_model_02/label-map.json
+    const objects = [
+      ['Pret Cup',        'b3a', 'Pret Cup object listed'],
+      ['Snacks',          'b3b', 'Snacks object listed'],
+      ['Sparkling water', 'b3c', 'Sparkling water object listed'],
+      ['Object 01',       'b3d', 'Object 01 listed'],
+    ];
+    objects.forEach(([name, id, note]) => {
+      if (html.toLowerCase().includes(name.toLowerCase()))
+        pass(id, note);
+      else
+        fail(id, `"${name}" not found in page`);
+    });
+
+    // Weapon IDs present
+    const weapons = [
+      ['D01', 'b3e', 'D01 weapon ID referenced'],
+      ['D02', 'b3f', 'D02 weapon ID referenced'],
+      ['R01', 'b3g', 'R01 weapon ID referenced'],
+      ['R02', 'b3h', 'R02 weapon ID referenced'],
+    ];
+    weapons.forEach(([id, testId, note]) => {
+      if (html.includes(id)) pass(testId, note);
+      else fail(testId, `weapon ID "${id}" not found`);
+    });
+
+    // ── SLICE 4: Weapon names and consequences present ────────────────
+    out.innerHTML += '<h2>SLICE 4 · WEAPON NAMES + CONSEQUENCES</h2>';
+
+    const content = [
+      ['Strait closure',    'b4a', 'D01 name (Strait closure) present'],
+      ['Sanctions',         'b4b', 'D02 name (Sanctions) present'],
+      ['Naval escort',      'b4c', 'R01 name (Naval escort) present'],
+      ['re-flag',           'b4d', 'R02 name (re-flagging) present'],
+    ];
+    content.forEach(([text, id, note]) => {
+      if (html.toLowerCase().includes(text.toLowerCase()))
+        pass(id, note);
+      else
+        fail(id, `"${text}" not found`);
+    });
+
+    // Consequences (key fragments)
+    const consequences = [
+      ['speed',    'b4e', 'speed consequence referenced (D01/D02)'],
+      ['vessel',   'b4f', 'vessel consequence referenced (D03/R01/R02)'],
+    ];
+    consequences.forEach(([text, id, note]) => {
+      if (html.toLowerCase().includes(text.toLowerCase()))
+        pass(id, note);
+      else
+        fail(id, `consequence fragment "${text}" not found`);
+    });
+
+    // ── SLICE 5: Layout — columns at edges, center empty ─────────────
+    out.innerHTML += '<h2>SLICE 5 · EDGE LAYOUT</h2>';
+
+    // Left column positioned at left edge
+    const hasLeftPos = /position\s*:\s*fixed[^}]*left\s*:\s*0|left\s*:\s*0[^}]*position\s*:\s*fixed/i.test(html);
+    if (hasLeftPos) pass('b5a', 'left column fixed-positioned at left:0');
+    else fail('b5a', 'no fixed left-edge column found');
+
+    // Right column positioned at right edge
+    const hasRightPos = /position\s*:\s*fixed[^}]*right\s*:\s*0|right\s*:\s*0[^}]*position\s*:\s*fixed/i.test(html);
+    if (hasRightPos) pass('b5b', 'right column fixed-positioned at right:0');
+    else fail('b5b', 'no fixed right-edge column found');
+
+    // Center has no content elements (only body + column containers)
+    // Proxy check: no centered div/p without a left/right class
+    const noCenterBlock = !/text-align\s*:\s*center|margin\s*:\s*auto/i.test(html);
+    if (noCenterBlock) pass('b5c', 'no centered content block (center stays clear)');
+    else fail('b5c', 'centered content found — center should be empty white');
+
+    summary();
+  }
+
+  run();
+</script>
+</body>
+</html>

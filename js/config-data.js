@@ -112,41 +112,74 @@ const WAYPOINT_NAMES = [
 // avoiding the Musandam Peninsula and Qeshm Island.
 const SHIPPING_LANES = {
   // Inbound: Gulf of Oman → Persian Gulf (south/Oman TSS lane)
+  // Arcs north to lat > 26.4 before entering Musandam lng zone (56.15–56.55).
+  // Short segments keep straight-line interpolation in navigable water.
   inbound: [
-    [22.8, 60.2],    // Gulf of Oman — open water
-    [23.5, 59.4],    // approach
-    [24.3, 58.5],    // mid Gulf of Oman
-    [24.8, 57.8],    // nearing strait
-    [25.2, 57.3],    // strait approach (east)
-    [25.5, 57.0],    // south of Musandam (east side)
-    [25.75, 56.75],  // KEY: pass SOUTH of Musandam tip
-    [25.85, 56.5],   // KEY: clear of peninsula, south channel
-    [26.05, 56.1],   // through narrows — south of Larak Island
-    [26.15, 55.7],   // west of narrows
-    [26.25, 55.3],   // entering Persian Gulf
-    [26.3, 54.9],    // Persian Gulf
-    [26.2, 54.4],    // deep Gulf — terminus
+    [22.5, 60.5],    // SE Gulf of Oman — open water
+    [23.0, 60.0],
+    [23.4, 59.6],
+    [23.8, 59.1],
+    [24.2, 58.7],
+    [24.5, 58.3],
+    [24.8, 57.9],
+    [25.1, 57.6],
+    [25.3, 57.3],
+    [25.5, 57.0],
+    [25.57, 56.93],
+    [25.65, 56.85],
+    [25.72, 56.77],
+    [25.8, 56.7],    // arcing north toward narrows
+    [25.95, 56.65],
+    [26.1, 56.62],
+    [26.25, 56.60],  // east of Musandam lng exclusion (lng > 56.55)
+    [26.42, 56.58],  // lat > 26.4 ✓ — ready to enter narrows
+    [26.47, 56.50],  // south/Oman TSS narrows — lat > 26.4 ✓, clear of both zones
+    [26.48, 56.40],
+    [26.48, 56.28],  // Qeshm: lat 26.48 < 26.5 ✓
+    [26.45, 56.15],  // lat > 26.4 keeps clear of Musandam boundary
+    [26.38, 56.05],  // west of Musandam lng zone — lat may drop below 26.4 safely
+    [26.32, 55.9],
+    [26.25, 55.75],
+    [26.1, 55.4],
+    [25.95, 55.1],
+    [25.9, 54.8],
+    [26.0, 54.5],
+    [26.1, 54.2],    // deep Gulf — terminus
   ],
   // Outbound: Persian Gulf → Gulf of Oman (north/Iran TSS lane)
+  // Stays south of Qeshm (lat < 26.5) until lng > 56.3, then rises into narrows
+  // at lat 26.52–26.55. Short segments prevent cutting through coastal features.
   outbound: [
-    [26.2, 54.4],    // deep Gulf — start
-    [26.4, 54.9],    // heading east
-    [26.6, 55.3],    // approaching strait
-    [26.75, 55.7],   // KEY: north of Qeshm (stay in channel)
-    [26.9, 56.05],   // KEY: north of islands
-    [26.85, 56.4],   // north passage past Larak
-    [26.6, 56.75],   // KEY: north of Musandam
-    [26.2, 57.1],    // exiting strait (north side)
-    [25.6, 57.6],    // entering Gulf of Oman
-    [24.8, 58.4],    // mid Gulf of Oman
-    [23.8, 59.3],    // Gulf of Oman
-    [22.8, 60.2],    // Gulf of Oman — terminus
+    [26.0, 54.2],    // deep Gulf — start
+    [26.1, 54.5],
+    [26.1, 54.9],
+    [26.15, 55.2],
+    [26.2, 55.5],
+    [26.25, 55.75],  // south of Qeshm (lat < 26.5) ✓
+    [26.3, 56.0],
+    [26.38, 56.1],
+    [26.42, 56.2],   // south of Qeshm (lat < 26.5) ✓, lat > 26.4 ✓
+    [26.42, 56.28],  // south of Qeshm ✓
+    [26.43, 56.35],  // lat > 26.4 clears Musandam ✓, south of Qeshm ✓
+    [26.43, 56.45],  // narrows — clear of both exclusion zones
+    [26.42, 56.55],  // lat > 26.4 ✓
+    [26.35, 56.65],  // descend east of Musandam lng zone
+    [26.2, 56.8],
+    [26.1, 56.9],
+    [25.5, 57.1],    // descend immediately clear of Iranian coast
+    [25.2, 57.4],
+    [24.9, 57.7],    // south of Bandar-e Jask (lat 25.64) ✓
+    [24.6, 58.0],
+    [24.2, 58.4],
+    [23.8, 58.8],
+    [23.4, 59.2],
+    [23.0, 59.7],
+    [22.8, 60.1],    // Gulf of Oman — terminus
   ],
-  // Jitter config: how much random offset per waypoint zone
   jitter: {
-    openWater: 0.04,   // first 3 and last 2 waypoints
-    approach: 0.02,    // waypoints 3-4 and second-to-last
-    strait: 0.008,     // waypoints in the narrow section
+    openWater: 0.04,
+    approach: 0.02,
+    strait: 0.008,
   }
 };
 

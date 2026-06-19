@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Control Center Structure Tests</title>
+<style>
+  body { font-family: monospace; padding: 20px; background: #111; color: #eee; }
+  .pass { color: #22c55e; }
+  .fail { color: #ef4444; }
+  .pending { color: #888; }
+  h2 { color: #888; font-size: 12px; letter-spacing: 0.1em; margin-top: 20px; }
+  hr { border-color: #333; margin: 16px 0; }
+</style>
+</head>
+<body>
+<h1 style="font-size:13px;letter-spacing:0.1em;">CONTROL CENTER · STRUCTURE TESTS</h1>
+<div id="results"></div>
+
+<script>
+  const out = document.getElementById('results');
+  let passed = 0, failed = 0;
+
+  function pass(id, note) {
+    passed++;
+    out.innerHTML += `<div class="pass">PASS ${id} — ${note}</div>`;
+  }
+  function fail(id, note) {
+    failed++;
+    out.innerHTML += `<div class="fail">FAIL ${id} — ${note}</div>`;
+  }
+  function summary() {
+    out.innerHTML += `<hr><div style="font-size:13px;font-weight:500;">
+      ${passed} passed, ${failed} failed
+    </div>`;
+  }
+
+  async function run() {
+    // ── SLICE 1: File exists ──────────────────────────────────────────
+    out.innerHTML += '<h2>SLICE 1 · FILE EXISTS</h2>';
+
+    let html = '';
+    try {
+      const res = await fetch('../control-center.html');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      html = await res.text();
+      pass('c1a', 'control-center.html exists and is readable');
+    } catch (e) {
+      fail('c1a', `control-center.html not found: ${e.message}`);
+      summary();
+      return; // can't run remaining tests without the file
+    }
+
+    // ── SLICE 2: All five page links present ─────────────────────────
+    out.innerHTML += '<h2>SLICE 2 · PAGE LINKS</h2>';
+
+    const pages = [
+      ['index.html',         'c2a', 'link to index.html'],
+      ['market_screen.html', 'c2b', 'link to market_screen.html'],
+      ['audience.html',      'c2c', 'link to audience.html'],
+      ['detector.html',      'c2d', 'link to detector.html'],
+      ['base.html',          'c2e', 'link to base.html'],
+    ];
+    pages.forEach(([page, id, note]) => {
+      if (html.includes(`href="${page}"`)) pass(id, note);
+      else fail(id, `missing href="${page}"`);
+    });
+
+    // ── SLICE 3: All links open in new tab ───────────────────────────
+    out.innerHTML += '<h2>SLICE 3 · NEW TAB BEHAVIOUR</h2>';
+
+    // Count occurrences of target="_blank"
+    const blankCount = (html.match(/target="_blank"/g) || []).length;
+    if (blankCount >= 5) pass('c3a', `${blankCount} links have target="_blank" (need ≥ 5)`);
+    else fail('c3a', `only ${blankCount} links have target="_blank", need 5`);
+
+    // Each specific page link must have target="_blank" nearby
+    // Simple check: the string appears for each link's anchor block
+    pages.forEach(([page, id, note]) => {
+      // Look for the page href and "_blank" within 120 chars
+      const idx = html.indexOf(`href="${page}"`);
+      if (idx === -1) return; // already caught in slice 2
+      const surrounding = html.slice(Math.max(0, idx - 60), idx + 120);
+      const testId = id.replace('c2', 'c3') + 'b';
+      if (surrounding.includes('_blank'))
+        pass(testId, `${page} link has target="_blank"`);
+      else
+        fail(testId, `${page} link missing target="_blank"`);
+    });
+
+    // ── SLICE 4: Aesthetic — dark background, mono font ──────────────
+    out.innerHTML += '<h2>SLICE 4 · AESTHETIC</h2>';
+
+    const hasDarkBg = /#000|#0a0a0a|#080808|#111|background:\s*#0|background-color:\s*#0/i.test(html);
+    if (hasDarkBg) pass('c4a', 'dark background colour present in CSS');
+    else fail('c4a', 'no dark background colour found');
+
+    const hasMono = /IBM Plex Mono|monospace/i.test(html);
+    if (hasMono) pass('c4b', 'monospace / IBM Plex Mono font referenced');
+    else fail('c4b', 'no monospace font found');
+
+    // ── SLICE 5: Page title present ──────────────────────────────────
+    out.innerHTML += '<h2>SLICE 5 · META</h2>';
+
+    const hasTitle = /<title[^>]*>.*?<\/title>/i.test(html);
+    if (hasTitle) pass('c5a', '<title> element present');
+    else fail('c5a', 'no <title> element');
+
+    const hasH1OrLabel = /control.center|CONTROL.CENTER/i.test(html);
+    if (hasH1OrLabel) pass('c5b', '"control center" label visible in page');
+    else fail('c5b', '"control center" label not found in page');
+
+    summary();
+  }
+
+  run();
+</script>
+</body>
+</html>
