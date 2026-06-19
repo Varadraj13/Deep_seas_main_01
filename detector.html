@@ -452,8 +452,12 @@ async function loadManifest() {
     await loadModel(sel.value);
   });
 
-  // Auto-load first model
-  await loadModel(manifest[0].path);
+  // Auto-load tm_model_02 (12-weapon model) — fall back to first if not found
+  const defaultEntry = manifest.find(m => m.id === 'tm_model_02') || manifest[0];
+  if (defaultEntry !== manifest[0]) {
+    sel.value = defaultEntry.path;
+  }
+  await loadModel(defaultEntry.path);
 }
 
 // ================================================================

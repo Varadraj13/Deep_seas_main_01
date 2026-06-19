@@ -3,5 +3,13 @@
   "Pret Cup":        "D02",
   "Snacks":          "R01",
   "Sparkling water": "R02",
-  "Background":      null
+  "Background":      null,
+  "Object D03":      "D03",
+  "Object D04":      "D04",
+  "Object D05":      "D05",
+  "Object D06":      "D06",
+  "Object R03":      "R03",
+  "Object R04":      "R04",
+  "Object R05":      "R05",
+  "Object R06":      "R06"
 }
