@@ -3601,4 +3601,75 @@ Physical objects currently mapped (tm_model_02/label-map.json):
 - Bloomberg panel: static placeholder now, dynamic on weapon fire later
 - Scope order: base.html (Phase A, immediate) → simulator cleanup (Phase B) → detector redesign (Phase C) → control-center (Phase D, next session)
 - Detector model: default to `tm_model_02`, not first manifest entry
+
+---
+
+## Grill Report — base.html Visual Polish (2026-06-29)
+
+### Q1: Entry layout — where does the image sit?
+
+**Options:** (a) horizontal row — text left, image right (mirrored per column), (b) image below consequence text, (c) image absolute-positioned to column edge
+**Decision:** Option (a) — mirrored horizontal row. Left column: text → image. Right column: image → text.
+**Rationale:** Matches the screenshot annotation and creates natural symmetry between the two sides.
+**Consequence:** `.entry` must change from `flex-direction: column` to `row`; right column entries need image as first child in DOM.
+
+---
+
+### Q2: Placeholder image dimensions
+
+**Options:** (a) 80×80px fixed square, (b) match entry height dynamically, (c) ~120×90px landscape
+**Decision:** Option (a) — 80×80px fixed square
+**Rationale:** Small enough not to dominate the text, large enough to read clearly as an image slot.
+**Consequence:** All 12 `<img>` elements get `width:80px; height:80px; object-fit:cover; flex-shrink:0`.
+
+---
+
+### Q3: Placeholder image path
+
+**Options:** (a) grey CSS div — no file needed, (b) `images/placeholder.png` — single shared file, (c) final `images/D01.jpg` paths now (shows broken until supplied)
+**Decision:** Option (b) — `images/placeholder.png`
+**Rationale:** Real `<img>` tags ready for per-weapon swap; only one placeholder file to drop in.
+**Consequence:** Need a single `images/placeholder.png` file. When real weapon images arrive, swap `src` per entry to `images/D01.jpg` etc.
+
+---
+
+### Q4: Column heading font size
+
+**Options:** (a) 18px, (b) 20px, (c) 24px+
+**Decision:** Option (b) — 20px
+**Rationale:** Clearly dominant over the 15px object name without being headline-sized.
+**Consequence:** `.col-heading` grows from 8px → 20px; letter-spacing may need reduction from 0.22em.
+
+---
+
+### Q5: Text alignment in entries
+
+**Options:** (a) only `.entry-consequence` right-aligned, (b) all text in entry right-aligned (object name, ID, weapon name, consequence), (c) consequence + weapon name only
+**Decision:** Option (b) — all text in all entries right-aligned
+**Rationale:** User wants uniform right-alignment across every text element in both columns.
+**Consequence:** Add `text-align: right` to `.entry` (inherits to all children); no per-element overrides needed.
+
+---
+
+### Implementation Plan — base.html Polish
+
+**Step 1 — `.col-heading` font size**
+- File modified: `base.html` CSS
+- Change: `font-size: 8px` → `font-size: 20px`; reduce `letter-spacing` to `0.12em`
+- Visible: DISRUPTOR / DEFENDER labels become the largest text in each column
+- Breaks if skipped: headings remain smaller than object names (inverted hierarchy)
+
+**Step 2 — `.entry` layout → horizontal row + text-align right**
+- File modified: `base.html` CSS
+- Change: add `flex-direction: row; align-items: center; gap: 16px; text-align: right` to `.entry`
+- Add `.entry-text { display: flex; flex-direction: column; gap: 6px; flex: 1; }` wrapper class
+- Visible: text and image sit side by side; all text right-aligned
+- Breaks if skipped: image stacks vertically below text, no right-alignment
+
+**Step 3 — Add `<img>` placeholder to each entry + mirror right column**
+- File modified: `base.html` HTML
+- Change: wrap each entry's 4 text divs in `<div class="entry-text">`, add `<img class="entry-img" src="images/placeholder.png" alt="">` — after `entry-text` in left column entries, before `entry-text` in right column entries
+- CSS: `.entry-img { width: 80px; height: 80px; object-fit: cover; flex-shrink: 0; background: #e0e0e0; }`
+- Visible: grey 80×80 box appears to the right of left-column entries, left of right-column entries
+- Breaks if skipped: no image slots; real weapon images can't be dropped in later
 - base.html for D03-D06, R03-R06: show weapon info without physical object name (TBD)

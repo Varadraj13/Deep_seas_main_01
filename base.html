@@ -14,39 +14,77 @@
     font-family: 'IBM Plex Mono', monospace;
     height: 100vh;
     overflow: hidden;
+    zoom: 0.75;
   }
 
   .col {
-    top: 0;
-    width: 300px;
-    height: 100vh;
-    padding: 48px 32px;
+    width: 420px;
+    height: 134vh;
+    padding: 28px 24px;
     display: flex;
     flex-direction: column;
-    gap: 48px;
+    gap: 16px;
+    justify-content: center;
+    overflow: hidden;
   }
 
-  .col-left  { position: fixed; left: 0; }
-  .col-right { position: fixed; right: 0; }
+  .col-left  { position: fixed; top: 0; left: 0; }
+  .col-right { position: fixed; top: 0; right: 0; }
 
-  .col-heading {
-    font-size: 8px;
-    letter-spacing: 0.22em;
+  .col-label {
+    position: fixed;
+    top: 0;
+    height: 134vh;
+    width: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 13px;
+    letter-spacing: 0.10em;
     text-transform: uppercase;
     color: #aaa;
-    margin-bottom: 8px;
-    border-bottom: 1px solid #e0e0e0;
-    padding-bottom: 10px;
+  }
+
+  .col-label-left {
+    left: 420px;
+    border-left: 1px solid #e0e0e0;
+  }
+
+  .col-label-right {
+    right: 420px;
+    border-right: 1px solid #e0e0e0;
   }
 
   .entry {
     display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    text-align: right;
+  }
+
+  .col-right .entry { text-align: left; }
+
+  .entry-text {
+    display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 5px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .entry-img {
+    width: 108px;
+    height: 108px;
+    object-fit: contain;
+    flex-shrink: 0;
+    mix-blend-mode: multiply;
   }
 
   .entry-object {
-    font-size: 15px;
+    font-size: 11px;
     font-weight: 500;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -54,26 +92,26 @@
   }
 
   .entry-weapon-id {
-    font-size: 9px;
-    letter-spacing: 0.18em;
+    font-size: 7px;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
   }
   .disruptor .entry-weapon-id { color: #ef4444; }
   .defender  .entry-weapon-id { color: #22c55e; }
 
   .entry-weapon-name {
-    font-size: 11px;
+    font-size: 9px;
     font-weight: 400;
     letter-spacing: 0.06em;
     color: #333;
   }
 
   .entry-consequence {
-    font-size: 10px;
+    font-size: 8px;
     font-weight: 300;
     color: #888;
     letter-spacing: 0.03em;
-    line-height: 1.5;
+    line-height: 1.4;
   }
 </style>
 </head>
@@ -81,97 +119,134 @@
 
 <!-- LEFT COLUMN — Disruptor objects -->
 <div class="col col-left">
-  <div class="col-heading">Disruptor</div>
 
   <div class="entry disruptor">
-    <div class="entry-object">Object 01</div>
-    <div class="entry-weapon-id">D01</div>
-    <div class="entry-weapon-name">Strait closure / naval blockade</div>
-    <div class="entry-consequence">Ships halt. Spawn rate −80%.<br>Lane goes dark on map.</div>
+    <div class="entry-text">
+      <div class="entry-object">Wooden Chair</div>
+      <div class="entry-weapon-id">D01</div>
+      <div class="entry-weapon-name">Strait closure / naval blockade</div>
+      <div class="entry-consequence">Ships halt. Spawn rate −80%.<br>Lane goes dark on map.</div>
+    </div>
+    <img class="entry-img" src="Images/Wooden_chair.png" alt="Wooden Chair" style="width:135px;height:135px;">
   </div>
 
   <div class="entry disruptor">
-    <div class="entry-object">Pret Cup</div>
-    <div class="entry-weapon-id">D02</div>
-    <div class="entry-weapon-name">Sanctions package</div>
-    <div class="entry-consequence">Ship speed −40%. Cargo value drops.<br>Builds slowly. Compounds.</div>
+    <div class="entry-text">
+      <div class="entry-object">Stool</div>
+      <div class="entry-weapon-id">D02</div>
+      <div class="entry-weapon-name">Sanctions package</div>
+      <div class="entry-consequence">Ship speed −40%. Cargo value drops.<br>Builds slowly. Compounds.</div>
+    </div>
+    <img class="entry-img" src="Images/Stool.png" alt="Stool">
   </div>
 
   <div class="entry disruptor">
-    <div class="entry-object">—</div>
-    <div class="entry-weapon-id">D03</div>
-    <div class="entry-weapon-name">Tanker seizure</div>
-    <div class="entry-consequence">Vessel class removed from sim.<br>Economic output drops. Slow decay.</div>
+    <div class="entry-text">
+      <div class="entry-object">Broom</div>
+      <div class="entry-weapon-id">D03</div>
+      <div class="entry-weapon-name">Tanker seizure</div>
+      <div class="entry-consequence">Vessel class removed from sim.<br>Economic output drops. Slow decay.</div>
+    </div>
+    <img class="entry-img" src="Images/Broom.png" alt="Broom">
   </div>
 
   <div class="entry disruptor">
-    <div class="entry-object">—</div>
-    <div class="entry-weapon-id">D04</div>
-    <div class="entry-weapon-name">Drone / missile strike on port</div>
-    <div class="entry-consequence">Port spawn disabled. Ships queue.<br>Irreversible unless alt route active.</div>
+    <div class="entry-text">
+      <div class="entry-object">Cushion</div>
+      <div class="entry-weapon-id">D04</div>
+      <div class="entry-weapon-name">Drone / missile strike on port</div>
+      <div class="entry-consequence">Port spawn disabled. Ships queue.<br>Irreversible unless alt route active.</div>
+    </div>
+    <img class="entry-img" src="Images/Cusion.png" alt="Cushion">
   </div>
 
   <div class="entry disruptor">
-    <div class="entry-object">—</div>
-    <div class="entry-weapon-id">D05</div>
-    <div class="entry-weapon-name">Insurance market suspension</div>
-    <div class="entry-consequence">Ships stop moving globally.<br>Builds if no counter. Models Lloyd's effect.</div>
+    <div class="entry-text">
+      <div class="entry-object">Table</div>
+      <div class="entry-weapon-id">D05</div>
+      <div class="entry-weapon-name">Insurance market suspension</div>
+      <div class="entry-consequence">Ships stop moving globally.<br>Builds if no counter. Models Lloyd's effect.</div>
+    </div>
+    <img class="entry-img" src="Images/Table.png" alt="Table">
   </div>
 
   <div class="entry disruptor">
-    <div class="entry-object">—</div>
-    <div class="entry-weapon-id">D06</div>
-    <div class="entry-weapon-name">Cyber attack on port logistics</div>
-    <div class="entry-consequence">Ships move but can't reach destinations.<br>Visible chaos. Medium decay.</div>
+    <div class="entry-text">
+      <div class="entry-object">Box</div>
+      <div class="entry-weapon-id">D06</div>
+      <div class="entry-weapon-name">Cyber attack on port logistics</div>
+      <div class="entry-consequence">Ships move but can't reach destinations.<br>Visible chaos. Medium decay.</div>
+    </div>
+    <img class="entry-img" src="Images/Box.png" alt="Box">
   </div>
 </div>
 
 <!-- RIGHT COLUMN — Defender objects -->
 <div class="col col-right">
-  <div class="col-heading">Defender</div>
 
   <div class="entry defender">
-    <div class="entry-object">Snacks</div>
-    <div class="entry-weapon-id">R01</div>
-    <div class="entry-weapon-name">Naval escort / freedom of navigation</div>
-    <div class="entry-consequence">Ships resume in contested lane.<br>Counters strait closure. Degrades slowly.</div>
+    <img class="entry-img" src="Images/Bench.png" alt="Long Table">
+    <div class="entry-text">
+      <div class="entry-object">Long Table</div>
+      <div class="entry-weapon-id">R01</div>
+      <div class="entry-weapon-name">Naval escort / freedom of navigation</div>
+      <div class="entry-consequence">Ships resume in contested lane.<br>Counters strait closure. Degrades slowly.</div>
+    </div>
   </div>
 
   <div class="entry defender">
-    <div class="entry-object">Sparkling water</div>
-    <div class="entry-weapon-id">R02</div>
-    <div class="entry-weapon-name">Emergency re-flagging</div>
-    <div class="entry-consequence">Seized vessel returns under new flag.<br>Lasts most of round.</div>
+    <img class="entry-img" src="Images/Trolley.png" alt="Trolley">
+    <div class="entry-text">
+      <div class="entry-object">Trolley</div>
+      <div class="entry-weapon-id">R02</div>
+      <div class="entry-weapon-name">Emergency re-flagging</div>
+      <div class="entry-consequence">Seized vessel returns under new flag.<br>Lasts most of round.</div>
+    </div>
   </div>
 
   <div class="entry defender">
-    <div class="entry-object">—</div>
-    <div class="entry-weapon-id">R03</div>
-    <div class="entry-weapon-name">Alternative route activation</div>
-    <div class="entry-consequence">Cape of Good Hope lane opens.<br>Counters D04 and D06. Doesn't counter blockade.</div>
+    <img class="entry-img" src="Images/Wires.png" alt="Wires">
+    <div class="entry-text">
+      <div class="entry-object">Wires</div>
+      <div class="entry-weapon-id">R03</div>
+      <div class="entry-weapon-name">Alternative route activation</div>
+      <div class="entry-consequence">Cape of Good Hope lane opens.<br>Counters D04 and D06. Doesn't counter blockade.</div>
+    </div>
   </div>
 
   <div class="entry defender">
-    <div class="entry-object">—</div>
-    <div class="entry-weapon-id">R04</div>
-    <div class="entry-weapon-name">Diplomatic back-channel</div>
-    <div class="entry-consequence">Freezes slow disruptor build rate.<br>Buys time. Combine with R05.</div>
+    <img class="entry-img" src="Images/Tripod.png" alt="Tripod">
+    <div class="entry-text">
+      <div class="entry-object">Tripod</div>
+      <div class="entry-weapon-id">R04</div>
+      <div class="entry-weapon-name">Diplomatic back-channel</div>
+      <div class="entry-consequence">Freezes slow disruptor build rate.<br>Buys time. Combine with R05.</div>
+    </div>
   </div>
 
   <div class="entry defender">
-    <div class="entry-object">—</div>
-    <div class="entry-weapon-id">R05</div>
-    <div class="entry-weapon-name">Strategic petroleum reserve release</div>
-    <div class="entry-consequence">Decouples oil price from closure.<br>Breaks fear signal behind D05.</div>
+    <img class="entry-img" src="Images/Fan.png" alt="Fan">
+    <div class="entry-text">
+      <div class="entry-object">Fan</div>
+      <div class="entry-weapon-id">R05</div>
+      <div class="entry-weapon-name">Strategic petroleum reserve release</div>
+      <div class="entry-consequence">Decouples oil price from closure.<br>Breaks fear signal behind D05.</div>
+    </div>
   </div>
 
   <div class="entry defender">
-    <div class="entry-object">—</div>
-    <div class="entry-weapon-id">R06</div>
-    <div class="entry-weapon-name">Coalition formation</div>
-    <div class="entry-consequence">Slowest, highest ceiling.<br>All disruptor decay 1.5× faster. Deploy early.</div>
+    <img class="entry-img" src="Images/Extension_cord.png" alt="Extension Cord">
+    <div class="entry-text">
+      <div class="entry-object">Extension Cord</div>
+      <div class="entry-weapon-id">R06</div>
+      <div class="entry-weapon-name">Coalition formation</div>
+      <div class="entry-consequence">Slowest, highest ceiling.<br>All disruptor decay 1.5× faster. Deploy early.</div>
+    </div>
   </div>
 </div>
+
+<div class="col-label col-label-left">Disruptor</div>
+<div class="col-label col-label-right">Defender</div>
 
 </body>
 </html>

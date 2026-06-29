@@ -1,0 +1,15 @@
+{
+  "01_wooden chair":   "D01",
+  "02_stool":          "D02",
+  "03_Broom":          "D03",
+  "04_Cusion":         "D04",
+  "05_Table":          "D05",
+  "06_Box":            "D06",
+  "07_long table":     "R01",
+  "08_Trolley":        "R02",
+  "09_wires":          "R03",
+  "10_Tripod":         "R04",
+  "11_fan":            "R05",
+  "12_Extension_cord": "R06",
+  "13_Black chair":    null
+}
