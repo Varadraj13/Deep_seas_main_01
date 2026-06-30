@@ -720,6 +720,9 @@ function updateActionDisplay(predictions) {
     if (map.weaponIds && map.weaponIds.length && (now - lastFiredAt) > FIRE_DEBOUNCE_MS) {
       lastFiredAt = now;
       map.weaponIds.forEach(id => gameChannel.postMessage({ type: 'FIRE_WEAPON', weaponId: id }));
+      const firedBy  = map.weaponIds[0].startsWith('D') ? 'disruptor' : 'defender';
+      const nextTurn = firedBy === 'disruptor' ? 'defender' : 'disruptor';
+      gameChannel.postMessage({ type: 'CURRENT_PLAYER', player: nextTurn });
       document.getElementById('sbAction').textContent =
         'WEAPON FIRED: ' + map.weaponIds.join(' + ') + ' // ' + map.action;
     }

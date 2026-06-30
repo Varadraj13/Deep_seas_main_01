@@ -3673,3 +3673,75 @@ Physical objects currently mapped (tm_model_02/label-map.json):
 - Visible: grey 80×80 box appears to the right of left-column entries, left of right-column entries
 - Breaks if skipped: no image slots; real weapon images can't be dropped in later
 - base.html for D03-D06, R03-R06: show weapon info without physical object name (TBD)
+
+---
+
+---
+
+## PRD — base.html Layout Alignment + Active-Player Broadcast
+
+### Problem Statement
+
+The weapon reference card (base.html) had two structural problems. First, its two side columns were implemented as independent fixed-position flex containers, which meant corresponding entries (D01 vs R01, D02 vs R02, etc.) were never guaranteed to align horizontally — any difference in text length or image size in one column would cascade misalignment to all rows below. Second, the UI had no way to signal to players which side should be acting, leaving facilitators to verbally prompt during demos and making the game flow opaque to observers.
+
+### Solution
+
+Restructure the layout so that each Disruptor/Defender weapon pair shares a single row element, guaranteeing permanent horizontal alignment regardless of content. Add a visual active-player signal — a blinking red label — that activates when a round starts and alternates sides each time a weapon is fired. Weapon descriptions are also condensed to one sentence each for faster reference-card scanning.
+
+### User Stories
+
+1. As a facilitator, I want D01 to always appear at the same vertical position as R01 on the reference card, so that audiences can compare corresponding weapons at a glance.
+2. As a facilitator, I want all 6 weapon pairs to remain horizontally aligned regardless of how long their descriptions are, so that the card looks intentional rather than broken.
+3. As a player, I want to know whose turn it is without the facilitator having to say it aloud, so that game pacing stays smooth during a live demo.
+4. As a player, I want the active side's label to blink visibly, so that I can see it from a distance without reading small text.
+5. As a player, I want the blinking to stop when the round is not active, so that I'm not confused between game states.
+6. As a player, I want the DISRUPTOR label to blink first when a round starts, so that the game always opens with the Disruptor acting.
+7. As a player, I want the label to switch to the other side immediately after I fire a weapon, so that my opponent knows it's their turn.
+8. As an observer, I want weapon descriptions to be one sentence each, so that I can read them quickly while watching the simulation.
+9. As a developer, I want the active-player state to be broadcast over an existing channel, so that other pages can read it if needed without adding a new channel.
+
+### Implementation Decisions
+
+**Layout restructure**
+- Replace two independent fixed-position flex column containers with a single full-height flex-column layout container holding six row elements
+- Each row uses `flex: 1` so all six rows divide the container height equally, regardless of content — this is the mechanism that guarantees alignment
+- The Disruptor entry in each row sits at the left edge; the Defender entry uses `margin-left: auto` to sit at the right edge
+- The vertical DISRUPTOR / DEFENDER label bars remain as fixed-position overlays, unchanged from prior implementation
+
+**Weapon descriptions**
+- Each of the 12 weapon entries carries exactly one sentence in the consequence field
+- Sentence explains the weapon's effect on the simulation in plain language, without game-mechanic notation (no percentage values, no cross-references to other weapon IDs in the description)
+
+**Active-player broadcast system**
+- Two channels are used: `hormuz-game` (round lifecycle) and `deepseas-game` (weapon events)
+- Round start detection: base.html watches `hormuz-game` for `round.phase` transitioning to `'playing'`; on that transition it sets Disruptor as the active player
+- Player alternation: detector.html, immediately after sending `FIRE_WEAPON`, also sends `{ type: 'CURRENT_PLAYER', player: nextTurn }` on `deepseas-game` — next turn is the opposite of the weapon's side (D-weapon fired → next is `'defender'`, R-weapon fired → next is `'disruptor'`)
+- base.html listens for `CURRENT_PLAYER` messages and toggles the `active-player` CSS class between the two label elements
+- On page load, neither label is active — no blinking until a round begins
+
+**Active-player visual**
+- CSS class `active-player` on a `.col-label` element applies: `color: #ef4444` (red), `font-weight: 600`, `animation: blink 1s step-start infinite`
+- Both Disruptor and Defender use the same red colour when active — the blink colour is an attention signal, not a team colour
+- Step-start keyframes produce a hard on/off blink (not a fade)
+
+### Testing Decisions
+
+All three behaviours can be tested without running the full game stack by sending BroadcastChannel messages from the browser console on base.html:
+
+- **Game start**: send `{ round: { phase: 'playing', number: 1, scores: [0,0] } }` on `hormuz-game` → DISRUPTOR label should begin blinking red
+- **Weapon fire / player swap**: send `{ type: 'CURRENT_PLAYER', player: 'defender' }` on `deepseas-game` → DISRUPTOR stops, DEFENDER blinks
+- **Round end**: send `{ round: { phase: 'idle', ... } }` on `hormuz-game` → labels freeze on last active state; next round-start resets to Disruptor
+- **Alignment**: visually verify at 100% browser zoom that each numbered row (1–6) is identical height and that D_n and R_n are vertically centred at the same position
+
+No automated test file is needed for this PRD — the logic is a single conditional and a class toggle with no branching beyond the D/R prefix check.
+
+### Out of Scope
+
+- Role swapping between rounds (Disruptor/Defender sides remain fixed for the session; players physically change seats if they want to swap)
+- Any visual change on detector.html or simulator.html in response to the active-player state
+- Timeout behaviour (the active label does not auto-reset if no weapon is fired within a time limit)
+- The initial `CURRENT_PLAYER` broadcast on game start (base.html sets Disruptor locally; it does not receive a broadcast for this — the transition is inferred from `round.phase`)
+
+### Further Notes
+
+The `swapRoles()` function referenced in earlier PRD sections (round-controller) remains unimplemented and out of scope here. The key binding (1–6 = Disruptor, Q–Y = Defender) is fixed and does not change with the active-player state. The active-player system is purely a visual affordance — it does not enforce turn order or block weapon firing on either side.

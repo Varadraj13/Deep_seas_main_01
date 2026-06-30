@@ -12,60 +12,34 @@
   body {
     background: #ffffff;
     font-family: 'IBM Plex Mono', monospace;
-    height: 100vh;
     overflow: hidden;
     zoom: 0.75;
   }
 
-  .col {
-    width: 420px;
-    height: 134vh;
-    padding: 28px 24px;
+  .layout {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    justify-content: center;
-    overflow: hidden;
+    height: 134vh;
   }
 
-  .col-left  { position: fixed; top: 0; left: 0; }
-  .col-right { position: fixed; top: 0; right: 0; }
-
-  .col-label {
-    position: fixed;
-    top: 0;
-    height: 134vh;
-    width: 28px;
+  .row {
+    flex: 1;
     display: flex;
     align-items: center;
-    justify-content: center;
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    font-size: 13px;
-    letter-spacing: 0.10em;
-    text-transform: uppercase;
-    color: #aaa;
-  }
-
-  .col-label-left {
-    left: 420px;
-    border-left: 1px solid #e0e0e0;
-  }
-
-  .col-label-right {
-    right: 420px;
-    border-right: 1px solid #e0e0e0;
   }
 
   .entry {
+    width: 420px;
+    flex-shrink: 0;
+    padding: 0 24px;
     display: flex;
     flex-direction: row;
     align-items: center;
     gap: 16px;
-    text-align: right;
   }
 
-  .col-right .entry { text-align: left; }
+  .entry.disruptor { text-align: right; }
+  .entry.defender  { margin-left: auto; text-align: left; }
 
   .entry-text {
     display: flex;
@@ -83,170 +57,207 @@
     mix-blend-mode: multiply;
   }
 
-  .entry-object {
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #111;
-  }
-
-  .entry-weapon-id {
-    font-size: 7px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-  }
+  .entry-object    { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #111; }
+  .entry-weapon-id { font-size: 7px; letter-spacing: 0.14em; text-transform: uppercase; }
   .disruptor .entry-weapon-id { color: #ef4444; }
   .defender  .entry-weapon-id { color: #22c55e; }
+  .entry-weapon-name  { font-size: 9px; font-weight: 400; letter-spacing: 0.06em; color: #333; }
+  .entry-consequence  { font-size: 8px; font-weight: 300; color: #888; letter-spacing: 0.03em; line-height: 1.4; }
 
-  .entry-weapon-name {
-    font-size: 9px;
-    font-weight: 400;
-    letter-spacing: 0.06em;
-    color: #333;
+  .col-label {
+    position: fixed;
+    top: 0;
+    height: 134vh;
+    width: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 13px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: #aaa;
+    transition: color 0.3s, font-weight 0.3s;
   }
 
-  .entry-consequence {
-    font-size: 8px;
-    font-weight: 300;
-    color: #888;
-    letter-spacing: 0.03em;
-    line-height: 1.4;
+  .col-label-left  { left: 420px;  border-left:  1px solid #e0e0e0; }
+  .col-label-right { right: 420px; border-right: 1px solid #e0e0e0; }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0; }
+  }
+
+  .col-label.active-player {
+    color: #ef4444;
+    font-weight: 600;
+    animation: blink 1s step-start infinite;
   }
 </style>
 </head>
 <body>
 
-<!-- LEFT COLUMN — Disruptor objects -->
-<div class="col col-left">
+<div class="layout">
 
-  <div class="entry disruptor">
-    <div class="entry-text">
-      <div class="entry-object">Wooden Chair</div>
-      <div class="entry-weapon-id">D01</div>
-      <div class="entry-weapon-name">Strait closure / naval blockade</div>
-      <div class="entry-consequence">Ships halt. Spawn rate −80%.<br>Lane goes dark on map.</div>
+  <div class="row">
+    <div class="entry disruptor">
+      <div class="entry-text">
+        <div class="entry-object">Wooden Chair</div>
+        <div class="entry-weapon-id">D01</div>
+        <div class="entry-weapon-name">Strait closure / naval blockade</div>
+        <div class="entry-consequence">Closes the Strait of Hormuz and halts all Defender ships in the lane.</div>
+      </div>
+      <img class="entry-img" src="Images/Wooden_chair.png" alt="Wooden Chair">
     </div>
-    <img class="entry-img" src="Images/Wooden_chair.png" alt="Wooden Chair" style="width:135px;height:135px;">
+    <div class="entry defender">
+      <img class="entry-img" src="Images/Bench.png" alt="Long Table">
+      <div class="entry-text">
+        <div class="entry-object">Long Table</div>
+        <div class="entry-weapon-id">R01</div>
+        <div class="entry-weapon-name">Naval escort / freedom of navigation</div>
+        <div class="entry-consequence">Restores Defender transit through the Strait by deploying a naval escort.</div>
+      </div>
+    </div>
   </div>
 
-  <div class="entry disruptor">
-    <div class="entry-text">
-      <div class="entry-object">Stool</div>
-      <div class="entry-weapon-id">D02</div>
-      <div class="entry-weapon-name">Sanctions package</div>
-      <div class="entry-consequence">Ship speed −40%. Cargo value drops.<br>Builds slowly. Compounds.</div>
+  <div class="row">
+    <div class="entry disruptor">
+      <div class="entry-text">
+        <div class="entry-object">Stool</div>
+        <div class="entry-weapon-id">D02</div>
+        <div class="entry-weapon-name">Sanctions package</div>
+        <div class="entry-consequence">Cuts cargo value on every Defender vessel in transit, compounding with each card played.</div>
+      </div>
+      <img class="entry-img" src="Images/Stool.png" alt="Stool">
     </div>
-    <img class="entry-img" src="Images/Stool.png" alt="Stool">
+    <div class="entry defender">
+      <img class="entry-img" src="Images/Trolley.png" alt="Trolley">
+      <div class="entry-text">
+        <div class="entry-object">Trolley</div>
+        <div class="entry-weapon-id">R02</div>
+        <div class="entry-weapon-name">Emergency re-flagging</div>
+        <div class="entry-consequence">Returns seized tankers to service by re-registering them under a neutral flag.</div>
+      </div>
+    </div>
   </div>
 
-  <div class="entry disruptor">
-    <div class="entry-text">
-      <div class="entry-object">Broom</div>
-      <div class="entry-weapon-id">D03</div>
-      <div class="entry-weapon-name">Tanker seizure</div>
-      <div class="entry-consequence">Vessel class removed from sim.<br>Economic output drops. Slow decay.</div>
+  <div class="row">
+    <div class="entry disruptor">
+      <div class="entry-text">
+        <div class="entry-object">Broom</div>
+        <div class="entry-weapon-id">D03</div>
+        <div class="entry-weapon-name">Tanker seizure</div>
+        <div class="entry-consequence">Seizes Defender oil tankers mid-route and removes that vessel class from the simulation.</div>
+      </div>
+      <img class="entry-img" src="Images/Broom.png" alt="Broom">
     </div>
-    <img class="entry-img" src="Images/Broom.png" alt="Broom">
+    <div class="entry defender">
+      <img class="entry-img" src="Images/Wires.png" alt="Wires">
+      <div class="entry-text">
+        <div class="entry-object">Wires</div>
+        <div class="entry-weapon-id">R03</div>
+        <div class="entry-weapon-name">Alternative route activation</div>
+        <div class="entry-consequence">Reroutes Defender traffic around the Cape of Good Hope, bypassing blocked ports.</div>
+      </div>
+    </div>
   </div>
 
-  <div class="entry disruptor">
-    <div class="entry-text">
-      <div class="entry-object">Cushion</div>
-      <div class="entry-weapon-id">D04</div>
-      <div class="entry-weapon-name">Drone / missile strike on port</div>
-      <div class="entry-consequence">Port spawn disabled. Ships queue.<br>Irreversible unless alt route active.</div>
+  <div class="row">
+    <div class="entry disruptor">
+      <div class="entry-text">
+        <div class="entry-object">Cushion</div>
+        <div class="entry-weapon-id">D04</div>
+        <div class="entry-weapon-name">Drone / missile strike on port</div>
+        <div class="entry-consequence">Destroys a Defender port node permanently, stopping all new ship spawns from that port.</div>
+      </div>
+      <img class="entry-img" src="Images/Cusion.png" alt="Cushion">
     </div>
-    <img class="entry-img" src="Images/Cusion.png" alt="Cushion">
+    <div class="entry defender">
+      <img class="entry-img" src="Images/Tripod.png" alt="Tripod">
+      <div class="entry-text">
+        <div class="entry-object">Tripod</div>
+        <div class="entry-weapon-id">R04</div>
+        <div class="entry-weapon-name">Diplomatic back-channel</div>
+        <div class="entry-consequence">Slows how fast active Disruptor effects compound, buying the Defender critical time.</div>
+      </div>
+    </div>
   </div>
 
-  <div class="entry disruptor">
-    <div class="entry-text">
-      <div class="entry-object">Table</div>
-      <div class="entry-weapon-id">D05</div>
-      <div class="entry-weapon-name">Insurance market suspension</div>
-      <div class="entry-consequence">Ships stop moving globally.<br>Builds if no counter. Models Lloyd's effect.</div>
+  <div class="row">
+    <div class="entry disruptor">
+      <div class="entry-text">
+        <div class="entry-object">Table</div>
+        <div class="entry-weapon-id">D05</div>
+        <div class="entry-weapon-name">Insurance market suspension</div>
+        <div class="entry-consequence">Freezes all ship movement globally by triggering a war-risk insurance suspension.</div>
+      </div>
+      <img class="entry-img" src="Images/Table.png" alt="Table">
     </div>
-    <img class="entry-img" src="Images/Table.png" alt="Table">
+    <div class="entry defender">
+      <img class="entry-img" src="Images/Fan.png" alt="Fan">
+      <div class="entry-text">
+        <div class="entry-object">Fan</div>
+        <div class="entry-weapon-id">R05</div>
+        <div class="entry-weapon-name">Strategic petroleum reserve release</div>
+        <div class="entry-consequence">Releases strategic petroleum reserves to break the economic fear signal behind D05.</div>
+      </div>
+    </div>
   </div>
 
-  <div class="entry disruptor">
-    <div class="entry-text">
-      <div class="entry-object">Box</div>
-      <div class="entry-weapon-id">D06</div>
-      <div class="entry-weapon-name">Cyber attack on port logistics</div>
-      <div class="entry-consequence">Ships move but can't reach destinations.<br>Visible chaos. Medium decay.</div>
+  <div class="row">
+    <div class="entry disruptor">
+      <div class="entry-text">
+        <div class="entry-object">Box</div>
+        <div class="entry-weapon-id">D06</div>
+        <div class="entry-weapon-name">Cyber attack on port logistics</div>
+        <div class="entry-consequence">Corrupts Defender routing so ships keep moving but never complete their deliveries.</div>
+      </div>
+      <img class="entry-img" src="Images/Box.png" alt="Box">
     </div>
-    <img class="entry-img" src="Images/Box.png" alt="Box">
+    <div class="entry defender">
+      <img class="entry-img" src="Images/Extension_cord.png" alt="Extension Cord">
+      <div class="entry-text">
+        <div class="entry-object">Extension Cord</div>
+        <div class="entry-weapon-id">R06</div>
+        <div class="entry-weapon-name">Coalition formation</div>
+        <div class="entry-consequence">Assembles a coalition that accelerates the decay of every active Disruptor weapon.</div>
+      </div>
+    </div>
   </div>
+
 </div>
 
-<!-- RIGHT COLUMN — Defender objects -->
-<div class="col col-right">
+<div class="col-label col-label-left" id="labelDisruptor">Disruptor</div>
+<div class="col-label col-label-right" id="labelDefender">Defender</div>
 
-  <div class="entry defender">
-    <img class="entry-img" src="Images/Bench.png" alt="Long Table">
-    <div class="entry-text">
-      <div class="entry-object">Long Table</div>
-      <div class="entry-weapon-id">R01</div>
-      <div class="entry-weapon-name">Naval escort / freedom of navigation</div>
-      <div class="entry-consequence">Ships resume in contested lane.<br>Counters strait closure. Degrades slowly.</div>
-    </div>
-  </div>
+<script>
+  const labelDisruptor = document.getElementById('labelDisruptor');
+  const labelDefender  = document.getElementById('labelDefender');
 
-  <div class="entry defender">
-    <img class="entry-img" src="Images/Trolley.png" alt="Trolley">
-    <div class="entry-text">
-      <div class="entry-object">Trolley</div>
-      <div class="entry-weapon-id">R02</div>
-      <div class="entry-weapon-name">Emergency re-flagging</div>
-      <div class="entry-consequence">Seized vessel returns under new flag.<br>Lasts most of round.</div>
-    </div>
-  </div>
+  function setActivePlayer(player) {
+    labelDisruptor.classList.toggle('active-player', player === 'disruptor');
+    labelDefender.classList.toggle('active-player', player === 'defender');
+  }
 
-  <div class="entry defender">
-    <img class="entry-img" src="Images/Wires.png" alt="Wires">
-    <div class="entry-text">
-      <div class="entry-object">Wires</div>
-      <div class="entry-weapon-id">R03</div>
-      <div class="entry-weapon-name">Alternative route activation</div>
-      <div class="entry-consequence">Cape of Good Hope lane opens.<br>Counters D04 and D06. Doesn't counter blockade.</div>
-    </div>
-  </div>
+  // Start blinking disruptor when the round transitions to 'playing'
+  let lastPhase = null;
+  new BroadcastChannel('hormuz-game').onmessage = function(e) {
+    const round = e.data && e.data.round;
+    if (!round) return;
+    if (round.phase === 'playing' && lastPhase !== 'playing') {
+      setActivePlayer('disruptor');
+    }
+    lastPhase = round.phase;
+  };
 
-  <div class="entry defender">
-    <img class="entry-img" src="Images/Tripod.png" alt="Tripod">
-    <div class="entry-text">
-      <div class="entry-object">Tripod</div>
-      <div class="entry-weapon-id">R04</div>
-      <div class="entry-weapon-name">Diplomatic back-channel</div>
-      <div class="entry-consequence">Freezes slow disruptor build rate.<br>Buys time. Combine with R05.</div>
-    </div>
-  </div>
-
-  <div class="entry defender">
-    <img class="entry-img" src="Images/Fan.png" alt="Fan">
-    <div class="entry-text">
-      <div class="entry-object">Fan</div>
-      <div class="entry-weapon-id">R05</div>
-      <div class="entry-weapon-name">Strategic petroleum reserve release</div>
-      <div class="entry-consequence">Decouples oil price from closure.<br>Breaks fear signal behind D05.</div>
-    </div>
-  </div>
-
-  <div class="entry defender">
-    <img class="entry-img" src="Images/Extension_cord.png" alt="Extension Cord">
-    <div class="entry-text">
-      <div class="entry-object">Extension Cord</div>
-      <div class="entry-weapon-id">R06</div>
-      <div class="entry-weapon-name">Coalition formation</div>
-      <div class="entry-consequence">Slowest, highest ceiling.<br>All disruptor decay 1.5× faster. Deploy early.</div>
-    </div>
-  </div>
-</div>
-
-<div class="col-label col-label-left">Disruptor</div>
-<div class="col-label col-label-right">Defender</div>
+  // Swap active player after each weapon fires
+  new BroadcastChannel('deepseas-game').onmessage = function(e) {
+    if (e.data && e.data.type === 'CURRENT_PLAYER') {
+      setActivePlayer(e.data.player);
+    }
+  };
+</script>
 
 </body>
 </html>
