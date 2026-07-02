@@ -9,27 +9,27 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  body {
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
     background: #f4f4f4;
     font-family: 'IBM Plex Mono', monospace;
-    height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
   }
 
   #sketch-container {
-    width: 1080px;
-    height: 1080px;
-    max-width: 92vmin;
-    max-height: 92vmin;
+    width: min(92vw, 92vh);
+    height: min(92vw, 92vh);
     background: #ffffff;
     box-shadow: 0 0 0 1px #ddd;
   }
 
   #sketch-container canvas {
-    width: 100%;
-    height: 100%;
+    width: 100% !important;
+    height: 100% !important;
     display: block;
   }
 </style>

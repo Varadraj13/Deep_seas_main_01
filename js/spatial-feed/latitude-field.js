@@ -38,13 +38,10 @@ class LatitudeField {
 
   draw() {
     const p = this.p;
-    const baseAlpha = 70 + this.illumination * 140;
-    const weight = 1 + this.illumination * 2;
-
     p.push();
-    p.stroke(200, 30, 30, baseAlpha);
-    p.strokeWeight(weight);
-    p.drawingContext.setLineDash([6, 10]);
+    p.stroke(255, 0, 0);
+    p.strokeWeight(2);
+    p.drawingContext.setLineDash([11, 18]);
     p.drawingContext.lineDashOffset = -this.dashOffset;
     p.line(this.x1, this.y1, this.x2, this.y2);
     p.drawingContext.setLineDash([]);
@@ -54,11 +51,11 @@ class LatitudeField {
     const midY = (this.y1 + this.y2) / 2;
     p.push();
     p.noStroke();
-    p.fill(200, 30, 30, baseAlpha + 40);
+    p.fill(255, 0, 0);
     p.textFont('IBM Plex Mono');
-    p.textSize(11);
+    p.textSize(39);
     p.textAlign(p.LEFT, p.CENTER);
-    p.text(this.label, midX + 8, midY - 8);
+    p.text(this.label, midX + 14, midY - 14);
     p.pop();
   }
 }

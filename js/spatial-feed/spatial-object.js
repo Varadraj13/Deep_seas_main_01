@@ -21,80 +21,75 @@ class SpatialObject {
     this.img = img;
     this.engagementValue = Math.abs(weaponConfig.prob_delta) || 5;
 
-    this.pos = p.createVector(p.random(canvasSize * 0.15, canvasSize * 0.85), p.random(canvasSize * 0.15, canvasSize * 0.85));
+    this.pos = p.createVector(p.random(canvasSize), p.random(canvasSize));
     this.vel = p5.Vector.random2D().mult(p.random(0.4, 0.9));
     this.acc = p.createVector(0, 0);
 
     // Randomized so motion never falls into an obvious repeating cycle.
     this.noiseOffsetX = p.random(1000);
-    this.noiseOffsetY = p.random(1000);
-    this.noiseScale = p.random(0.0015, 0.003);
+    this.noiseScale = p.random(0.008, 0.018);
+    this.target = p.createVector(p.random(canvasSize), p.random(canvasSize));
+
+    this.targetRadius = 213;
 
     const aspect = img.height / img.width;
-    this.size = p.map(this.engagementValue, 0, 25, 60, 130, true);
+    this.size = p.map(this.engagementValue, 0, 25, 480, 1040, true);
     this.width = this.size;
     this.height = this.size * aspect;
     this.rotation = p.random(-0.05, 0.05);
 
-    this.minSpeed = 0.3;
-    this.maxSpeed = 1.3;
+    this.minSpeed = 0.80;
+    this.maxSpeed = 3.47;
     this.pulseAmount = 0;
   }
 
-  wander(t) {
-    const angle = this.p.noise(this.noiseOffsetX + t * this.noiseScale, this.noiseOffsetY) * this.p.TWO_PI * 2;
-    const wanderForce = p5.Vector.fromAngle(angle).mult(0.06);
-    this.acc.add(wanderForce);
+  wander(t, canvasSize) {
+    const toTarget = p5.Vector.sub(this.target, this.pos);
+    if (toTarget.mag() < this.targetRadius) {
+      this.target = this.p.createVector(
+        this.p.random(canvasSize),
+        this.p.random(canvasSize)
+      );
+    }
+    const jitter = (this.p.noise(this.noiseOffsetX + t * this.noiseScale) - 0.5) * this.p.PI * 0.6;
+    const steerAngle = Math.atan2(toTarget.y, toTarget.x) + jitter;
+    this.acc.add(p5.Vector.fromAngle(steerAngle).mult(0.36));
   }
 
   flock(others) {
-    const cohesion = this.p.createVector(0, 0);
     const separation = this.p.createVector(0, 0);
-    let count = 0;
 
     for (const other of others) {
       if (other === this) continue;
       const d = p5.Vector.dist(this.pos, other.pos);
-      if (d < 220 && d > 0) {
-        cohesion.add(other.pos);
-        count++;
-        if (d < 90) {
-          const away = p5.Vector.sub(this.pos, other.pos).normalize().div(d);
-          separation.add(away);
-        }
+      if (d < 160 && d > 0) {
+        const away = p5.Vector.sub(this.pos, other.pos).normalize().div(d);
+        separation.add(away);
       }
     }
 
-    if (count > 0) {
-      cohesion.div(count).sub(this.pos).normalize().mult(0.012);
-      this.acc.add(cohesion);
-    }
     separation.mult(0.05);
     this.acc.add(separation);
   }
 
-  containWithinBounds(canvasSize) {
-    const margin = canvasSize * 0.15;
-    const steer = this.p.createVector(0, 0);
-
-    if (this.pos.x < margin) steer.x = this.p.map(this.pos.x, margin, 0, 0, 0.15);
-    if (this.pos.x > canvasSize - margin) steer.x = this.p.map(this.pos.x, canvasSize - margin, canvasSize, 0, -0.15);
-    if (this.pos.y < margin) steer.y = this.p.map(this.pos.y, margin, 0, 0, 0.15);
-    if (this.pos.y > canvasSize - margin) steer.y = this.p.map(this.pos.y, canvasSize - margin, canvasSize, 0, -0.15);
-
-    this.acc.add(steer);
+  bounceOffWalls(canvasSize) {
+    if (this.pos.x < 0)          { this.pos.x = 0;          this.vel.x =  Math.abs(this.vel.x); this.target.x = this.p.random(canvasSize * 0.4, canvasSize); }
+    if (this.pos.x > canvasSize) { this.pos.x = canvasSize; this.vel.x = -Math.abs(this.vel.x); this.target.x = this.p.random(0, canvasSize * 0.6); }
+    if (this.pos.y < 0)          { this.pos.y = 0;          this.vel.y =  Math.abs(this.vel.y); this.target.y = this.p.random(canvasSize * 0.4, canvasSize); }
+    if (this.pos.y > canvasSize) { this.pos.y = canvasSize; this.vel.y = -Math.abs(this.vel.y); this.target.y = this.p.random(0, canvasSize * 0.6); }
   }
 
   update(t, others, canvasSize) {
-    this.wander(t);
+    this.wander(t, canvasSize);
     this.flock(others);
-    this.containWithinBounds(canvasSize);
 
     this.vel.add(this.acc);
     const speed = this.p.constrain(this.vel.mag(), this.minSpeed, this.maxSpeed);
     this.vel.setMag(speed);
     this.pos.add(this.vel);
     this.acc.mult(0);
+
+    this.bounceOffWalls(canvasSize);
 
     if (this.pulseAmount > 0) this.pulseAmount = Math.max(0, this.pulseAmount - 0.02);
   }

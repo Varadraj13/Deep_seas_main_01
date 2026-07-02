@@ -3745,3 +3745,109 @@ No automated test file is needed for this PRD — the logic is a single conditio
 ### Further Notes
 
 The `swapRoles()` function referenced in earlier PRD sections (round-controller) remains unimplemented and out of scope here. The key binding (1–6 = Disruptor, Q–Y = Defender) is fixed and does not change with the active-player state. The active-player system is purely a visual affordance — it does not enforce turn order or block weapon firing on either side.
+
+---
+
+## Spatial Feed Animation — Show Promo Visual
+
+### Problem Statement
+
+The Deep Seas show needs a high-quality animated visual for its promo material — a standalone, screen-recordable canvas that communicates the show's spatial/geopolitical aesthetic. The existing codebase is a maritime simulation; there is no standalone promotional visual. The final export needs to be at a resolution high enough to hold up on social media (1920×1920 internal canvas rendered via CSS scaling to fit any viewport).
+
+### Solution
+
+A self-contained p5.js animation (`spatial-feed.html`) that renders:
+- Weapon/prop objects (furniture and equipment images from the show) moving independently around the canvas, bouncing off edges, covering the full space
+- Latitude field lines (dashed red lines spanning edge-to-edge) distributed evenly across the canvas with coordinate labels
+- A distance-based red dashed web connecting nearby latitude label midpoints
+- No game logic, no BroadcastChannel, no live data — purely visual and self-running
+
+### User Stories
+
+1. As a show producer, I want a standalone animated HTML page, so that I can open it in a browser and screen-record it without needing any server or external dependencies.
+2. As a show producer, I want the canvas to render at 1920×1920 internal resolution, so that the screen recording is high enough quality for social media export.
+3. As a show producer, I want the canvas to scale to fit any browser window, so that it looks correct on different machines and monitor sizes.
+4. As a show producer, I want prop/weapon images to move independently around the full canvas, so that the visual feels dynamic and spatially rich.
+5. As a show producer, I want prop images to bounce off the canvas edges, so that objects always stay within the frame.
+6. As a show producer, I want objects to reach all the way to the canvas border with no invisible margin, so that the full canvas area is used.
+7. As a show producer, I want prop images to be large enough to read clearly at a glance, so that viewers can identify the objects.
+8. As a show producer, I want prop image sizes to reflect their engagement value (prob_delta), so that more significant objects are visually prominent.
+9. As a show producer, I want objects to wander freely toward random canvas targets, so that their paths feel unpredictable and cover the whole canvas.
+10. As a show producer, I want objects to pick a new random target when they reach their current one, so that they never stop or loop.
+11. As a show producer, I want objects to steer away from each other when too close, so that they do not pile up in one spot.
+12. As a show producer, I want objects to have no visual connections drawn between them, so that the prop images feel independent.
+13. As a show producer, I want latitude field lines to be distributed evenly across the canvas, so that the grid does not cluster in one area.
+14. As a show producer, I want latitude field lines to be pure red with no alpha fades or illumination effects, so that the aesthetic stays consistent.
+15. As a show producer, I want latitude field lines to animate their dash offset continuously, so that the lines feel alive without any triggering.
+16. As a show producer, I want latitude label text to be clearly readable at 1920 resolution, so that the coordinate numbers are legible in a recording.
+17. As a show producer, I want a distance-based dashed red web connecting nearby latitude label midpoints, so that the spatial network aesthetic reads clearly.
+18. As a show producer, I want the midpoint web to connect all pairs within a fixed radius, so that connection density varies naturally by label proximity.
+19. As a show producer, I want no interaction between prop images and the latitude field lines, so that objects and field lines are visually independent layers.
+20. As a show producer, I want the animation to run indefinitely without user input, so that it can be left running for a screen capture session.
+21. As a show producer, I want the page background to be white, so that it can be composited or exported cleanly.
+22. As a show producer, I want the font on latitude labels to be IBM Plex Mono, so that it matches the show design language.
+
+### Implementation Decisions
+
+**Modules**
+
+- **SpatialObject** — one instance per weapon in WEAPONS_CONFIG. Encapsulates position, velocity, size, wander target, and bounce. Public interface: `update(t, others, canvasSize)`, `draw()`. No awareness of latitude fields.
+- **LatitudeField** — one instance per field line. Encapsulates two edge points, an animated dash offset, a coordinate label, and a midpoint. Public interface: `update()`, `draw()`. No awareness of spatial objects.
+- **sketch.js** — the p5.js entry point. Owns the draw loop, builds and holds all instances, computes and draws the midpoint web each frame. No game state, no BroadcastChannel.
+- **connection-manager.js** — legacy proximity-connection module. Still loaded as a script tag but not instantiated or used. Dead code; safe to remove in a future cleanup pass.
+
+**Key parameters (all at 1920 canvas)**
+
+| Parameter | Value | Notes |
+|---|---|---|
+| Canvas size | 1920×1920 | Internal; CSS scales to viewport |
+| Pixel scale factor | ×1.778 | All px values relative to original 1080 design |
+| Latitude fields | 20 | Rejection sampling, minDist = CANVAS_SIZE/5 |
+| Object size range | 480–1040px | Mapped from engagementValue 0–25 |
+| Min/max speed | 0.80 / 3.47 | Per-frame units at 60fps |
+| Wander target radius | 213px | New target picked on arrival |
+| Wander jitter | ±54° | Perlin noise applied to steer angle |
+| Bounce boundary | pos 0 and CANVAS_SIZE | No margin — objects reach the raw edge |
+| Post-bounce target | Directional per-axis | Hit left → target.x in 40–100%; hit right → 0–60% |
+| Separation radius | 160px, strength 0.05 | No cohesion |
+| Midpoint web threshold | 711px | Equivalent to 400px at 1080 scale |
+
+**Line styles**
+
+- Latitude field lines: `stroke(255,0,0)`, `strokeWeight(2)`, `setLineDash([11,18])`
+- Midpoint web: `stroke(255,0,0)`, `strokeWeight(2)`, `setLineDash([7,14])`
+
+**Architectural constraints**
+
+- No build step — plain `<script src>` tags loaded in dependency order
+- No module system — all classes are globals
+- No server required — opens from `file://` or any static host
+- `pixelDensity` capped at 2× to avoid over-rendering on HiDPI screens
+
+### Testing Decisions
+
+Given the purely visual nature of this sketch, automated unit tests are not appropriate. Testing is manual and visual:
+
+- Open `spatial-feed.html` in a browser and verify objects reach all four canvas edges
+- Verify no object-to-object connections are drawn
+- Verify latitude lines and midpoint web are pure red with no fading
+- Verify objects pick new targets after reaching current ones (no objects stopping or circling)
+- Verify the canvas fits the viewport without scroll or clipping
+- Verify screen recording resolution is adequate at 1920 internal canvas size
+
+### Out of Scope
+
+- BroadcastChannel integration with `index.html` or `market_screen.html`
+- Live weapon-firing triggering object pulses or field illumination
+- Audio or interaction layer
+- Export pipeline (screen recording done externally via OS tools)
+- Audience server or remote display
+- Any game logic or probability state
+- Removing `connection-manager.js` from the script tag (dead code, harmless, deferred)
+
+### Further Notes
+
+- Canvas size increased from 1080→1920 for screen recording quality. All pixel constants scaled by ×1.778 to maintain visual proportions.
+- Original Perlin-noise wander caused objects to oscillate near their starting zone. Replaced with random waypoint targeting for full canvas coverage.
+- Original `containWithinBounds()` margin (15% inset) replaced with edge-bouncing at position 0/CANVAS_SIZE so objects use the full canvas.
+- Post-bounce target must be directional per-axis — forcing both axes to the 20–80% zone created a perceived invisible margin where objects always steered back toward centre.

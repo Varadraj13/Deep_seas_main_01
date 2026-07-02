@@ -40,11 +40,8 @@ class ConnectionManager {
     const now = p.millis();
 
     for (const conn of this.connections.values()) {
-      const age = now - conn.createdAt;
-      const alpha = p.map(age, 0, this.lifespanMs, 160, 0, true);
-
       p.push();
-      p.stroke(200, 30, 30, alpha);
+      p.stroke(200, 30, 30, 100);
       p.strokeWeight(1);
       p.drawingContext.setLineDash([3, 6]);
       p.line(conn.a.pos.x, conn.a.pos.y, conn.b.pos.x, conn.b.pos.y);

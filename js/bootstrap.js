@@ -39,22 +39,23 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Digit4' && typeof fireWeapon === 'function') fireWeapon('D04');
   if (e.code === 'Digit5' && typeof fireWeapon === 'function') fireWeapon('D05');
   if (e.code === 'Digit6' && typeof fireWeapon === 'function') fireWeapon('D06');
-  // Defenders: keys Q–Y
-  if (e.code === 'KeyQ' && typeof fireWeapon === 'function') fireWeapon('R01');
-  if (e.code === 'KeyW' && typeof fireWeapon === 'function') fireWeapon('R02');
-  if (e.code === 'KeyE' && typeof fireWeapon === 'function') fireWeapon('R03');
-  if (e.code === 'KeyR' && typeof fireWeapon === 'function') fireWeapon('R04');
-  if (e.code === 'KeyT' && typeof fireWeapon === 'function') fireWeapon('R05');
-  if (e.code === 'KeyY' && typeof fireWeapon === 'function') fireWeapon('R06');
+  // Defenders: keys a–f (standardised across all pages; was Q–Y)
+  if (!e.shiftKey && e.code === 'KeyA' && typeof fireWeapon === 'function') fireWeapon('R01');
+  if (!e.shiftKey && e.code === 'KeyB' && typeof fireWeapon === 'function') fireWeapon('R02');
+  if (!e.shiftKey && e.code === 'KeyC' && typeof fireWeapon === 'function') fireWeapon('R03');
+  if (!e.shiftKey && e.code === 'KeyD' && typeof fireWeapon === 'function') fireWeapon('R04');
+  if (!e.shiftKey && e.code === 'KeyE' && typeof fireWeapon === 'function') fireWeapon('R05');
+  if (!e.shiftKey && e.code === 'KeyF' && typeof fireWeapon === 'function') fireWeapon('R06');
   if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
   if (e.code === 'KeyN') toggleNight();
   if (e.code === 'Period') toggleTrails();
   if (e.code === 'Comma') toggleRoutes();
   if (e.code === 'KeyH') toggleHeatmap();
-  if (e.code === 'KeyF') toggleGFW();
-  if (e.code === 'KeyA') toggleAnalytics();
-  if (e.code === 'KeyD') toggleDragMode();
-  if (e.code === 'KeyB') toggleDBPanel();
+  // Sim toggles moved to Shift+key to free a/b/d/f for defender weapons
+  if (e.shiftKey && e.code === 'KeyF') toggleGFW();
+  if (e.shiftKey && e.code === 'KeyA') toggleAnalytics();
+  if (e.shiftKey && e.code === 'KeyD') toggleDragMode();
+  if (e.shiftKey && e.code === 'KeyB') toggleDBPanel();
   if (e.code === 'KeyK') document.getElementById('kalshiOverlay').classList.toggle('show');
   if (e.code === 'Escape') { closeShipPanel(); closePortPanel(); cancelDrag(); }
   if (e.code === 'Equal' || e.code === 'NumpadAdd') { simSpeed=Math.min(50,simSpeed+1); document.getElementById('speedSlider').value=simSpeed; setSpeed(simSpeed); }

@@ -3,205 +3,254 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tactical Detection — Deep Seas</title>
-<!-- @teachablemachine/image@0.8.5 CDN distribution requires tfjs@1.3.1 as its global tf.
-     The tfjsVersion in metadata.json (1.7.4) is informational — it is the TM web app's
-     internal version, NOT the required loader version. Loading 1.7.x breaks the CDN bundle. -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js"></script>
+<title>Broadcast Console — Deep Seas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400;1,500;1,600&display=swap" rel="stylesheet">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-  font-family: Helvetica, Arial, sans-serif;
-  background: #080808;
-  color: #888888;
-  height: 100vh;
+html, body { width: 100%; height: 100%; overflow: hidden; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-thumb { background: #222; }
+
+@keyframes marqueeScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes blinkDot { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes blinkSoft { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+@keyframes flashWipe { 0% { background: rgba(255,255,255,.16); } 100% { background: transparent; } }
+
+#bc-root {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column; gap: 4px;
+  background: #fff;
+  color: #888;
+  font-family: 'Playfair Display', Georgia, serif;
   overflow: hidden;
   user-select: none;
 }
 
-/* ===== BACK NAV ===== */
-#backNav {
-  position: fixed; top: 12px; left: 12px; z-index: 100;
+/* ── TICKER ── */
+#tickerWrap {
+  flex: none; height: 108px;
+  background: #080808; overflow: hidden;
+  display: flex; align-items: center;
 }
-#backNav a {
-  display: inline-block;
-  background: transparent; border: 1px solid #222222;
-  color: #666666; padding: 4px 12px;
+#tickerInner {
+  flex: 1; overflow: hidden; white-space: nowrap;
+}
+#tickerTrack {
+  display: inline-flex; align-items: center;
+  white-space: nowrap;
+  animation: marqueeScroll 56s linear infinite;
+}
+.ticker-item {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-style: italic; font-size: 42px;
+  color: #f4f4f4; padding-left: 46px;
+}
+.ticker-sep { font-size: 18px; color: #444; padding: 0 0 0 46px; }
+
+/* ── MIDDLE BAND ── */
+#middleBand {
+  flex: 1; display: flex; gap: 4px;
+  background: #fff; min-height: 0;
+}
+
+/* weapon alert */
+#weaponAlert {
+  flex: 1.5; background: #080808;
+  position: relative; display: flex; flex-direction: column;
+  justify-content: center; padding: 30px 32px;
+  min-width: 0; overflow: hidden;
+}
+#alertTitle {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 700; font-size: 54px; line-height: 1.02;
+  letter-spacing: -1px; color: #f4f4f4;
+  text-transform: uppercase; overflow-wrap: normal;
+}
+#alertName {
+  margin-top: 28px;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-style: italic; font-size: 19px; color: #fff; line-height: 1.3;
+}
+
+/* odds */
+#oddsPanel {
+  flex: 1; background: #080808;
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 36px 32px; min-width: 0; overflow: hidden;
+}
+#oddsLabel {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 700; font-size: 30px; color: #fff; margin-bottom: 10px;
+}
+#oddsValue {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 72px; line-height: 1; color: #f4f4f4;
+}
+
+/* camera */
+#camPanel {
+  flex: 1.3; background: #080808;
+  position: relative; display: flex;
+  align-items: center; justify-content: center;
+  cursor: pointer; min-width: 0; overflow: hidden;
+}
+#camVideo {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; transform: scaleX(-1); display: none;
+}
+#camHeadline {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 13px; letter-spacing: 1.5px;
+  color: #444; text-transform: uppercase;
+}
+#camStatusTag {
+  position: absolute; top: 13px; left: 15px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
-  text-decoration: none; transition: all 0.15s;
-  font-family: Helvetica, Arial, sans-serif;
-}
-#backNav a:hover { border-color: #cc0000; color: #ffffff; }
-
-/* ===== CENTER ACTION DISPLAY ===== */
-#actionDisplay {
-  position: absolute; top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: 480px;
-  background: #f8f8f8;
-  border: 1px solid #dddddd;
-  padding: 48px 40px;
-  text-align: center;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-#actionDisplay.triggered-a {
-  border-color: #cc0000;
-  box-shadow: 0 0 40px rgba(204,0,0,0.18);
-  animation: flashA 0.35s ease-out;
-}
-#actionDisplay.triggered-b {
-  border-color: #3b82f6;
-  box-shadow: 0 0 40px rgba(59,130,246,0.18);
-  animation: flashB 0.35s ease-out;
-}
-@keyframes flashA {
-  0%   { background: rgba(204,0,0,0.12); }
-  100% { background: #f8f8f8; }
-}
-@keyframes flashB {
-  0%   { background: rgba(59,130,246,0.12); }
-  100% { background: #f8f8f8; }
+  color: #888; z-index: 2;
 }
 
-#adState {
-  font-size: 9px; letter-spacing: 4px; text-transform: uppercase;
-  color: #aaaaaa; margin-bottom: 24px;
-}
-#adPlayer {
-  font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
-  margin-bottom: 4px;
-}
-#adRole {
-  font-size: 9px; letter-spacing: 4px; text-transform: uppercase;
-  color: #aaaaaa; margin-bottom: 20px;
-}
-#adAction {
-  font-size: 38px; font-weight: 400; letter-spacing: 5px;
-  text-transform: uppercase; line-height: 1.1;
-  color: #111111;
-}
-#adConfidence {
-  font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
-  color: #aaaaaa; margin-top: 18px;
+/* ── BOTTOM BAND ── */
+#bottomBand {
+  flex: 1; display: flex; gap: 4px;
+  background: #fff; min-height: 0;
 }
 
-/* scanning dot pulse */
-@keyframes scanPulse { 0%,100%{opacity:0.3} 50%{opacity:1} }
-#scanDot {
-  display: inline-block; width: 5px; height: 5px;
-  border-radius: 0; background: #aaaaaa; margin-left: 6px;
-  vertical-align: middle; animation: scanPulse 1.2s ease-in-out infinite;
+/* satellite */
+#satPanel {
+  flex: 1; position: relative; min-width: 0;
+  background: #0a0a0a;
+  background-image: repeating-linear-gradient(45deg,#0c0c0c 0 14px,#090909 14px 28px);
+  overflow: hidden; display: flex; align-items: center; justify-content: center;
 }
-
-/* ===== TECH PANEL (top right) ===== */
-#techPanel {
-  position: fixed; top: 12px; right: 12px; z-index: 100;
-  width: 268px;
-  background: #0a0a0a; border: 1px solid #1a1a1a;
-  padding: 12px 14px;
-  font-size: 10px; font-family: Helvetica, Arial, sans-serif;
-  max-height: calc(100vh - 200px); overflow-y: auto;
-  scrollbar-width: thin; scrollbar-color: #222222 transparent;
+#satImg {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: cover; display: none;
 }
-#techPanel::-webkit-scrollbar { width: 3px; }
-#techPanel::-webkit-scrollbar-thumb { background: #222222; }
-
-.tp-title {
-  font-size: 8px; color: #cc0000; letter-spacing: 3px;
-  text-transform: uppercase; font-weight: 400;
-  margin-bottom: 10px;
+#satPlaceholder {
+  text-align: center; z-index: 1;
 }
-.tp-row {
-  display: flex; justify-content: space-between;
-  align-items: baseline; padding: 2px 0;
-  border-bottom: 1px solid #111111;
+#satPlaceholder .no-img-label {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px; letter-spacing: 3px; color: #3a3a3a; text-transform: uppercase;
 }
-.tp-label { font-size: 8px; color: #444444; text-transform: uppercase; letter-spacing: 2px; }
-.tp-value { font-size: 10px; color: #ffffff; font-family: Helvetica, Arial, sans-serif; }
-.tp-value.ready  { color: #22c55e; }
-.tp-value.loading { color: #f59e0b; }
-.tp-value.error  { color: #cc0000; }
-
-.tp-divider {
-  border: none; border-top: 1px solid #1a1a1a;
-  margin: 8px 0;
+#satPlaceholder .no-img-hint {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 9px; letter-spacing: 1px; color: #2e2e2e; margin-top: 8px;
 }
-
-.tp-bar-row {
-  margin-bottom: 4px;
+/* GWN bug */
+#gwnBug {
+  position: absolute; top: 14px; left: 14px;
+  display: flex; align-items: center; gap: 9px;
+  z-index: 3; mix-blend-mode: difference;
 }
-.tp-bar-label {
-  font-size: 7px; color: #555555; text-transform: uppercase;
-  letter-spacing: 1px; margin-bottom: 2px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+#gwnBug .gwn-tag {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 500; font-size: 15px; letter-spacing: 2px;
+  color: #fff; border: 1.5px solid #fff; padding: 3px 7px;
 }
-.tp-bar-label.top-class { color: #cc0000; }
-.tp-bar-track {
-  display: flex; align-items: center; gap: 6px;
+#gwnBug .gwn-name {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 8px; letter-spacing: 2px; color: #fff;
+  text-transform: uppercase; line-height: 1.3;
 }
-.tp-bar-bg {
-  flex: 1; height: 2px; background: #1a1a1a; position: relative;
-}
-.tp-bar-fill {
-  height: 100%; background: #cc0000;
-  transition: width 0.15s ease-out;
-  min-width: 0;
-}
-.tp-bar-fill.player-b { background: #3b82f6; }
-.tp-bar-fill.bg-class  { background: #333333; }
-.tp-bar-pct {
-  font-size: 8px; color: #555555; min-width: 30px;
-  text-align: right; font-family: Helvetica, Arial, sans-serif;
-}
-.tp-bar-pct.high { color: #ffffff; }
-
-/* ===== CAMERA PREVIEW (bottom right) ===== */
-#cameraWrap {
-  position: fixed; bottom: 12px; right: 12px; z-index: 100;
-  width: 240px; height: 180px;
-  background: #0a0a0a; border: 1px solid #1a1a1a;
-  overflow: hidden;
-}
-#cameraWrap video {
-  width: 100%; height: 100%; object-fit: cover;
-  transform: scaleX(-1); /* mirror */
-  display: block;
-}
-#camLabel {
+/* lower third */
+#lowerThird {
   position: absolute; bottom: 0; left: 0; right: 0;
-  background: rgba(8,8,8,0.75); padding: 3px 6px;
-  font-size: 7px; color: #444444;
-  letter-spacing: 2px; text-transform: uppercase;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(255,255,255,.25);
+  background: rgba(8,8,8,.86); z-index: 3;
 }
-#camStatus {
-  position: absolute; top: 6px; left: 6px;
-  font-size: 7px; color: #cc0000; letter-spacing: 2px;
-  text-transform: uppercase;
+#breakingBadge {
+  display: none; align-items: center; gap: 6px;
+  border: 1px solid #fff; padding: 3px 8px; flex: none;
+}
+#breakingBadge .blink-dot {
+  width: 6px; height: 6px; background: #fff; display: inline-block;
+  animation: blinkSoft 1.1s ease-in-out infinite;
+}
+#breakingBadge .blink-label {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 9px; font-weight: 500; letter-spacing: 2px;
+  color: #fff; text-transform: uppercase;
+}
+#lowerLeft { display: flex; align-items: center; gap: 13px; min-width: 0; }
+#dateline {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-style: italic; font-size: 15px; color: #f4f4f4;
+}
+#lowerRight { display: flex; align-items: center; gap: 16px; flex: none; }
+#ltClock {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 13px; letter-spacing: 1px; color: #f4f4f4;
 }
 
-/* ===== RETRY BUTTON (shown only on camera/model error) ===== */
-#retryBtn {
-  display: none;
-  position: fixed; bottom: 202px; right: 12px; z-index: 101;
-  width: 240px;
-  background: transparent; border: 1px solid #222222;
-  color: #666666; padding: 7px 0;
-  font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
-  cursor: pointer; font-family: Helvetica, Arial, sans-serif;
-  transition: all 0.15s;
+/* bloomberg */
+#bloombergTable {
+  flex: 1.25; display: flex; flex-direction: column;
+  min-width: 0; background: #080808; overflow: hidden;
 }
-#retryBtn:hover { border-color: #cc0000; color: #ffffff; }
-
-/* ===== STATUS BAR ===== */
-#statusBar {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 99;
-  background: #080808; border-top: 1px solid #1a1a1a;
-  padding: 4px 16px; font-size: 8px; color: #444444;
-  letter-spacing: 2px; text-transform: uppercase;
-  display: flex; gap: 16px;
-  font-family: Helvetica, Arial, sans-serif;
+#bbStatusBar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 3px 14px; background: #0a0a0a;
+  border-bottom: 1px solid #1a1a1a;
 }
+.bb-amber { font-family: 'JetBrains Mono', ui-monospace, monospace; color: #F09500; }
+#bbStatusLeft { font-size: 9px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; }
+#bbStatusRight { font-size: 9px; letter-spacing: 1px; opacity: .75; }
+#bbSubBar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 6px 14px; border-bottom: 1px solid #1a1a1a; background: #0c0c0c;
+}
+#bbSubTitle {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px; font-weight: 500; color: #f4f4f4; letter-spacing: .3px;
+}
+#bbLiveDot {
+  margin-left: auto; display: flex; align-items: center; gap: 6px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 9px; letter-spacing: 2px; color: #888; text-transform: uppercase;
+}
+#bbLiveDot .live-sq {
+  width: 6px; height: 6px; background: #f4f4f4; display: inline-block;
+  animation: blinkSoft 1.1s ease-in-out infinite;
+}
+#bbGrid { flex: 1; overflow: auto; min-height: 0; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+#bbHeaderRow {
+  display: flex; padding: 6px 14px; border-bottom: 1px solid #1a1a1a;
+  position: sticky; top: 0; background: #0c0c0c; z-index: 1;
+}
+.bb-row-name { flex: none; width: 188px; }
+.bb-cells { flex: 1; display: flex; }
+.bb-cell { flex: 1; text-align: right; padding: 1px 6px; }
+.bb-header-cell { flex: 1; text-align: right; padding: 0 6px; font-size: 8px; letter-spacing: .5px; text-transform: uppercase; }
+#bbMedianRow {
+  display: flex; align-items: center;
+  padding: 5px 14px; border-bottom: 1px solid #161616; background: #0c0c0c;
+}
+.bb-median-label {
+  font-size: 10px; color: #c8c8c8; letter-spacing: .3px;
+}
+#bbDataRows { }
+.bb-data-row {
+  display: flex; align-items: center;
+  padding: 4px 14px; border-bottom: 1px solid #111;
+}
+.bb-company-name { font-size: 10px; letter-spacing: .3px; }
+.bb-ticker { font-size: 8px; color: #777; margin-left: 7px; }
+#bbFooter {
+  flex: none; display: flex; align-items: center;
+  border-top: 1px solid #1a1a1a; background: #0a0a0a;
+}
+.bb-fkey {
+  flex: 1; display: flex; align-items: baseline; gap: 3px;
+  padding: 3px 5px; border-right: 1px solid #141414;
+}
+.bb-fkey-k { font-size: 8px; font-weight: 600; letter-spacing: .3px; flex: none; }
+.bb-fkey-l { font-size: 7px; letter-spacing: .2px; opacity: .6; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
 </style>
 </head>
 <body>
@@ -212,556 +261,384 @@ body {
     style="width:100vw;height:100vh;object-fit:cover;display:block;"></video>
 </div>
 
-<!-- ── SIMULATION MODE ─────────────────────────────────────────────── -->
-<div id="sim-mode" style="display:none;">
+<!-- ── SIMULATION MODE — Broadcast Console ────────────────────────── -->
+<div id="sim-mode" style="display:none;position:fixed;inset:0;">
+<div id="bc-root">
 
-<!-- Back navigation -->
-<div id="backNav">
-  <a href="simulator.html">← HORMUZ SIM</a>
+  <!-- TICKER -->
+  <div id="tickerWrap">
+    <div id="tickerInner">
+      <div id="tickerTrack"><!-- populated by JS --></div>
+    </div>
+  </div>
+
+  <!-- MIDDLE BAND -->
+  <div id="middleBand">
+
+    <div id="weaponAlert">
+      <div id="alertTitle">ALL CLEAR</div>
+      <div id="alertName">No incident reported on the wire.</div>
+    </div>
+
+    <div id="oddsPanel">
+      <div id="oddsLabel">Odds of disruption</div>
+      <div id="oddsValue">50%</div>
+    </div>
+
+    <div id="camPanel" onclick="enableCam()">
+      <video id="camVideo" autoplay playsinline muted></video>
+      <div id="camHeadline">Live Camera Feed</div>
+      <div id="camStatusTag">&#9675; OFFLINE</div>
+    </div>
+
+  </div>
+
+  <!-- BOTTOM BAND -->
+  <div id="bottomBand">
+
+    <div id="satPanel">
+      <img id="satImg" alt="">
+      <div id="satPlaceholder">
+        <div class="no-img-label">No Imagery</div>
+        <div class="no-img-hint" id="satHint">Awaiting weapon trigger</div>
+      </div>
+      <div id="gwnBug">
+        <span class="gwn-tag">GWN</span>
+        <span class="gwn-name">Gulf&nbsp;World<br>News</span>
+      </div>
+      <div id="lowerThird">
+        <div id="lowerLeft">
+          <div id="breakingBadge">
+            <span class="blink-dot"></span>
+            <span class="blink-label">Breaking</span>
+          </div>
+          <span id="dateline">Strait of Hormuz, Persian Gulf</span>
+        </div>
+        <div id="lowerRight">
+          <span id="ltClock"></span>
+        </div>
+      </div>
+    </div>
+
+    <div id="bloombergTable">
+      <div id="bbStatusBar">
+        <span class="bb-amber" id="bbStatusLeft">Bloomberg&nbsp;Professional</span>
+        <span class="bb-amber" id="bbStatusRight">EQUITY RELATIVE VALUE &nbsp;·&nbsp; <span id="bbClock"></span> &nbsp;·&nbsp; STRAITS-SIM</span>
+      </div>
+      <div id="bbSubBar">
+        <span id="bbSubTitle">Observed Equity Move — Tanker &amp; Energy</span>
+        <span id="bbLiveDot"><span class="live-sq"></span>Live</span>
+      </div>
+      <div id="bbGrid">
+        <div id="bbHeaderRow">
+          <div class="bb-row-name" style="font-size:8px;letter-spacing:1px;color:#888;text-transform:uppercase;">Week&nbsp;Ending&nbsp;→&nbsp;2026</div>
+          <div class="bb-cells" id="bbHeaderCells"></div>
+        </div>
+        <div id="bbMedianRow">
+          <div class="bb-row-name"><span class="bb-median-label">Analyst Curated (BI) — Median</span></div>
+          <div class="bb-cells" id="bbMedianCells"></div>
+        </div>
+        <div id="bbDataRows"></div>
+      </div>
+      <div id="bbFooter" id="bbFooter"></div>
+    </div>
+
+  </div>
 </div>
-
-<!-- Center action display -->
-<div id="actionDisplay">
-  <div id="adState">INITIALIZING DETECTION SYSTEM<span id="scanDot"></span></div>
-  <div id="adPlayer" style="display:none"></div>
-  <div id="adRole"   style="display:none"></div>
-  <div id="adAction" style="display:none"></div>
-  <div id="adConfidence" style="display:none"></div>
-</div>
-
-<!-- Tech panel (top right) -->
-<div id="techPanel">
-  <div class="tp-title">DETECTION SYSTEM</div>
-
-  <div class="tp-row" style="margin-bottom:8px">
-    <span class="tp-label">Model</span>
-    <select id="modelSelect" style="
-      background:#111;border:1px solid #222;color:#ccc;
-      font-family:Helvetica,Arial,sans-serif;font-size:9px;
-      letter-spacing:1px;padding:2px 4px;max-width:150px;cursor:pointer;
-    "></select>
-  </div>
-
-  <div class="tp-row">
-    <span class="tp-label">Model</span>
-    <span class="tp-value loading" id="tpModel">LOADING</span>
-  </div>
-  <div class="tp-row">
-    <span class="tp-label">Camera</span>
-    <span class="tp-value loading" id="tpCamera">OFFLINE</span>
-  </div>
-  <div class="tp-row">
-    <span class="tp-label">FPS</span>
-    <span class="tp-value" id="tpFPS">—</span>
-  </div>
-  <div class="tp-row">
-    <span class="tp-label">Frames</span>
-    <span class="tp-value" id="tpFrames">0</span>
-  </div>
-
-  <hr class="tp-divider">
-
-  <div class="tp-row" style="margin-bottom:6px">
-    <span class="tp-label">Top Class</span>
-    <span class="tp-value" id="tpTopClass" style="font-size:8px;max-width:140px;text-align:right;line-height:1.3">—</span>
-  </div>
-  <div class="tp-row">
-    <span class="tp-label">Confidence</span>
-    <span class="tp-value" id="tpConf">—</span>
-  </div>
-  <div class="tp-row">
-    <span class="tp-label">Threshold</span>
-    <span class="tp-value" style="color:#444444">50%</span>
-  </div>
-
-  <hr class="tp-divider">
-
-  <div class="tp-label" style="margin-bottom:6px">CLASS PROBABILITIES</div>
-  <div id="tpBars">
-    <!-- populated by JS -->
-  </div>
-
-  <hr class="tp-divider">
-
-  <div class="tp-label" style="margin-bottom:6px">LABEL MAP</div>
-  <div id="tpLabelMap" style="font-size:8px;color:#444;font-style:italic">—</div>
-</div>
-
-<!-- Camera preview (bottom right) -->
-<div id="cameraWrap">
-  <video id="webcam" autoplay playsinline muted></video>
-  <div id="camStatus">● OFFLINE</div>
-  <div id="camLabel">TACTICAL CAM // CH-01</div>
-</div>
-
-<!-- Retry button — hidden until camera or model error -->
-<button id="retryBtn">RETRY CAMERA</button>
-
-<!-- Status bar -->
-<div id="statusBar">
-  <span id="sbModel">MODEL: LOADING</span>
-  <span>//</span>
-  <span id="sbPlayer">PLAYER: —</span>
-  <span>//</span>
-  <span id="sbAction">ACTION: STANDBY</span>
-  <span>//</span>
-  <span id="sbFPS">0 FPS</span>
 </div>
 
 <script src="js/weapons-config.js"></script>
+<script src="js/broadcast-news.js"></script>
 <script>
 // ================================================================
 //  CONFIG
 // ================================================================
-const CONFIDENCE_THRESHOLD = 0.50;
-
-// Populated by loadManifest() → loadModel(path) → buildLabelMap().
-// Must be let so it can be reassigned when the model changes.
-let LABEL_MAP = {};
-
-// Active model path — updated by loadManifest and the dropdown change handler.
-let currentModelPath = '';
-
-// ================================================================
-//  LABEL MAP HELPERS
-// ================================================================
-// Converts flat label-map.json (className → weaponId | [weaponId, ...] | null)
-// into the full LABEL_MAP shape used by updateActionDisplay.
-// Arrays fire multiple weapons; display is driven by the first weapon in the list.
-function buildLabelMap(rawMap) {
-  const out = {};
-  for (const [className, value] of Object.entries(rawMap)) {
-    if (value === null) { out[className] = null; continue; }
-
-    const ids = Array.isArray(value) ? value : [value];
-    const primaryId = ids[0];
-
-    const lookup = id => (typeof WEAPONS_CONFIG !== 'undefined')
-      ? WEAPONS_CONFIG.weapons.find(w => w.id === id) : null;
-
-    const primary = lookup(primaryId);
-    if (!primary) {
-      console.warn('[buildLabelMap] unknown weaponId:', primaryId);
-      out[className] = null;
-      continue;
-    }
-
-    // Silently drop any IDs in the array that aren't in WEAPONS_CONFIG.
-    const validIds = ids.filter(id => !!lookup(id));
-
-    const isDisruptor = primary.player === 'disruptor';
-    const actionLabel = validIds.length > 1
-      ? validIds.map(id => lookup(id).name.toUpperCase()).join(' + ')
-      : primary.name.toUpperCase();
-
-    out[className] = {
-      player:    isDisruptor ? 'A' : 'B',
-      role:      primary.player.toUpperCase(),
-      action:    actionLabel,
-      weaponId:  primaryId,          // kept for backward compat
-      weaponIds: validIds,           // all IDs to fire
-      color:     isDisruptor ? '#cc0000' : '#3b82f6',
-      barClass:  isDisruptor ? '' : 'player-b',
-    };
-  }
-  return out;
-}
-
-// Renders a config table for the LABEL MAP section in the tech panel.
-// Supports single and multi-weapon entries.
-function buildConfigTable(rawMap) {
-  const rows = Object.entries(rawMap)
-    .filter(([, value]) => value !== null)
-    .map(([className, value]) => {
-      const ids = Array.isArray(value) ? value : [value];
-      const lookup = id => (typeof WEAPONS_CONFIG !== 'undefined')
-        ? WEAPONS_CONFIG.weapons.find(w => w.id === id) : null;
-      const label = ids.map(id => {
-        const w = lookup(id);
-        return w ? `${id} — ${w.name}` : id;
-      }).join('<br>');
-      return `<div class="tp-bar-row">
-        <div class="tp-bar-label">${className}</div>
-        <div style="font-size:8px;color:#666;padding:1px 0">${label}</div>
-      </div>`;
-    });
-  return rows.length ? rows.join('') : '<span style="color:#333">— none mapped —</span>';
-}
-
-// BroadcastChannel shared with index.html game layer.
-// Same channel name must be used in bootstrap.js receiver.
-const gameChannel = new BroadcastChannel('deepseas-game');
-
-// Debounce: after firing, suppress re-fire for this many ms.
-// D01 decay_per_30s = -2, so ~8 ticks × 30s = 240s to fully decay.
-// Use 8000ms here to prevent rapid accidental re-fires within one hold gesture.
-const FIRE_DEBOUNCE_MS = 8000;
-let lastFiredAt = 0;
+const IMAGE_BASE = 'Images/broadcast/';
+const COLS = ['16 Apr','23 Apr','30 Apr','07 May','14 May','21 May','28 May','04 Jun'];
+const COMPANIES = [
+  {name:'Frontline Ltd',     tk:'FRO'},
+  {name:'Scorpio Tankers',   tk:'STNG'},
+  {name:'DHT Holdings',      tk:'DHT'},
+  {name:'Intl Seaways',      tk:'INSW'},
+  {name:'Teekay Tankers',    tk:'TNK'},
+  {name:'Star Bulk Carriers',tk:'SBLK'},
+];
+const FKEYS = [
+  {key:'F1',label:'HELP'},{key:'F2',label:'LOGIN'},{key:'F3',label:'MENU'},
+  {key:'F4',label:'MSG'}, {key:'F5',label:'NEWS'}, {key:'F6',label:'GOVT'},
+  {key:'F7',label:'CORP'},{key:'F8',label:'MTGE'},{key:'F9',label:'M-MKT'},
+  {key:'F10',label:'MUNI'},{key:'F11',label:'EQUITY'},{key:'F12',label:'CMDTY'},
+];
 
 // ================================================================
 //  STATE
 // ================================================================
-let model        = null;
-let predCanvas   = null;  // 224×224 canvas fed to model.predict()
-let predCtx      = null;
-let running      = false;
-let frameCount   = 0;
-let lastFrameTime = performance.now();
-let fpsSmoothed  = 0;
-let currentAction = '__init__'; // non-null sentinel so first background frame shows SCANNING
-let barEls       = {};    // label → { fill, pct, lbl } DOM nodes (no IDs used)
-
-const webcamEl  = document.getElementById('webcam');
-const adState   = document.getElementById('adState');
-const adPlayer  = document.getElementById('adPlayer');
-const adRole    = document.getElementById('adRole');
-const adAction  = document.getElementById('adAction');
-const adConf    = document.getElementById('adConfidence');
-const adDisplay = document.getElementById('actionDisplay');
-const retryBtn  = document.getElementById('retryBtn');
+let prob = 50;
+let tableData = null;  // { rows, medianCells }
+let recentlyAlerted = new Map(); // weaponId -> timestamp
+let prevActive = [];
 
 // ================================================================
-//  MANIFEST LOAD → populates dropdown → auto-loads first model
+//  BLOOMBERG TABLE
 // ================================================================
-async function loadManifest() {
-  setAdState('LOADING MANIFEST');
-  let manifest;
-  try {
-    const res = await fetch('./models/manifest.json');
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    manifest = await res.json();
-  } catch(e) {
-    // Manifest missing — fall back to the legacy single-model path.
-    console.warn('[Detection] manifest.json not found, falling back to ./tm-my-image-model/');
-    manifest = [{ id: 'tm-my-image-model', name: 'Default', path: './tm-my-image-model/' }];
-  }
-
-  const sel = document.getElementById('modelSelect');
-  sel.innerHTML = '';
-  manifest.forEach(entry => {
-    const opt = document.createElement('option');
-    opt.value = entry.path;
-    opt.textContent = entry.name;
-    sel.appendChild(opt);
-  });
-
-  sel.addEventListener('change', async () => {
-    stopCamera();
-    barsBuilt = false;
-    LABEL_MAP = {};
-    await loadModel(sel.value);
-  });
-
-  // Auto-load Final Model (13-class, 12-weapon) — fall back to tm_model_02 then first
-  const defaultEntry = manifest.find(m => m.id === 'final_model')
-                    || manifest.find(m => m.id === 'tm_model_02')
-                    || manifest[0];
-  if (defaultEntry !== manifest[0]) {
-    sel.value = defaultEntry.path;
-  }
-  await loadModel(defaultEntry.path);
+function mkCell(raw, isLive) {
+  const v = +raw.toFixed(2);
+  return {
+    val: (v > 0 ? '+' : '') + v.toFixed(2),
+    color: v > 0.3 ? '#22c55e' : v < -0.3 ? '#ef4444' : '#666',
+    bg: isLive ? 'rgba(255,255,255,.045)' : 'transparent',
+  };
 }
 
-// ================================================================
-//  MODEL LOAD → auto-starts camera on success
-// ================================================================
-async function loadModel(path) {
-  currentModelPath = path;
-  document.getElementById('tpModel').textContent = 'LOADING';
-  document.getElementById('tpModel').className = 'tp-value loading';
-  setAdState('LOADING MODEL');
-
-  // Preflight: verify model.json is reachable before handing off to TM library.
-  // Catches file:// protocol errors and wrong paths immediately with a clear message.
-  try {
-    const probe = await fetch(path + 'model.json');
-    if (!probe.ok) throw new Error('HTTP ' + probe.status + ' fetching model.json');
-  } catch(preflight) {
-    const msg = preflight.message || String(preflight);
-    document.getElementById('tpModel').textContent = 'ERROR';
-    document.getElementById('tpModel').className = 'tp-value error';
-    setAdState('MODEL FILE ERROR: ' + msg);
-    document.getElementById('sbModel').textContent = 'MODEL: ' + msg;
-    retryBtn.textContent = 'RETRY MODEL';
-    retryBtn.style.display = 'block';
-    retryBtn.onclick = () => { retryBtn.style.display = 'none'; loadModel(path); };
-    console.error('[Detection] Preflight failed:', preflight);
-    return;
-  }
-
-  // Fetch label-map.json for this model folder and build LABEL_MAP.
-  try {
-    const lmRes = await fetch(path + 'label-map.json');
-    if (!lmRes.ok) throw new Error('HTTP ' + lmRes.status + ' fetching label-map.json');
-    const rawMap = await lmRes.json();
-    LABEL_MAP = buildLabelMap(rawMap);
-    document.getElementById('tpLabelMap').innerHTML = buildConfigTable(rawMap);
-  } catch(lmErr) {
-    // label-map.json missing — LABEL_MAP stays empty, weapon firing disabled for this model.
-    console.warn('[Detection] label-map.json not found:', lmErr.message);
-    document.getElementById('tpLabelMap').innerHTML =
-      '<span style="color:#cc0000">label-map.json missing</span>';
-  }
-
-  try {
-    model = await tmImage.load(path + 'model.json', path + 'metadata.json');
-    document.getElementById('tpModel').textContent = 'READY';
-    document.getElementById('tpModel').className = 'tp-value ready';
-    document.getElementById('sbModel').textContent = 'MODEL: READY';
-    console.log('[Detection] Model loaded, classes:', model.getTotalClasses());
-    startCamera(); // auto-start — no button needed
-  } catch(e) {
-    const msg = e.message || String(e);
-    document.getElementById('tpModel').textContent = 'ERROR';
-    document.getElementById('tpModel').className = 'tp-value error';
-    setAdState('MODEL ERROR: ' + msg);
-    document.getElementById('sbModel').textContent = 'MODEL: ' + msg;
-    retryBtn.textContent = 'RETRY MODEL';
-    retryBtn.style.display = 'block';
-    retryBtn.onclick = () => { retryBtn.style.display = 'none'; loadModel(path); };
-    console.error('[Detection] Model load error:', e);
-  }
-}
-
-// Build bar rows using direct DOM node refs — no element IDs with special chars.
-// Called after first prediction so we use the real class names from the model.
-function buildBars(predictions) {
-  const container = document.getElementById('tpBars');
-  container.innerHTML = '';
-  barEls = {};
-  predictions.forEach(p => {
-    const label = p.className;
-    const map   = LABEL_MAP[label];
-    const barClass = map ? map.barClass : 'bg-class';
-
-    const lblEl  = document.createElement('div');
-    lblEl.className = 'tp-bar-label';
-    lblEl.textContent = label.replace(' → ', ' // ');
-
-    const fillEl = document.createElement('div');
-    fillEl.className = 'tp-bar-fill' + (barClass ? ' ' + barClass : '');
-    fillEl.style.width = '0%';
-
-    const pctEl  = document.createElement('div');
-    pctEl.className = 'tp-bar-pct';
-    pctEl.textContent = '0%';
-
-    const bgEl   = document.createElement('div');
-    bgEl.className = 'tp-bar-bg';
-    bgEl.appendChild(fillEl);
-
-    const trackEl = document.createElement('div');
-    trackEl.className = 'tp-bar-track';
-    trackEl.appendChild(bgEl);
-    trackEl.appendChild(pctEl);
-
-    const rowEl  = document.createElement('div');
-    rowEl.className = 'tp-bar-row';
-    rowEl.appendChild(lblEl);
-    rowEl.appendChild(trackEl);
-    container.appendChild(rowEl);
-
-    barEls[label] = { fill: fillEl, pct: pctEl, lbl: lblEl };
-  });
-  // Log actual class names once so the user can verify against LABEL_MAP
-  console.log('[Detection] Model class names:', predictions.map(p => p.className));
-}
-
-// ================================================================
-//  CAMERA START (called automatically after model loads)
-// ================================================================
-async function startCamera() {
-  setAdState('STARTING CAMERA');
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    webcamEl.srcObject = stream;
-
-    await new Promise(resolve => {
-      if (webcamEl.readyState >= 2) { resolve(); return; }
-      webcamEl.addEventListener('loadeddata', resolve, { once: true });
+function genTable() {
+  const last = COLS.length - 1;
+  const rows = COMPANIES.map((c, ri) => {
+    const cells = COLS.map((col, ci) => {
+      const base = Math.sin((ri + 1) * 1.7 + ci * 0.9) * 8 + Math.cos(ci * 1.3 + ri * 0.6) * 5;
+      return mkCell(base, ci === last);
     });
-    webcamEl.play();
+    return { name: c.name, tk: c.tk, cells };
+  });
+  const medianCells = COLS.map((col, ci) => mkCell(Math.sin(ci * 0.8) * 4 + 1.2, ci === last));
+  return { rows, medianCells };
+}
 
-    predCanvas = document.createElement('canvas');
-    predCanvas.width  = 224;
-    predCanvas.height = 224;
-    predCtx = predCanvas.getContext('2d');
+function joltTable(isDis) {
+  const last = COLS.length - 1;
+  const t = tableData;
+  const shock = () => isDis ? -(7 + Math.random() * 11) : (3 + Math.random() * 8);
+  const rows = t.rows.map(r => {
+    const cells = r.cells.slice();
+    cells[last] = mkCell(shock(), true);
+    return { ...r, cells };
+  });
+  const medianCells = t.medianCells.slice();
+  medianCells[last] = mkCell(shock(), true);
+  return { rows, medianCells };
+}
 
-    document.getElementById('tpCamera').textContent = 'ACTIVE';
-    document.getElementById('tpCamera').className   = 'tp-value ready';
-    document.getElementById('camStatus').textContent = '● LIVE';
-    document.getElementById('camStatus').style.color = '#22c55e';
+function tickLiveColumn() {
+  if (!tableData) return;
+  const last = COLS.length - 1;
+  const jit = (cell) => {
+    const raw = parseFloat(cell.val);
+    return mkCell(raw + (Math.random() - 0.5) * 2.2, true);
+  };
+  const rows = tableData.rows.map(r => {
+    const cells = r.cells.slice();
+    cells[last] = jit(cells[last]);
+    return { ...r, cells };
+  });
+  const medianCells = tableData.medianCells.slice();
+  medianCells[last] = jit(medianCells[last]);
+  tableData = { rows, medianCells };
+  renderTableBody();
+}
 
-    running = true;
-    lastFrameTime = performance.now();
-    requestAnimationFrame(loop);
+function renderTableHeader() {
+  const hCells = document.getElementById('bbHeaderCells');
+  hCells.innerHTML = COLS.map((label, ci) => {
+    const isLast = ci === COLS.length - 1;
+    const color = isLast ? '#f4f4f4' : '#888';
+    const bg = isLast ? 'rgba(255,255,255,.05)' : 'transparent';
+    return `<span class="bb-header-cell" style="color:${color};background:${bg};">${label}</span>`;
+  }).join('');
 
-  } catch(e) {
-    document.getElementById('tpCamera').textContent = 'DENIED';
-    document.getElementById('tpCamera').className   = 'tp-value error';
-    setAdState('CAMERA DENIED — ALLOW ACCESS THEN RETRY');
-    retryBtn.textContent = 'RETRY CAMERA';
-    retryBtn.style.display = 'block';
-    retryBtn.onclick = () => { retryBtn.style.display = 'none'; startCamera(); };
-    console.error('[Detection] Camera error:', e);
-  }
+  const footer = document.getElementById('bbFooter');
+  footer.innerHTML = FKEYS.map(fk =>
+    `<div class="bb-fkey"><span class="bb-fkey-k bb-amber">${fk.key}</span><span class="bb-fkey-l bb-amber">${fk.label}</span></div>`
+  ).join('');
+}
+
+function renderTableBody() {
+  if (!tableData) return;
+  const median = document.getElementById('bbMedianCells');
+  median.innerHTML = tableData.medianCells.map(cell =>
+    `<span class="bb-cell" style="font-size:10px;color:${cell.color};background:${cell.bg};">${cell.val}</span>`
+  ).join('');
+
+  const dataRows = document.getElementById('bbDataRows');
+  dataRows.innerHTML = tableData.rows.map(row =>
+    `<div class="bb-data-row">
+      <div class="bb-row-name" style="display:flex;align-items:baseline;">
+        <span class="bb-company-name" style="color:#c8c8c8;">${row.name}</span>
+        <span class="bb-ticker">${row.tk}</span>
+      </div>
+      <div class="bb-cells">${row.cells.map(cell =>
+        `<span class="bb-cell" style="font-size:10px;color:${cell.color};background:${cell.bg};">${cell.val}</span>`
+      ).join('')}</div>
+    </div>`
+  ).join('');
 }
 
 // ================================================================
-//  PREDICTION LOOP
+//  TICKER
 // ================================================================
-let barsBuilt = false;
-
-async function loop() {
-  if (!running) return;
-  requestAnimationFrame(loop);
-
-  // Draw current video frame to prediction canvas (224×224)
-  if (webcamEl.readyState < 2) return;
-  predCtx.drawImage(webcamEl, 0, 0, 224, 224);
-
-  let predictions;
-  try {
-    predictions = await model.predict(predCanvas);
-  } catch(e) {
-    console.error('[Detection] Predict error:', e);
-    return;
-  }
-
-  frameCount++;
-
-  if (!barsBuilt) {
-    buildBars(predictions);
-    barsBuilt = true;
-  }
-
-  // FPS (exponential moving average)
-  const now = performance.now();
-  const dt  = (now - lastFrameTime) / 1000;
-  lastFrameTime = now;
-  fpsSmoothed += (1 / dt - fpsSmoothed) * 0.1;
-  const fps = Math.round(fpsSmoothed);
-
-  updateTechPanel(predictions, fps);
-  updateActionDisplay(predictions);
+function setTicker(items) {
+  const track = document.getElementById('tickerTrack');
+  const makeItems = () => items.map(text =>
+    `<span class="ticker-item">${text}</span><span class="ticker-sep">◆</span>`
+  ).join('');
+  // duplicate for seamless loop
+  track.innerHTML = makeItems() + makeItems();
 }
 
 // ================================================================
-//  TECH PANEL UPDATE
+//  APPLY FIRE
 // ================================================================
-function updateTechPanel(predictions, fps) {
-  document.getElementById('tpFPS').textContent    = fps;
-  document.getElementById('tpFrames').textContent = frameCount;
-  document.getElementById('sbFPS').textContent    = fps + ' FPS';
+function applyFire(id) {
+  recentlyAlerted.set(id, Date.now());
 
-  const sorted = [...predictions].sort((a, b) => b.probability - a.probability);
-  const top    = sorted[0];
-  document.getElementById('tpTopClass').textContent = top.className;
-  document.getElementById('tpConf').textContent     = (top.probability * 100).toFixed(1) + '%';
+  const w = (typeof WEAPONS_CONFIG !== 'undefined')
+    ? WEAPONS_CONFIG.weapons.find(ww => ww.id === id) : null;
+  const news = BROADCAST_NEWS[id] || { alert: id, sat: id + '.jpg', angles: [id] };
+  const isDis = w ? w.player === 'disruptor' : id.startsWith('D');
 
-  predictions.forEach(p => {
-    const els = barEls[p.className];
-    if (!els) return;
-    const pct = p.probability * 100;
-    els.fill.style.width  = pct.toFixed(1) + '%';
-    els.pct.textContent   = pct.toFixed(0) + '%';
-    els.pct.className     = 'tp-bar-pct' + (pct >= 70 ? ' high' : '');
-    els.lbl.className     = 'tp-bar-label' + (p.className === top.className ? ' top-class' : '');
+  // Ticker
+  setTicker(news.angles);
+
+  // Alert panel
+  document.getElementById('alertTitle').textContent = news.alert;
+  document.getElementById('alertName').textContent = w ? w.name : id;
+
+  // Flash
+  const alert = document.getElementById('weaponAlert');
+  alert.style.animation = 'none';
+  void alert.offsetWidth;
+  alert.style.animation = 'flashWipe .5s ease-out';
+
+  // Satellite image
+  const img = document.getElementById('satImg');
+  const placeholder = document.getElementById('satPlaceholder');
+  const hint = document.getElementById('satHint');
+  img.onload = () => { img.style.display = 'block'; placeholder.style.display = 'none'; };
+  img.onerror = () => {
+    img.style.display = 'none';
+    placeholder.style.display = 'block';
+    hint.textContent = 'img: ' + news.sat;
+  };
+  img.src = IMAGE_BASE + news.sat;
+
+  // Breaking badge
+  document.getElementById('breakingBadge').style.display = 'flex';
+
+  // Optimistic odds delta
+  if (w) {
+    prob = Math.max(0, Math.min(100, prob + w.prob_delta));
+    document.getElementById('oddsValue').textContent = Math.round(prob) + '%';
+  }
+
+  // Bloomberg jolt
+  tableData = joltTable(isDis);
+  renderTableBody();
+}
+
+// ================================================================
+//  RESET TO IDLE
+// ================================================================
+function resetIdle() {
+  setTicker(BROADCAST_IDLE_ITEMS);
+  document.getElementById('alertTitle').textContent = 'ALL CLEAR';
+  document.getElementById('alertName').textContent = 'No incident reported on the wire.';
+  document.getElementById('breakingBadge').style.display = 'none';
+  document.getElementById('satImg').style.display = 'none';
+  document.getElementById('satPlaceholder').style.display = 'block';
+  document.getElementById('satHint').textContent = 'Awaiting weapon trigger';
+  prob = 50;
+  document.getElementById('oddsValue').textContent = '50%';
+  tableData = genTable();
+  renderTableBody();
+}
+
+// ================================================================
+//  ODDS (authoritative from hormuz-game)
+// ================================================================
+function setProb(p) {
+  prob = p;
+  document.getElementById('oddsValue').textContent = Math.round(p) + '%';
+}
+
+// ================================================================
+//  CAMERA
+// ================================================================
+function enableCam() {
+  const v = document.getElementById('camVideo');
+  if (v.dataset.on) return;
+  navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+    v.srcObject = stream; v.style.display = 'block'; v.dataset.on = '1';
+    document.getElementById('camHeadline').textContent = '';
+    document.getElementById('camStatusTag').textContent = '● LIVE';
+    document.getElementById('camStatusTag').style.color = '#f4f4f4';
+  }).catch(() => {
+    document.getElementById('camStatusTag').textContent = '○ DENIED';
   });
 }
 
 // ================================================================
-//  ACTION DISPLAY UPDATE
+//  CLOCK
 // ================================================================
-function updateActionDisplay(predictions) {
-  const sorted = [...predictions].sort((a, b) => b.probability - a.probability);
-  const top    = sorted[0];
-  const map    = LABEL_MAP[top.className];
-  const conf   = top.probability;
-
-  if (!map || conf < CONFIDENCE_THRESHOLD) {
-    if (currentAction !== null) {
-      currentAction = null;
-      adDisplay.className  = '';
-      adPlayer.style.display = 'none';
-      adRole.style.display   = 'none';
-      adAction.style.display = 'none';
-      adConf.style.display   = 'none';
-      setAdState('SCANNING');
-    }
-    return;
-  }
-
-  const actionKey = map.player + '|' + map.action;
-  if (currentAction !== actionKey) {
-    currentAction = actionKey;
-
-    adDisplay.className = '';
-    void adDisplay.offsetWidth; // force reflow to restart CSS animation
-    adDisplay.classList.add('triggered-' + map.player.toLowerCase());
-
-    adState.style.display  = 'none';
-    adPlayer.style.display = 'block';
-    adRole.style.display   = 'block';
-    adAction.style.display = 'block';
-    adConf.style.display   = 'block';
-
-    adPlayer.textContent   = 'PLAYER ' + map.player;
-    adPlayer.style.color   = map.color;
-    adRole.textContent     = map.role;
-    adAction.textContent   = map.action;
-    adAction.style.color   = map.color;
-
-    document.getElementById('sbPlayer').textContent = 'PLAYER: ' + map.player + ' / ' + map.role;
-    document.getElementById('sbAction').textContent = 'ACTION: ' + map.action;
-
-    // Fire all weapons once per gesture — debounce prevents re-firing while object is held
-    const now = Date.now();
-    if (map.weaponIds && map.weaponIds.length && (now - lastFiredAt) > FIRE_DEBOUNCE_MS) {
-      lastFiredAt = now;
-      map.weaponIds.forEach(id => gameChannel.postMessage({ type: 'FIRE_WEAPON', weaponId: id }));
-      const firedBy  = map.weaponIds[0].startsWith('D') ? 'disruptor' : 'defender';
-      const nextTurn = firedBy === 'disruptor' ? 'defender' : 'disruptor';
-      gameChannel.postMessage({ type: 'CURRENT_PLAYER', player: nextTurn });
-      document.getElementById('sbAction').textContent =
-        'WEAPON FIRED: ' + map.weaponIds.join(' + ') + ' // ' + map.action;
-    }
-  }
-
-  adConf.textContent = (conf * 100).toFixed(1) + '% CONFIDENCE';
+function clockStr() { return new Date().toTimeString().slice(0, 8); }
+function tickClock() {
+  const t = clockStr();
+  const ltClock = document.getElementById('ltClock');
+  const bbClock = document.getElementById('bbClock');
+  if (ltClock) ltClock.textContent = t;
+  if (bbClock) bbClock.textContent = t;
 }
 
 // ================================================================
-//  HELPERS
+//  KEYBOARD
 // ================================================================
-function stopCamera() {
-  running = false;
-  if (webcamEl.srcObject) {
-    webcamEl.srcObject.getTracks().forEach(t => t.stop());
-    webcamEl.srcObject = null;
+const KEY_MAP = {
+  '1':'D01','2':'D02','3':'D03','4':'D04','5':'D05','6':'D06',
+  'a':'R01','b':'R02','c':'R03','d':'R04','e':'R05','f':'R06',
+};
+document.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const id = KEY_MAP[e.key];
+  if (id) {
+    applyFire(id);
+    ch.postMessage({ type: 'FIRE_WEAPON', weaponId: id });
+    const firedBy = id.startsWith('D') ? 'disruptor' : 'defender';
+    ch.postMessage({ type: 'CURRENT_PLAYER', player: firedBy === 'disruptor' ? 'defender' : 'disruptor' });
   }
-  document.getElementById('tpCamera').textContent = 'OFFLINE';
-  document.getElementById('tpCamera').className   = 'tp-value loading';
-  document.getElementById('camStatus').textContent = '● OFFLINE';
-  document.getElementById('camStatus').style.color = '#cc0000';
-}
-
-function setAdState(msg) {
-  adState.style.display = 'block';
-  // textContent wipes all children including #scanDot.
-  // Set text first, then recreate the dot only when SCANNING needs it.
-  adState.textContent = msg;
-  if (msg === 'SCANNING') {
-    const dot = document.createElement('span');
-    dot.id = 'scanDot';
-    adState.appendChild(dot);
-  }
-}
+  if (e.key === '0' || e.code === 'Escape') resetIdle();
+});
 
 // ================================================================
-//  BOOT — load manifest → populate dropdown → load first model → start camera
+//  BROADCASTCHANNEL WIRING
 // ================================================================
-loadManifest();
+const ch = new BroadcastChannel('deepseas-game');
+ch.onmessage = e => {
+  const m = e.data || {};
+  if (m.type === 'FIRE_WEAPON' && m.weaponId) applyFire(m.weaponId);
+};
+
+const oddsCh = new BroadcastChannel('hormuz-game');
+oddsCh.onmessage = e => {
+  const m = e.data || {};
+  if (typeof m.shipProbability === 'number') setProb(m.shipProbability);
+  if (Array.isArray(m.activeWeapons)) {
+    m.activeWeapons
+      .filter(id => !prevActive.includes(id))
+      .forEach(id => {
+        const t = recentlyAlerted.get(id);
+        if (!t || Date.now() - t > 3000) applyFire(id);
+      });
+    prevActive = m.activeWeapons.slice();
+  }
+};
+
+// ================================================================
+//  BOOT
+// ================================================================
+tableData = genTable();
+renderTableHeader();
+renderTableBody();
+setTicker(BROADCAST_IDLE_ITEMS);
+tickClock();
+setInterval(tickClock, 1000);
+setInterval(tickLiveColumn, 2200);
 </script>
 
 </div><!-- /#sim-mode -->

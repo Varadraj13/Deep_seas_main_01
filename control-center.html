@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Control Center — Deep Seas</title>
+<!-- @teachablemachine/image@0.8.5 CDN distribution requires tfjs@1.3.1 as its global tf.
+     The tfjsVersion in metadata.json (1.7.4) is informational — it is the TM web app's
+     internal version, NOT the required loader version. Loading 1.7.x breaks the CDN bundle. -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -16,9 +21,16 @@
     height: 100vh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── NAV AREA (top) ── */
+  #navArea {
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 48px;
+    gap: 24px;
+    padding: 32px 0 24px;
   }
 
   .title {
@@ -48,14 +60,8 @@
     transition: border-color 0.15s, color 0.15s;
   }
 
-  .nav a:hover {
-    border-color: #888;
-    color: #fff;
-  }
-
-  .nav a .page-label {
-    display: block;
-  }
+  .nav a:hover { border-color: #888; color: #fff; }
+  .nav a .page-label { display: block; }
 
   .sub-group {
     display: flex;
@@ -78,43 +84,450 @@
     text-align: left;
     transition: border-color 0.15s, color 0.15s;
   }
+  .sub-btn:hover { border-color: #666; color: #ccc; }
 
-  .sub-btn:hover {
-    border-color: #666;
-    color: #ccc;
+  /* ── DETECTION ENGINE AREA (below nav) ── */
+  #detectionArea {
+    flex: 1;
+    display: flex;
+    gap: 12px;
+    padding: 0 24px 24px;
+    min-height: 0;
+    overflow: hidden;
   }
+
+  /* TECH PANEL */
+  #techPanel {
+    width: 268px; flex: none;
+    background: #0a0a0a; border: 1px solid #1a1a1a;
+    padding: 12px 14px;
+    font-size: 10px;
+    max-height: 100%; overflow-y: auto;
+    scrollbar-width: thin; scrollbar-color: #222 transparent;
+  }
+  #techPanel::-webkit-scrollbar { width: 3px; }
+  #techPanel::-webkit-scrollbar-thumb { background: #222; }
+
+  .tp-title { font-size: 8px; color: #cc0000; letter-spacing: 3px; text-transform: uppercase; font-weight: 400; margin-bottom: 10px; }
+  .tp-row { display: flex; justify-content: space-between; align-items: baseline; padding: 2px 0; border-bottom: 1px solid #111; }
+  .tp-label { font-size: 8px; color: #444; text-transform: uppercase; letter-spacing: 2px; }
+  .tp-value { font-size: 10px; color: #fff; }
+  .tp-value.ready  { color: #22c55e; }
+  .tp-value.loading { color: #f59e0b; }
+  .tp-value.error  { color: #cc0000; }
+  .tp-divider { border: none; border-top: 1px solid #1a1a1a; margin: 8px 0; }
+  .tp-bar-row { margin-bottom: 4px; }
+  .tp-bar-label { font-size: 7px; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tp-bar-label.top-class { color: #cc0000; }
+  .tp-bar-track { display: flex; align-items: center; gap: 6px; }
+  .tp-bar-bg { flex: 1; height: 2px; background: #1a1a1a; position: relative; }
+  .tp-bar-fill { height: 100%; background: #cc0000; transition: width 0.15s ease-out; min-width: 0; }
+  .tp-bar-fill.player-b { background: #3b82f6; }
+  .tp-bar-fill.bg-class  { background: #333; }
+  .tp-bar-pct { font-size: 8px; color: #555; min-width: 30px; text-align: right; }
+  .tp-bar-pct.high { color: #fff; }
+
+  /* CAMERA PREVIEW */
+  #cameraWrap {
+    flex: 1; position: relative;
+    background: #0a0a0a; border: 1px solid #1a1a1a;
+    overflow: hidden; min-height: 0;
+  }
+  #cameraWrap video {
+    width: 100%; height: 100%; object-fit: cover;
+    transform: scaleX(-1); display: block;
+  }
+  #camLabel {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(8,8,8,0.75); padding: 3px 6px;
+    font-size: 7px; color: #444; letter-spacing: 2px; text-transform: uppercase;
+  }
+  #camStatus {
+    position: absolute; top: 6px; left: 6px;
+    font-size: 7px; color: #cc0000; letter-spacing: 2px; text-transform: uppercase;
+  }
+
+  /* RETRY BUTTON */
+  #retryBtn {
+    display: none;
+    width: 100%; margin-top: 8px;
+    background: transparent; border: 1px solid #222;
+    color: #666; padding: 7px 0;
+    font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+    cursor: pointer; font-family: 'IBM Plex Mono', monospace;
+    transition: all 0.15s;
+  }
+  #retryBtn:hover { border-color: #cc0000; color: #fff; }
 </style>
 </head>
 <body>
 
-<div class="title">Deep Seas · Control Center</div>
+<div id="navArea">
+  <div class="title">Deep Seas · Control Center</div>
+  <nav class="nav">
+    <a href="simulator.html" target="_blank" onclick="broadcastMode('video_playback')">
+      <span class="page-label">Index</span>
+    </a>
+    <div class="sub-group">
+      <button class="sub-btn" onclick="broadcastMode('video_playback')">Mode 01 — Video Playback</button>
+      <button class="sub-btn" onclick="broadcastMode('simulation')">Mode 02 — Simulation</button>
+    </div>
+    <a href="market_screen.html" target="_blank"><span class="page-label">Market Screen</span></a>
+    <a href="audience.html" target="_blank"><span class="page-label">Audience</span></a>
+    <a href="detector.html" target="_blank"><span class="page-label">Detector</span></a>
+    <a href="base.html" target="_blank"><span class="page-label">Base</span></a>
+  </nav>
+</div>
 
-<nav class="nav">
-  <a href="simulator.html" target="_blank" onclick="broadcast('video_playback')">
-    <span class="page-label">Index</span>
-  </a>
-  <div class="sub-group">
-    <button class="sub-btn" onclick="broadcast('video_playback')">Mode 01 — Video Playback</button>
-    <button class="sub-btn" onclick="broadcast('simulation')">Mode 02 — Simulation</button>
+<!-- ── DETECTION ENGINE ── -->
+<div id="detectionArea">
+
+  <div id="techPanel">
+    <div class="tp-title">DETECTION SYSTEM</div>
+
+    <div class="tp-row" style="margin-bottom:8px">
+      <span class="tp-label">Model</span>
+      <select id="modelSelect" style="background:#111;border:1px solid #222;color:#ccc;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:1px;padding:2px 4px;max-width:150px;cursor:pointer;"></select>
+    </div>
+
+    <div class="tp-row">
+      <span class="tp-label">Model</span>
+      <span class="tp-value loading" id="tpModel">LOADING</span>
+    </div>
+    <div class="tp-row">
+      <span class="tp-label">Camera</span>
+      <span class="tp-value loading" id="tpCamera">OFFLINE</span>
+    </div>
+    <div class="tp-row">
+      <span class="tp-label">FPS</span>
+      <span class="tp-value" id="tpFPS">—</span>
+    </div>
+    <div class="tp-row">
+      <span class="tp-label">Frames</span>
+      <span class="tp-value" id="tpFrames">0</span>
+    </div>
+
+    <hr class="tp-divider">
+
+    <div class="tp-row" style="margin-bottom:6px">
+      <span class="tp-label">Top Class</span>
+      <span class="tp-value" id="tpTopClass" style="font-size:8px;max-width:140px;text-align:right;line-height:1.3">—</span>
+    </div>
+    <div class="tp-row">
+      <span class="tp-label">Confidence</span>
+      <span class="tp-value" id="tpConf">—</span>
+    </div>
+    <div class="tp-row">
+      <span class="tp-label">Threshold</span>
+      <span class="tp-value" style="color:#444">50%</span>
+    </div>
+
+    <hr class="tp-divider">
+
+    <div class="tp-label" style="margin-bottom:6px">CLASS PROBABILITIES</div>
+    <div id="tpBars"></div>
+
+    <hr class="tp-divider">
+
+    <div class="tp-label" style="margin-bottom:6px">LABEL MAP</div>
+    <div id="tpLabelMap" style="font-size:8px;color:#444;font-style:italic">—</div>
+
+    <button id="retryBtn">RETRY CAMERA</button>
   </div>
-  <a href="market_screen.html" target="_blank">
-    <span class="page-label">Market Screen</span>
-  </a>
-  <a href="audience.html" target="_blank">
-    <span class="page-label">Audience</span>
-  </a>
-  <a href="detector.html" target="_blank">
-    <span class="page-label">Detector</span>
-  </a>
-  <a href="base.html" target="_blank">
-    <span class="page-label">Base</span>
-  </a>
-</nav>
 
+  <div style="display:flex;flex-direction:column;flex:1;gap:8px;min-height:0;">
+    <div id="cameraWrap">
+      <video id="webcam" autoplay playsinline muted></video>
+      <div id="camStatus">● OFFLINE</div>
+      <div id="camLabel">TACTICAL CAM // CH-01</div>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/weapons-config.js"></script>
 <script>
-  function broadcast(mode) {
-    new BroadcastChannel('hormuz-mode').postMessage({ mode: mode });
+// ================================================================
+//  CONFIG
+// ================================================================
+const CONFIDENCE_THRESHOLD = 0.50;
+const FIRE_DEBOUNCE_MS = 8000;
+
+let LABEL_MAP = {};
+let currentModelPath = '';
+let model = null;
+let predCanvas = null;
+let predCtx = null;
+let running = false;
+let frameCount = 0;
+let lastFrameTime = performance.now();
+let fpsSmoothed = 0;
+let currentAction = '__init__';
+let barEls = {};
+let lastFiredAt = 0;
+let barsBuilt = false;
+
+const webcamEl = document.getElementById('webcam');
+const retryBtn = document.getElementById('retryBtn');
+
+// ================================================================
+//  LABEL MAP HELPERS
+// ================================================================
+function buildLabelMap(rawMap) {
+  const out = {};
+  for (const [className, value] of Object.entries(rawMap)) {
+    if (value === null) { out[className] = null; continue; }
+    const ids = Array.isArray(value) ? value : [value];
+    const primaryId = ids[0];
+    const lookup = id => (typeof WEAPONS_CONFIG !== 'undefined')
+      ? WEAPONS_CONFIG.weapons.find(w => w.id === id) : null;
+    const primary = lookup(primaryId);
+    if (!primary) { console.warn('[buildLabelMap] unknown weaponId:', primaryId); out[className] = null; continue; }
+    const validIds = ids.filter(id => !!lookup(id));
+    const isDisruptor = primary.player === 'disruptor';
+    const actionLabel = validIds.length > 1
+      ? validIds.map(id => lookup(id).name.toUpperCase()).join(' + ')
+      : primary.name.toUpperCase();
+    out[className] = {
+      player: isDisruptor ? 'A' : 'B',
+      role: primary.player.toUpperCase(),
+      action: actionLabel,
+      weaponId: primaryId,
+      weaponIds: validIds,
+      color: isDisruptor ? '#cc0000' : '#3b82f6',
+      barClass: isDisruptor ? '' : 'player-b',
+    };
   }
+  return out;
+}
+
+function buildConfigTable(rawMap) {
+  const rows = Object.entries(rawMap)
+    .filter(([, value]) => value !== null)
+    .map(([className, value]) => {
+      const ids = Array.isArray(value) ? value : [value];
+      const lookup = id => (typeof WEAPONS_CONFIG !== 'undefined')
+        ? WEAPONS_CONFIG.weapons.find(w => w.id === id) : null;
+      const label = ids.map(id => { const w = lookup(id); return w ? `${id} — ${w.name}` : id; }).join('<br>');
+      return `<div class="tp-bar-row"><div class="tp-bar-label">${className}</div><div style="font-size:8px;color:#666;padding:1px 0">${label}</div></div>`;
+    });
+  return rows.length ? rows.join('') : '<span style="color:#333">— none mapped —</span>';
+}
+
+// ================================================================
+//  CHANNEL
+// ================================================================
+const gameChannel = new BroadcastChannel('deepseas-game');
+
+// ================================================================
+//  MANIFEST → MODEL
+// ================================================================
+async function loadManifest() {
+  let manifest;
+  try {
+    const res = await fetch('./models/manifest.json');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    manifest = await res.json();
+  } catch(e) {
+    manifest = [{ id: 'tm-my-image-model', name: 'Default', path: './tm-my-image-model/' }];
+  }
+  const sel = document.getElementById('modelSelect');
+  sel.innerHTML = '';
+  manifest.forEach(entry => {
+    const opt = document.createElement('option');
+    opt.value = entry.path; opt.textContent = entry.name;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change', async () => {
+    stopCamera(); barsBuilt = false; LABEL_MAP = {};
+    await loadModel(sel.value);
+  });
+  const defaultEntry = manifest.find(m => m.id === 'final_model')
+                    || manifest.find(m => m.id === 'tm_model_02')
+                    || manifest[0];
+  if (defaultEntry !== manifest[0]) sel.value = defaultEntry.path;
+  await loadModel(defaultEntry.path);
+}
+
+async function loadModel(path) {
+  currentModelPath = path;
+  document.getElementById('tpModel').textContent = 'LOADING';
+  document.getElementById('tpModel').className = 'tp-value loading';
+  try {
+    const probe = await fetch(path + 'model.json');
+    if (!probe.ok) throw new Error('HTTP ' + probe.status);
+  } catch(preflight) {
+    document.getElementById('tpModel').textContent = 'ERROR';
+    document.getElementById('tpModel').className = 'tp-value error';
+    retryBtn.textContent = 'RETRY MODEL';
+    retryBtn.style.display = 'block';
+    retryBtn.onclick = () => { retryBtn.style.display = 'none'; loadModel(path); };
+    return;
+  }
+  try {
+    const lmRes = await fetch(path + 'label-map.json');
+    if (!lmRes.ok) throw new Error('HTTP ' + lmRes.status);
+    const rawMap = await lmRes.json();
+    LABEL_MAP = buildLabelMap(rawMap);
+    document.getElementById('tpLabelMap').innerHTML = buildConfigTable(rawMap);
+  } catch(lmErr) {
+    console.warn('[Detection] label-map.json not found:', lmErr.message);
+    document.getElementById('tpLabelMap').innerHTML = '<span style="color:#cc0000">label-map.json missing</span>';
+  }
+  try {
+    model = await tmImage.load(path + 'model.json', path + 'metadata.json');
+    document.getElementById('tpModel').textContent = 'READY';
+    document.getElementById('tpModel').className = 'tp-value ready';
+    startCamera();
+  } catch(e) {
+    document.getElementById('tpModel').textContent = 'ERROR';
+    document.getElementById('tpModel').className = 'tp-value error';
+    retryBtn.textContent = 'RETRY MODEL';
+    retryBtn.style.display = 'block';
+    retryBtn.onclick = () => { retryBtn.style.display = 'none'; loadModel(path); };
+  }
+}
+
+// ================================================================
+//  CAMERA + PREDICT LOOP
+// ================================================================
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    webcamEl.srcObject = stream;
+    await new Promise(resolve => {
+      if (webcamEl.readyState >= 2) { resolve(); return; }
+      webcamEl.addEventListener('loadeddata', resolve, { once: true });
+    });
+    webcamEl.play();
+    predCanvas = document.createElement('canvas');
+    predCanvas.width = 224; predCanvas.height = 224;
+    predCtx = predCanvas.getContext('2d');
+    document.getElementById('tpCamera').textContent = 'ACTIVE';
+    document.getElementById('tpCamera').className = 'tp-value ready';
+    document.getElementById('camStatus').textContent = '● LIVE';
+    document.getElementById('camStatus').style.color = '#22c55e';
+    running = true; lastFrameTime = performance.now();
+    requestAnimationFrame(loop);
+  } catch(e) {
+    document.getElementById('tpCamera').textContent = 'DENIED';
+    document.getElementById('tpCamera').className = 'tp-value error';
+    retryBtn.textContent = 'RETRY CAMERA';
+    retryBtn.style.display = 'block';
+    retryBtn.onclick = () => { retryBtn.style.display = 'none'; startCamera(); };
+  }
+}
+
+function buildBars(predictions) {
+  const container = document.getElementById('tpBars');
+  container.innerHTML = ''; barEls = {};
+  predictions.forEach(p => {
+    const map = LABEL_MAP[p.className];
+    const barClass = map ? map.barClass : 'bg-class';
+    const lblEl = document.createElement('div'); lblEl.className = 'tp-bar-label'; lblEl.textContent = p.className.replace(' → ', ' // ');
+    const fillEl = document.createElement('div'); fillEl.className = 'tp-bar-fill' + (barClass ? ' ' + barClass : ''); fillEl.style.width = '0%';
+    const pctEl = document.createElement('div'); pctEl.className = 'tp-bar-pct'; pctEl.textContent = '0%';
+    const bgEl = document.createElement('div'); bgEl.className = 'tp-bar-bg'; bgEl.appendChild(fillEl);
+    const trackEl = document.createElement('div'); trackEl.className = 'tp-bar-track'; trackEl.appendChild(bgEl); trackEl.appendChild(pctEl);
+    const rowEl = document.createElement('div'); rowEl.className = 'tp-bar-row'; rowEl.appendChild(lblEl); rowEl.appendChild(trackEl);
+    container.appendChild(rowEl);
+    barEls[p.className] = { fill: fillEl, pct: pctEl, lbl: lblEl };
+  });
+}
+
+async function loop() {
+  if (!running) return;
+  requestAnimationFrame(loop);
+  if (webcamEl.readyState < 2) return;
+  predCtx.drawImage(webcamEl, 0, 0, 224, 224);
+  let predictions;
+  try { predictions = await model.predict(predCanvas); } catch(e) { return; }
+  frameCount++;
+  if (!barsBuilt) { buildBars(predictions); barsBuilt = true; }
+  const now = performance.now();
+  const dt = (now - lastFrameTime) / 1000;
+  lastFrameTime = now;
+  fpsSmoothed += (1 / dt - fpsSmoothed) * 0.1;
+  const fps = Math.round(fpsSmoothed);
+  updateTechPanel(predictions, fps);
+  updateFiring(predictions);
+}
+
+function updateTechPanel(predictions, fps) {
+  document.getElementById('tpFPS').textContent = fps;
+  document.getElementById('tpFrames').textContent = frameCount;
+  const sorted = [...predictions].sort((a, b) => b.probability - a.probability);
+  const top = sorted[0];
+  document.getElementById('tpTopClass').textContent = top.className;
+  document.getElementById('tpConf').textContent = (top.probability * 100).toFixed(1) + '%';
+  predictions.forEach(p => {
+    const els = barEls[p.className]; if (!els) return;
+    const pct = p.probability * 100;
+    els.fill.style.width = pct.toFixed(1) + '%';
+    els.pct.textContent = pct.toFixed(0) + '%';
+    els.pct.className = 'tp-bar-pct' + (pct >= 70 ? ' high' : '');
+    els.lbl.className = 'tp-bar-label' + (p.className === top.className ? ' top-class' : '');
+  });
+}
+
+function updateFiring(predictions) {
+  const sorted = [...predictions].sort((a, b) => b.probability - a.probability);
+  const top = sorted[0];
+  const map = LABEL_MAP[top.className];
+  const conf = top.probability;
+  if (!map || conf < CONFIDENCE_THRESHOLD) { currentAction = null; return; }
+  const actionKey = map.player + '|' + map.action;
+  if (currentAction !== actionKey) {
+    currentAction = actionKey;
+    const now = Date.now();
+    if (map.weaponIds && map.weaponIds.length && (now - lastFiredAt) > FIRE_DEBOUNCE_MS) {
+      lastFiredAt = now;
+      map.weaponIds.forEach(id => gameChannel.postMessage({ type: 'FIRE_WEAPON', weaponId: id }));
+      const firedBy = map.weaponIds[0].startsWith('D') ? 'disruptor' : 'defender';
+      gameChannel.postMessage({ type: 'CURRENT_PLAYER', player: firedBy === 'disruptor' ? 'defender' : 'disruptor' });
+    }
+  }
+}
+
+function stopCamera() {
+  running = false;
+  if (webcamEl.srcObject) { webcamEl.srcObject.getTracks().forEach(t => t.stop()); webcamEl.srcObject = null; }
+  document.getElementById('tpCamera').textContent = 'OFFLINE';
+  document.getElementById('tpCamera').className = 'tp-value loading';
+  document.getElementById('camStatus').textContent = '● OFFLINE';
+  document.getElementById('camStatus').style.color = '#cc0000';
+}
+
+// ================================================================
+//  KEYBOARD (1–6 / a–f / 0 standardised)
+// ================================================================
+const KEY_MAP_CC = {
+  '1':'D01','2':'D02','3':'D03','4':'D04','5':'D05','6':'D06',
+  'a':'R01','b':'R02','c':'R03','d':'R04','e':'R05','f':'R06',
+};
+document.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  const id = KEY_MAP_CC[e.key];
+  if (id) {
+    gameChannel.postMessage({ type: 'FIRE_WEAPON', weaponId: id });
+    const firedBy = id.startsWith('D') ? 'disruptor' : 'defender';
+    gameChannel.postMessage({ type: 'CURRENT_PLAYER', player: firedBy === 'disruptor' ? 'defender' : 'disruptor' });
+  }
+});
+
+// ================================================================
+//  MODE BROADCAST
+// ================================================================
+function broadcastMode(mode) {
+  new BroadcastChannel('hormuz-mode').postMessage({ mode });
+}
+
+// ================================================================
+//  BOOT
+// ================================================================
+loadManifest();
 </script>
+
 </body>
 </html>
