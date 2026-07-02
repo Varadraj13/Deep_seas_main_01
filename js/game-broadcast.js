@@ -22,6 +22,7 @@ function broadcastGameState() {
       phase:  r.phase,
       number: r.number,
       scores: r.scores.slice()
-    }
+    },
+    actionLog: marketState.actionLog.slice(-10)
   });
 }

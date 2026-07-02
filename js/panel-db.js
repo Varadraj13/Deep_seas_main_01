@@ -6,7 +6,7 @@ let dbPanelOpen = false;
 function toggleDBPanel() {
   dbPanelOpen = !dbPanelOpen;
   document.getElementById('dbStatsPanel').classList.toggle('show', dbPanelOpen);
-  document.getElementById('btnDB').classList.toggle('active', dbPanelOpen);
+  document.getElementById('btnDB')?.classList.toggle('active', dbPanelOpen);
   if (dbPanelOpen) updateDBPanel();
 }
 

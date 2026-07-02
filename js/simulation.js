@@ -21,14 +21,17 @@ function _calcFlowPct(avgRawSpeed, mult) {
 function togglePlay() {
   playing = !playing;
   const btn = document.getElementById('btnPlay');
-  btn.textContent = playing ? 'PLAY' : 'PAUSE';
-  btn.classList.toggle('active', playing);
+  if (btn) { btn.textContent = playing ? 'PLAY' : 'PAUSE'; btn.classList.toggle('active', playing); }
 }
 function stepOnce() {
-  if(playing){ playing=false; document.getElementById('btnPlay').textContent='PAUSE'; document.getElementById('btnPlay').classList.remove('active'); }
+  if (playing) {
+    playing = false;
+    const btn = document.getElementById('btnPlay');
+    if (btn) { btn.textContent = 'PAUSE'; btn.classList.remove('active'); }
+  }
   updateSim(1/60);
 }
-function setSpeed(val) { simSpeed=parseInt(val); document.getElementById('speedLabel').textContent=simSpeed+'X'; }
+function setSpeed(val) { simSpeed=parseInt(val); const lbl=document.getElementById('speedLabel'); if(lbl) lbl.textContent=simSpeed+'X'; }
 
 function resetSim() {
   vessels.forEach(v => map.removeLayer(v.marker));
@@ -160,15 +163,7 @@ function updateSim(dtReal) {
     }
   }
 
-  // Collision detection
-  for (let i=0; i<vessels.length; i++) {
-    for (let j=i+1; j<vessels.length; j++) {
-      const a=vessels[i].marker.getLatLng(), b=vessels[j].marker.getLatLng();
-      if(dist([a.lat,a.lng],[b.lat,b.lng]) < CONFIG.COLLISION_DIST_NM) activeWarnings++;
-    }
-  }
   warningCount = activeWarnings;
-  document.getElementById('collisionWarning').style.display = activeWarnings > 0 ? 'block' : 'none';
 
   // Trails
   if (showTrails) {
@@ -309,14 +304,14 @@ let showTrails = false, trailLines = [], nightMode = false;
 let routeLinesVisible = true, heatmapVisible = false;
 let heatLayer = null;
 
-function toggleNight() { nightMode=!nightMode; document.body.classList.toggle('night-mode',nightMode); document.getElementById('btnNight').classList.toggle('active',nightMode); }
+function toggleNight() { nightMode=!nightMode; document.body.classList.toggle('night-mode',nightMode); document.getElementById('btnNight')?.classList.toggle('active',nightMode); }
 function toggleTrails() {
-  showTrails=!showTrails; document.getElementById('btnTrails').classList.toggle('active',showTrails);
+  showTrails=!showTrails; document.getElementById('btnTrails')?.classList.toggle('active',showTrails);
   if(!showTrails){ trailLines.forEach(l=>map.removeLayer(l)); trailLines=[]; vessels.forEach(v=>v.trail=[]); }
 }
 function toggleRoutes() {
   routeLinesVisible = !routeLinesVisible;
-  document.getElementById('btnRoutes').classList.toggle('active', routeLinesVisible);
+  document.getElementById('btnRoutes')?.classList.toggle('active', routeLinesVisible);
   if (routeLinesVisible) { routeLayerNW.addTo(map); routeLayerSE.addTo(map); }
   else { map.removeLayer(routeLayerNW); map.removeLayer(routeLayerSE); }
 }
@@ -325,7 +320,7 @@ function toggleRoutes() {
 let heatCanvas = null, heatCtx = null;
 function toggleHeatmap() {
   heatmapVisible = !heatmapVisible;
-  document.getElementById('btnHeat').classList.toggle('active', heatmapVisible);
+  document.getElementById('btnHeat')?.classList.toggle('active', heatmapVisible);
   document.getElementById('heatLegend').classList.toggle('show', heatmapVisible);
   if (!heatmapVisible && heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
 }

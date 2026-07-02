@@ -12,7 +12,7 @@ let dragWasPaused = false;
 
 function toggleDragMode() {
   dragMode = !dragMode;
-  document.getElementById('btnDrag').classList.toggle('active', dragMode);
+  document.getElementById('btnDrag')?.classList.toggle('active', dragMode);
 
   vessels.forEach(v => {
     if (dragMode) {

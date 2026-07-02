@@ -158,6 +158,65 @@
     transition: all 0.15s;
   }
   #retryBtn:hover { border-color: #cc0000; color: #fff; }
+
+  /* ── SIM CONTROLS PANEL ── */
+  #simControlsPanel {
+    width: 200px; flex: none;
+    background: #0a0a0a; border: 1px solid #1a1a1a;
+    padding: 10px 12px;
+    font-size: 9px;
+    max-height: 100%; overflow-y: auto;
+    scrollbar-width: thin; scrollbar-color: #222 transparent;
+    display: flex; flex-direction: column; gap: 0;
+  }
+  #simControlsPanel::-webkit-scrollbar { width: 3px; }
+  #simControlsPanel::-webkit-scrollbar-thumb { background: #222; }
+
+  .sc-title { font-size: 8px; color: #cc0000; letter-spacing: 3px; text-transform: uppercase; font-weight: 400; margin-bottom: 8px; }
+  .sc-label { font-size: 7px; color: #444; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 3px; display: block; }
+  .sc-group { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #111; }
+  .sc-group:last-child { border-bottom: none; margin-bottom: 0; }
+
+  .sc-btn-row { display: flex; gap: 3px; flex-wrap: wrap; }
+  .sc-btn {
+    flex: 1; min-width: 30px;
+    background: transparent; border: 1px solid #222; color: #888;
+    font-family: 'IBM Plex Mono', monospace; font-size: 8px;
+    letter-spacing: 1px; text-transform: uppercase;
+    padding: 5px 4px; cursor: pointer; text-align: center;
+    transition: all 0.12s; white-space: nowrap;
+  }
+  .sc-btn:hover { border-color: #666; color: #ccc; }
+  .sc-btn.active { border-color: #cc0000; color: #cc0000; }
+  .sc-btn.wide { flex: none; width: 100%; margin-top: 3px; }
+
+  .sc-speed-row { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
+  .sc-speed-row input[type=range] { flex: 1; accent-color: #cc0000; }
+  .sc-speed-val { font-size: 9px; color: #ccc; min-width: 24px; text-align: right; }
+
+  /* tabs */
+  .sc-tab-bar { display: flex; gap: 2px; margin-bottom: 4px; }
+  .sc-tab { flex:1; background:transparent; border:1px solid #1a1a1a; color:#555;
+    font-family:'IBM Plex Mono',monospace; font-size:7px; letter-spacing:1px;
+    text-transform:uppercase; padding:4px 2px; cursor:pointer; text-align:center; }
+  .sc-tab.active { border-color:#333; color:#ccc; }
+  .sc-content { display:none; }
+  .sc-content.active { display:block; }
+
+  /* legend dots */
+  .sc-legend { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 4px; }
+  .sc-leg-item { display: flex; align-items: center; gap: 4px; font-size: 7px; color: #555; }
+  .sc-leg-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+
+  /* dashboard */
+  #scDash { font-size: 8px; color: #555; line-height: 1.6; }
+  #scDash .dash-row { display: flex; justify-content: space-between; padding: 1px 0; border-bottom: 1px solid #0f0f0f; }
+  #scDash .dash-key { color: #444; }
+  #scDash .dash-val { color: #ccc; }
+  #scLog { font-size: 7px; color: #444; line-height: 1.5; margin-top: 4px; max-height: 80px; overflow-y: auto; }
+  #scLog .log-line { padding: 1px 0; border-bottom: 1px solid #0a0a0a; }
+  #scLog .log-line.attack { color: #cc0000; }
+  #scLog .log-line.defend { color: #3b82f6; }
 </style>
 </head>
 <body>
@@ -181,6 +240,130 @@
 
 <!-- ── DETECTION ENGINE ── -->
 <div id="detectionArea">
+
+  <!-- SIM CONTROLS — sends over hormuz-controls BroadcastChannel -->
+  <div id="simControlsPanel">
+    <div class="sc-title">SIM CONTROLS</div>
+
+    <!-- Simulation -->
+    <div class="sc-group">
+      <span class="sc-label">Simulation</span>
+      <div class="sc-btn-row">
+        <button class="sc-btn" id="scBtnPlay" onclick="ctrl('PLAY')">PLAY</button>
+        <button class="sc-btn" onclick="ctrl('STEP')">STEP</button>
+        <button class="sc-btn" onclick="ctrl('RESET')">RST</button>
+      </div>
+      <div class="sc-speed-row">
+        <input type="range" id="scSpeed" min="1" max="50" value="5" oninput="ctrl('SET_SPEED',this.value);document.getElementById('scSpeedVal').textContent=this.value+'X'">
+        <span class="sc-speed-val" id="scSpeedVal">5X</span>
+      </div>
+      <div class="sc-btn-row" style="margin-top:3px">
+        <button class="sc-btn" onclick="ctrl('ADD_VESSEL')">+ADD</button>
+        <button class="sc-btn" onclick="ctrl('REMOVE_VESSEL')">-RMV</button>
+      </div>
+    </div>
+
+    <!-- Round -->
+    <div class="sc-group">
+      <span class="sc-label">Round</span>
+      <div class="sc-btn-row">
+        <button class="sc-btn" onclick="ctrl('START_ROUND')">START</button>
+        <button class="sc-btn" onclick="ctrl('PAUSE_ROUND')">PAUSE</button>
+        <button class="sc-btn" onclick="ctrl('RESET_GAME')">RESET</button>
+      </div>
+      <button class="sc-btn wide" onclick="ctrl('END_GAME')">END GAME</button>
+    </div>
+
+    <!-- Display -->
+    <div class="sc-group">
+      <span class="sc-label">Display</span>
+      <div class="sc-btn-row">
+        <button class="sc-btn" id="scBtnNGT"  onclick="ctrlToggle('TOGGLE_NIGHT','scBtnNGT')">NGT</button>
+        <button class="sc-btn" id="scBtnTRL"  onclick="ctrlToggle('TOGGLE_TRAILS','scBtnTRL')">TRL</button>
+        <button class="sc-btn" id="scBtnRTE"  onclick="ctrlToggle('TOGGLE_ROUTES','scBtnRTE')">RTE</button>
+        <button class="sc-btn" id="scBtnHT"   onclick="ctrlToggle('TOGGLE_HEATMAP','scBtnHT')">HT</button>
+      </div>
+      <div class="sc-btn-row" style="margin-top:3px">
+        <button class="sc-btn active" id="scBtnGFW"  onclick="ctrlToggle('TOGGLE_GFW','scBtnGFW')">GFW</button>
+        <button class="sc-btn" id="scBtnDB"   onclick="ctrlToggle('TOGGLE_DB','scBtnDB')">DB</button>
+        <button class="sc-btn" id="scBtnDRG"  onclick="ctrlToggle('TOGGLE_DRAG','scBtnDRG')">DRG</button>
+      </div>
+      <div class="sc-btn-row" style="margin-top:3px">
+        <button class="sc-btn" id="scBtnHAND" onclick="ctrlToggle('TOGGLE_HAND','scBtnHAND')">HAND</button>
+        <button class="sc-btn" id="scBtnESY"  onclick="ctrlToggle('TOGGLE_EASYHANDS','scBtnESY')">ESYHD</button>
+      </div>
+    </div>
+
+    <!-- Filter / Env / Econ / Data tabs -->
+    <div class="sc-group">
+      <div class="sc-tab-bar">
+        <button class="sc-tab active" onclick="switchScTab('filter',this)">FILTER</button>
+        <button class="sc-tab" onclick="switchScTab('env',this)">ENV</button>
+        <button class="sc-tab" onclick="switchScTab('econ',this)">ECON</button>
+        <button class="sc-tab" onclick="switchScTab('data',this)">DATA</button>
+      </div>
+      <div class="sc-content active" id="scTab-filter">
+        <select id="scFilterType" style="width:100%;background:#111;border:1px solid #1a1a1a;color:#888;font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px;margin-bottom:2px;" onchange="sendFilters()">
+          <option value="">All Types</option>
+          <option value="tanker">Tanker</option>
+          <option value="container">Container</option>
+          <option value="cargo">Cargo</option>
+          <option value="bulk">Bulk</option>
+          <option value="lng">LNG</option>
+        </select>
+        <select id="scFilterFlag" style="width:100%;background:#111;border:1px solid #1a1a1a;color:#888;font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px;margin-bottom:2px;" onchange="sendFilters()">
+          <option value="">All Flags</option>
+        </select>
+        <input id="scSearchVessel" placeholder="Search name/IMO..." style="width:100%;background:#111;border:1px solid #1a1a1a;color:#888;font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px;" oninput="sendFilters()">
+      </div>
+      <div class="sc-content" id="scTab-env">
+        <div id="scEnvStats" style="font-size:8px;color:#444;line-height:1.8">— awaiting data —</div>
+      </div>
+      <div class="sc-content" id="scTab-econ">
+        <div id="scEconStats" style="font-size:8px;color:#444;line-height:1.8">— awaiting data —</div>
+      </div>
+      <div class="sc-content" id="scTab-data">
+        <div class="sc-btn-row" style="margin-bottom:3px">
+          <button class="sc-btn" onclick="ctrl('EXPORT_JSON')">JSON</button>
+          <button class="sc-btn" onclick="ctrl('EXPORT_CSV')">CSV</button>
+        </div>
+        <div class="sc-btn-row">
+          <button class="sc-btn" onclick="ctrl('SAVE_STATE')">SAVE</button>
+          <button class="sc-btn" onclick="ctrl('LOAD_STATE')">LOAD</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="sc-group">
+      <span class="sc-label">Legend</span>
+      <div class="sc-legend">
+        <div class="sc-leg-item"><div class="sc-leg-dot" style="background:#ef4444"></div>Tanker</div>
+        <div class="sc-leg-item"><div class="sc-leg-dot" style="background:#3b82f6"></div>Container</div>
+        <div class="sc-leg-item"><div class="sc-leg-dot" style="background:#22c55e"></div>Cargo</div>
+        <div class="sc-leg-item"><div class="sc-leg-dot" style="background:#a855f7"></div>Bulk</div>
+        <div class="sc-leg-item"><div class="sc-leg-dot" style="background:#f59e0b"></div>LNG</div>
+      </div>
+    </div>
+
+    <!-- Game Dashboard -->
+    <div class="sc-group">
+      <span class="sc-label">Game Dashboard</span>
+      <div id="scDash">
+        <div class="dash-row"><span class="dash-key">PROB</span><span class="dash-val" id="scProb">—</span></div>
+        <div class="dash-row"><span class="dash-key">ROUND</span><span class="dash-val" id="scRound">—</span></div>
+        <div class="dash-row"><span class="dash-key">SCORE</span><span class="dash-val" id="scScore">—</span></div>
+        <div class="dash-row"><span class="dash-key">ACTIVE</span><span class="dash-val" id="scActive">—</span></div>
+        <div class="dash-row"><span class="dash-key">LAST ACT</span><span class="dash-val" id="scLastAct" style="font-size:7px;text-align:right;max-width:100px;line-height:1.4">—</span></div>
+      </div>
+      <div id="scLog"></div>
+    </div>
+
+    <!-- Tactical Detection link -->
+    <div class="sc-group">
+      <a href="detector.html" target="_blank" style="display:block;text-align:center;padding:6px;border:1px solid #1a1a1a;color:#555;font-size:8px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;" onmouseover="this.style.borderColor='#666';this.style.color='#ccc'" onmouseout="this.style.borderColor='#1a1a1a';this.style.color='#555'">BROADCAST CONSOLE</a>
+    </div>
+  </div>
 
   <div id="techPanel">
     <div class="tp-title">DETECTION SYSTEM</div>
@@ -522,6 +705,87 @@ document.addEventListener('keydown', e => {
 function broadcastMode(mode) {
   new BroadcastChannel('hormuz-mode').postMessage({ mode });
 }
+
+// ================================================================
+//  SIM CONTROLS — hormuz-controls BroadcastChannel
+// ================================================================
+const _ctrlCh = new BroadcastChannel('hormuz-controls');
+
+function ctrl(action, value) {
+  _ctrlCh.postMessage(value !== undefined ? { action, value } : { action });
+}
+
+function ctrlToggle(action, btnId) {
+  const btn = document.getElementById(btnId);
+  if (btn) btn.classList.toggle('active');
+  ctrl(action);
+}
+
+function switchScTab(name, el) {
+  document.querySelectorAll('#simControlsPanel .sc-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#simControlsPanel .sc-content').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  const tab = document.getElementById('scTab-' + name);
+  if (tab) tab.classList.add('active');
+}
+
+function sendFilters() {
+  _ctrlCh.postMessage({
+    action: 'APPLY_FILTERS',
+    filters: {
+      type:   document.getElementById('scFilterType').value,
+      flag:   document.getElementById('scFilterFlag').value,
+      origin: '',
+      dest:   '',
+      search: document.getElementById('scSearchVessel').value,
+    }
+  });
+}
+
+// ================================================================
+//  GAME DASHBOARD — listen to hormuz-game for live stats
+// ================================================================
+(function() {
+  const gameCh = new BroadcastChannel('hormuz-game');
+  gameCh.onmessage = function(e) {
+    const d = e.data;
+    if (!d) return;
+
+    const el = function(id) { return document.getElementById(id); };
+
+    if (d.shipProbability !== undefined) {
+      if (el('scProb')) el('scProb').textContent = d.shipProbability + '%';
+    }
+    if (d.round) {
+      const r = d.round;
+      if (el('scRound')) el('scRound').textContent = 'R' + r.number + ' · ' + r.phase.toUpperCase();
+      if (el('scScore')) el('scScore').textContent = 'A' + (r.scores[0]||0) + ' – B' + (r.scores[1]||0);
+    }
+    if (d.activeWeapons) {
+      if (el('scActive')) el('scActive').textContent = d.activeWeapons.length ? d.activeWeapons.join(' ') : 'NONE';
+    }
+    if (d.actionLog && d.actionLog.length) {
+      // Last Action (zone 2 equivalent)
+      if (el('scLastAct')) {
+        const last = d.actionLog[d.actionLog.length - 1];
+        if (last) {
+          const sign = last.delta >= 0 ? '↑ +' : '↓ ';
+          el('scLastAct').textContent = last.weaponId + ' · ' + sign + Math.abs(last.delta) + '%';
+        }
+      }
+      // Event Log (zone 4 — last 3, newest first)
+      if (el('scLog')) {
+        const last3 = d.actionLog.slice(-3).reverse();
+        el('scLog').innerHTML = last3.map(function(e) {
+          const isAttack = e.weaponId && e.weaponId.startsWith('D');
+          const cls = 'log-line ' + (isAttack ? 'attack' : 'defend');
+          const sign = e.delta >= 0 ? '+' : '';
+          return '<div class="' + cls + '">→ ' + e.weaponId + '  ' + sign + e.delta + '%</div>';
+        }).join('');
+      }
+    }
+  };
+})();
 
 // ================================================================
 //  BOOT

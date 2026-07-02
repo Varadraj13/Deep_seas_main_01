@@ -370,8 +370,7 @@ function toggleHandMode() {
     const btn = document.getElementById('btnHand');
 
     if (handMode) {
-        btn.classList.add('active');
-        btn.textContent = '\u270B Hand: ON';
+        if (btn) { btn.classList.add('active'); btn.textContent = '\u270B Hand: ON'; }
         debugCanvas.style.display = 'block';
         console.log('%c[Hand Mode] ENABLED', 'color: #4ade80; font-weight: bold; font-size: 14px');
         if (!camera) {
@@ -386,8 +385,7 @@ function toggleHandMode() {
             console.log('[Hand] Camera started');
         }
     } else {
-        btn.classList.remove('active');
-        btn.textContent = '\u270B Hand Mode';
+        if (btn) { btn.classList.remove('active'); btn.textContent = '\u270B Hand Mode'; }
         debugCanvas.style.display = 'none';
         console.log('%c[Hand Mode] DISABLED', 'color: #f87171; font-weight: bold; font-size: 14px');
         if (handCursorMarker) {
@@ -398,8 +396,8 @@ function toggleHandMode() {
         // Auto-disable EasyHands
         if (easyHandsMode) {
             easyHandsMode = false;
-            document.getElementById('btnEasyHands').classList.remove('active');
-            document.getElementById('btnEasyHands').textContent = '\uD83C\uDFAF EasyHands';
+            document.getElementById('btnEasyHands')?.classList.remove('active');
+            document.getElementById('btnEasyHands') && (document.getElementById('btnEasyHands').textContent = '\uD83C\uDFAF EasyHands');
         }
     }
 }
@@ -409,16 +407,14 @@ function toggleEasyHands() {
     const btn = document.getElementById('btnEasyHands');
 
     if (easyHandsMode) {
-        btn.classList.add('active');
-        btn.textContent = '\uD83C\uDFAF Easy: ON';
+        if (btn) { btn.classList.add('active'); btn.textContent = '\uD83C\uDFAF Easy: ON'; }
         console.log('%c[EasyHands] ENABLED — pinch anywhere to grab nearest ship', 'color: #22d3ee; font-weight: bold; font-size: 14px');
         // Auto-enable Hand Mode
         if (!handMode) {
             toggleHandMode();
         }
     } else {
-        btn.classList.remove('active');
-        btn.textContent = '\uD83C\uDFAF EasyHands';
+        if (btn) { btn.classList.remove('active'); btn.textContent = '\uD83C\uDFAF EasyHands'; }
         console.log('%c[EasyHands] DISABLED', 'color: #94a3b8; font-weight: bold');
         clearEasyHandsVisuals();
     }

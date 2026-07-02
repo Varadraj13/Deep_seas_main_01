@@ -317,7 +317,7 @@ function _gfwOnMapClick(e) {
 function toggleGFW() {
   gfwVisible = !gfwVisible;
   console.log('[GFW] toggleGFW called, visible=' + gfwVisible);
-  document.getElementById('btnGFW').classList.toggle('active', gfwVisible);
+  document.getElementById('btnGFW')?.classList.toggle('active', gfwVisible);
   if (gfwVisible) {
     gfwLayer = new GFWLayer({ pane: 'gfwPane', opacity: 0.75, tileSize: 256 });
     gfwLayer.addTo(map);

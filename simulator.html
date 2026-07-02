@@ -89,7 +89,7 @@
 
 <div id="map"></div>
 
-<!-- ===== CONTROL PANEL ===== -->
+<!-- ===== CONTROL PANEL — header + stats only; controls moved to control-center.html ===== -->
 <div id="controls">
   <h2>STRAIT OF HORMUZ</h2>
   <div class="ctrl-subtitle">TRAFFIC CONTROL SYS</div>
@@ -100,149 +100,8 @@
     <div class="stat-item"><div class="stat-val" id="warnings">0</div><div class="stat-lbl">Alerts</div></div>
   </div>
 
-  <!-- Sim controls -->
-  <div class="ctrl-group" style="margin-top:10px">
-    <label>Simulation</label>
-    <div class="btn-row">
-      <button class="btn active" id="btnPlay" onclick="togglePlay()">PLAY</button>
-      <button class="btn" onclick="stepOnce()">STEP</button>
-      <button class="btn" onclick="resetSim()">RST</button>
-    </div>
-  </div>
-  <div class="ctrl-group">
-    <label>SPEED // <span id="speedLabel">5X</span></label>
-    <input type="range" id="speedSlider" min="1" max="50" value="5" oninput="setSpeed(this.value)">
-  </div>
-  <div class="ctrl-group">
-    <div class="btn-row">
-      <button class="btn" onclick="addRandomVessel()">+ADD</button>
-      <button class="btn" onclick="removeLastVessel()">-RMV</button>
-    </div>
-  </div>
-
-  <!-- Round controls -->
-  <div class="ctrl-group" id="roundControls">
-    <label>ROUND</label>
-    <div class="btn-row">
-      <button class="btn" id="btnStartRound" onclick="startRound()">START</button>
-      <button class="btn" id="btnPauseRound" onclick="togglePauseRound()">PAUSE</button>
-      <button class="btn" id="btnResetGame"  onclick="resetGame()">RESET</button>
-    </div>
-    <button class="btn" id="btnEndGame" onclick="endGameNow()">END GAME</button>
-  </div>
-
-  <!-- Display controls -->
-  <div class="ctrl-group">
-    <label>Display</label>
-    <div class="btn-row">
-      <button class="btn" id="btnNight" onclick="toggleNight()">NGT</button>
-      <button class="btn" id="btnTrails" onclick="toggleTrails()">TRL</button>
-      <button class="btn" id="btnRoutes" onclick="toggleRoutes()">RTE</button>
-      <button class="btn" id="btnHeat" onclick="toggleHeatmap()">HT</button>
-      <button class="btn" id="btnGFW" onclick="toggleGFW()">GFW</button>
-      <button class="btn" id="btnDB" onclick="toggleDBPanel()">DB</button>
-      <button class="btn" id="btnDrag" onclick="toggleDragMode()">DRG</button>
-      <button class="btn" id="btnHand" onclick="toggleHandMode()">HAND</button>
-      <button class="btn" id="btnEasyHands" onclick="toggleEasyHands()">ESYHD</button>
-    </div>
-  </div>
-
-  <!-- Tabs: Filter | Analytics | Env | Econ -->
-  <div class="tab-bar">
-    <button class="tab-btn active" onclick="switchTab('filter',this)">Filter</button>
-    <button class="tab-btn" onclick="switchTab('environ',this)">Env</button>
-    <button class="tab-btn" onclick="switchTab('econ',this)">Econ</button>
-    <button class="tab-btn" onclick="switchTab('export',this)">Data</button>
-  </div>
-
-  <!-- Filter Tab -->
-  <div class="tab-content active" id="tab-filter">
-    <div class="filter-row">
-      <select id="filterType" onchange="applyFilters()">
-        <option value="">All Types</option>
-        <option value="tanker">Tanker</option>
-        <option value="container">Container</option>
-        <option value="cargo">Cargo</option>
-        <option value="bulk">Bulk</option>
-        <option value="lng">LNG</option>
-      </select>
-      <select id="filterFlag" onchange="applyFilters()">
-        <option value="">All Flags</option>
-      </select>
-    </div>
-    <div class="filter-row">
-      <select id="filterOrigin" onchange="applyFilters()">
-        <option value="">All Origins</option>
-      </select>
-      <select id="filterDest" onchange="applyFilters()">
-        <option value="">All Dest</option>
-      </select>
-    </div>
-    <div class="filter-row">
-      <input type="text" id="searchVessel" placeholder="Search name/IMO..." oninput="applyFilters()">
-    </div>
-    <div id="filterResults" style="font-size:10px;color:#444444;margin-top:2px;"></div>
-  </div>
-
-  <!-- Environmental Tab -->
-  <div class="tab-content" id="tab-environ">
-    <div class="sp-grid">
-      <div class="sp-field"><div class="sp-field-label">Total CO2</div><div class="sp-field-value" id="envCO2">0 t</div></div>
-      <div class="sp-field"><div class="sp-field-label">Total SOx</div><div class="sp-field-value" id="envSOx">0 t</div></div>
-      <div class="sp-field"><div class="sp-field-label">Total NOx</div><div class="sp-field-value" id="envNOx">0 t</div></div>
-      <div class="sp-field"><div class="sp-field-label">Fuel Used</div><div class="sp-field-value" id="envFuel">0 t</div></div>
-    </div>
-    <div style="margin-top:8px">
-      <h4 style="font-size:8px;color:#444444;text-transform:uppercase;margin-bottom:4px;letter-spacing:2px;font-weight:400">Fuel by Type</h4>
-      <div id="envFuelBreakdown"></div>
-    </div>
-  </div>
-
-  <!-- Economic Tab -->
-  <div class="tab-content" id="tab-econ">
-    <div class="sp-grid">
-      <div class="sp-field sp-wide"><div class="sp-field-label">Total Cargo Value in Strait</div><div class="sp-field-value" id="econTotal">$0</div></div>
-      <div class="sp-field"><div class="sp-field-label">Containers</div><div class="sp-field-value" id="econTEU">0 TEU</div></div>
-      <div class="sp-field"><div class="sp-field-label">Oil/Fuel</div><div class="sp-field-value" id="econOil">0 bbl</div></div>
-    </div>
-    <div style="margin-top:8px">
-      <h4 style="font-size:8px;color:#444444;text-transform:uppercase;margin-bottom:4px;letter-spacing:2px;font-weight:400">Top Corridors</h4>
-      <div id="econCorridors"></div>
-    </div>
-  </div>
-
-  <!-- Export Tab -->
-  <div class="tab-content" id="tab-export">
-    <div class="btn-row" style="margin-bottom:6px">
-      <button class="btn" onclick="exportJSON()">JSON</button>
-      <button class="btn" onclick="exportCSV()">CSV</button>
-    </div>
-    <div class="btn-row">
-      <button class="btn" onclick="saveState()">SAVE</button>
-      <button class="btn" onclick="loadState()">LOAD</button>
-    </div>
-    <div id="exportStatus" style="font-size:9px;color:#cc0000;margin-top:6px;letter-spacing:1px"></div>
-  </div>
-
-  <!-- Legend -->
-  <div class="ctrl-group" style="margin-top:6px">
-    <label>Legend</label>
-    <div class="legend">
-      <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>Tanker</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>Container</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Cargo</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#a855f7"></div>Bulk</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>LNG</div>
-    </div>
-  </div>
-
-  <!-- Tactical Detection Link -->
-  <div class="ctrl-group" style="margin-top:6px;border-top:1px solid #1a1a1a;padding-top:8px">
-    <a href="detector.html" class="btn" style="display:block;text-align:center;text-decoration:none;padding:5px 8px">TACTICAL DETECTION</a>
-  </div>
-
   <!-- GFW Vessel Results (populated on map click when GFW active) -->
-  <div id="vessel-results" style="display:none">
+  <div id="vessel-results" style="display:none;margin-top:10px;">
     <div class="vr-header">
       <span class="vr-title">VESSELS AT LOCATION</span>
       <button class="vr-clear" onclick="clearVesselResults()">CLEAR</button>
@@ -252,6 +111,21 @@
       <div class="vr-empty">Click map with GFW active to query vessels</div>
     </div>
   </div>
+</div>
+
+<!-- Hidden inputs kept for JS functions (applyFilters/setSpeed read these) -->
+<div style="display:none" aria-hidden="true">
+  <span id="speedLabel">5X</span>
+  <input type="range" id="speedSlider" min="1" max="50" value="5">
+  <select id="filterType"><option value="">All Types</option><option value="tanker">Tanker</option><option value="container">Container</option><option value="cargo">Cargo</option><option value="bulk">Bulk</option><option value="lng">LNG</option></select>
+  <select id="filterFlag"><option value="">All Flags</option></select>
+  <select id="filterOrigin"><option value="">All Origins</option></select>
+  <select id="filterDest"><option value="">All Dest</option></select>
+  <input type="text" id="searchVessel">
+  <div id="filterResults"></div>
+  <div id="envCO2"></div><div id="envSOx"></div><div id="envNOx"></div><div id="envFuel"></div><div id="envFuelBreakdown"></div>
+  <div id="econTotal"></div><div id="econTEU"></div><div id="econOil"></div><div id="econCorridors"></div>
+  <div id="exportStatus"></div>
 </div>
 
 <!-- ===== SHIP DETAIL PANEL ===== -->
@@ -532,9 +406,6 @@
 
 <!-- GFW bottom panel removed — results now shown in right-side control panel -->
 
-<!-- Collision warning -->
-<div class="collision-warning" id="collisionWarning">! COLLISION WARNING -- VESSELS IN CLOSE PROXIMITY</div>
-
 <!-- MediaPipe slow-load fallback banner -->
 <div class="mediapipe-warning" id="mediapipe-warning">! HAND TRACKING SLOW // MOUSE DRAG ACTIVE</div>
 
@@ -615,7 +486,18 @@ function showFlash(text, ms) {
 
 <!-- Layer 9: Bootstrap -->
 <script src="js/bootstrap.js"></script>
-<script>startTick();</script>
+<script>
+  startTick();
+  // Auto-enable GFW on boot so live vessel data is shown immediately
+  if (typeof toggleGFW === 'function' && !gfwVisible) toggleGFW();
+</script>
+
+<!-- Bottom-left map attribution caption -->
+<div id="mapCaption" style="position:absolute;bottom:24px;left:16px;z-index:999;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.55);pointer-events:none;line-height:1.6">
+  STRAIT OF HORMUZ &mdash; VESSEL TRAFFIC SIMULATION<br>
+  ROUTES DERIVED FROM 2023&ndash;2024 AIS PATTERNS &bull; GLOBAL FISHING WATCH<br>
+  EACH MARKER REPRESENTS ONE VESSEL TRANSITING THE STRAIT
+</div>
 
 </div><!-- /#sim-mode -->
 
@@ -637,6 +519,54 @@ function showFlash(text, ms) {
       }
     };
   })();
+</script>
+
+<!-- ── HORMUZ CONTROLS BroadcastChannel ──────────────────────────────── -->
+<script>
+(function() {
+  var ctrlCh = new BroadcastChannel('hormuz-controls');
+  ctrlCh.onmessage = function(e) {
+    var d = e.data;
+    if (!d || !d.action) return;
+    switch (d.action) {
+      case 'PLAY':           if (typeof togglePlay === 'function') togglePlay(); break;
+      case 'STEP':           if (typeof stepOnce === 'function') stepOnce(); break;
+      case 'RESET':          if (typeof resetSim === 'function') resetSim(); break;
+      case 'SET_SPEED':      if (typeof setSpeed === 'function') setSpeed(d.value); break;
+      case 'ADD_VESSEL':     if (typeof addRandomVessel === 'function') addRandomVessel(); break;
+      case 'REMOVE_VESSEL':  if (typeof removeLastVessel === 'function') removeLastVessel(); break;
+      case 'START_ROUND':    if (typeof startRound === 'function') startRound(); break;
+      case 'PAUSE_ROUND':    if (typeof togglePauseRound === 'function') togglePauseRound(); break;
+      case 'RESET_GAME':     if (typeof resetGame === 'function') resetGame(); break;
+      case 'END_GAME':       if (typeof endGameNow === 'function') endGameNow(); break;
+      case 'TOGGLE_NIGHT':   if (typeof toggleNight === 'function') toggleNight(); break;
+      case 'TOGGLE_TRAILS':  if (typeof toggleTrails === 'function') toggleTrails(); break;
+      case 'TOGGLE_ROUTES':  if (typeof toggleRoutes === 'function') toggleRoutes(); break;
+      case 'TOGGLE_HEATMAP': if (typeof toggleHeatmap === 'function') toggleHeatmap(); break;
+      case 'TOGGLE_GFW':     if (typeof toggleGFW === 'function') toggleGFW(); break;
+      case 'TOGGLE_DB':      if (typeof toggleDBPanel === 'function') toggleDBPanel(); break;
+      case 'TOGGLE_DRAG':    if (typeof toggleDragMode === 'function') toggleDragMode(); break;
+      case 'TOGGLE_HAND':    if (typeof toggleHandMode === 'function') toggleHandMode(); break;
+      case 'TOGGLE_EASYHANDS': if (typeof toggleEasyHands === 'function') toggleEasyHands(); break;
+      case 'TOGGLE_ANALYTICS': if (typeof toggleAnalytics === 'function') toggleAnalytics(); break;
+      case 'APPLY_FILTERS':
+        if (d.filters) {
+          var sel = function(id, val) { var el = document.getElementById(id); if (el) el.value = val || ''; };
+          sel('filterType',   d.filters.type);
+          sel('filterFlag',   d.filters.flag);
+          sel('filterOrigin', d.filters.origin);
+          sel('filterDest',   d.filters.dest);
+          var sv = document.getElementById('searchVessel'); if (sv) sv.value = d.filters.search || '';
+          if (typeof applyFilters === 'function') applyFilters();
+        }
+        break;
+      case 'EXPORT_JSON':  if (typeof exportJSON === 'function') exportJSON(); break;
+      case 'EXPORT_CSV':   if (typeof exportCSV === 'function') exportCSV(); break;
+      case 'SAVE_STATE':   if (typeof saveState === 'function') saveState(); break;
+      case 'LOAD_STATE':   if (typeof loadState === 'function') loadState(); break;
+    }
+  };
+})();
 </script>
 
 </body>
