@@ -9,7 +9,10 @@
 
 :root {
   /* ── Type ────────────────────────────────────────────────── */
-  --font-ui:        'IBM Plex Mono', ui-monospace, monospace;
+  /* Two roles: editorial serif for text/labels/headings, mono for data/numbers. */
+  --font-text:      'Playfair Display', Georgia, serif;        /* labels, headings, prose */
+  --font-data:      'JetBrains Mono', ui-monospace, monospace; /* numbers, stats, tables  */
+  --font-ui:        'IBM Plex Mono', ui-monospace, monospace;  /* legacy alias (pre-rollout) */
   --font-editorial: 'Playfair Display', Georgia, serif;
 
   /* Type scale (chrome atoms) */

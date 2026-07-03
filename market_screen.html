@@ -6,16 +6,16 @@
 <title>Market Screen</title>
 <script src="js/config.js"></script>
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/tokens.css">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&display=swap');
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
     background: var(--bg);
     color: var(--fg);
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: var(--font-text);
     height: 100vh;
     overflow: hidden;
     display: grid;
@@ -57,6 +57,7 @@
     margin-bottom: 3px;
   }
   .layer-val {
+    font-family: var(--font-data);
     font-size: 22px;
     font-weight: 300;
     letter-spacing: -0.02em;
@@ -103,6 +104,7 @@
   .no  .side-label { color: #ef4444; }
 
   .side-price {
+    font-family: var(--font-data);
     font-size: 32px;
     font-weight: 300;
     letter-spacing: -0.02em;
@@ -111,6 +113,7 @@
   .no  .side-price { color: #ef4444; }
 
   .side-meta {
+    font-family: var(--font-data);
     display: flex;
     gap: 16px;
     font-size: 9px;
@@ -149,7 +152,7 @@
   }
   .lb-row:last-child { border-bottom: none; }
   .lb-name { color: var(--fg); }
-  .lb-amt  { text-align: right; color: var(--muted); }
+  .lb-amt  { text-align: right; color: var(--muted); font-family: var(--font-data); }
 
   /* ── FOOTER ───────────────────────────────────────────────────── */
   footer {
@@ -162,6 +165,7 @@
     overflow: hidden;
   }
   #txFeed {
+    font-family: var(--font-data);
     font-size: 9px;
     color: var(--muted);
     letter-spacing: 0.1em;
@@ -175,6 +179,7 @@
   #txFeed .tx-open   { color: #22c55e; }
   #txFeed .tx-closed { color: #ef4444; }
   .footer-right {
+    font-family: var(--font-data);
     font-size: 9px;
     color: var(--faint);
     letter-spacing: 0.1em;
