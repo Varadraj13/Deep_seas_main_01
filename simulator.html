@@ -12,8 +12,8 @@
 <style>
 /* ── Game Dashboard ─────────────────────────────────────── */
 #gameDashboard {
-  position: fixed; top: 12px; right: 244px;
-  width: 260px; max-height: calc(100vh - 60px);
+  position: fixed; top: 56px; right: 244px;
+  width: 260px; max-height: calc(100vh - 104px);
   background: rgba(10,10,10,0.92);
   border: 1px solid rgba(255,255,255,0.08);
   font-family: monospace; font-size: 11px; color: #ccc;
@@ -74,6 +74,30 @@
 #btnPauseRound { color: #f59e0b; border-color: #f59e0b; }
 #btnResetGame  { color: #ef4444; border-color: #ef4444; }
 #btnEndGame    { color: #fca5a5; border-color: #7f1d1d; background: #7f1d1d; margin-top: 4px; width: 100%; }
+
+/* ── Strait status banner ───────────────────────────────────── */
+#straitBanner {
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 950; pointer-events: none;
+  display: flex; align-items: center; justify-content: center; gap: 18px;
+  padding: 9px 20px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 15px; font-weight: 600; letter-spacing: 5px;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+  background: rgba(10,10,10,0.72);
+  color: #cbd5e1;
+  transition: background 0.5s, color 0.5s, box-shadow 0.5s;
+}
+#straitBanner .sb-flow { font-size: 12px; letter-spacing: 3px; opacity: 0.8; }
+#straitBanner.tone-open     { color: #4ade80; background: rgba(6,24,14,0.82);  box-shadow: inset 0 0 60px rgba(74,222,128,0.18); }
+#straitBanner.tone-nominal  { color: #cbd5e1; background: rgba(10,10,10,0.72); }
+#straitBanner.tone-slowing  { color: #f59e0b; background: rgba(28,20,4,0.82);  box-shadow: inset 0 0 60px rgba(245,158,11,0.20); }
+#straitBanner.tone-blockade { color: #ef4444; background: rgba(30,6,6,0.9);    box-shadow: inset 0 0 80px rgba(239,68,68,0.30); animation: blockadePulse 1.4s ease-in-out infinite; }
+@keyframes blockadePulse {
+  0%,100% { box-shadow: inset 0 0 80px rgba(239,68,68,0.24); }
+  50%     { box-shadow: inset 0 0 110px rgba(239,68,68,0.44); }
+}
 </style>
 </head>
 <body>
@@ -88,6 +112,12 @@
 <div id="sim-mode" style="display:none;">
 
 <div id="map"></div>
+
+<!-- Strait status banner — big unmissable headline of current condition -->
+<div id="straitBanner" class="tone-nominal">
+  <span id="sbHeadline">TRAFFIC NOMINAL</span>
+  <span class="sb-flow" id="sbFlowPct">FLOW 50%</span>
+</div>
 
 <!-- ===== CONTROL PANEL — header + stats only; controls moved to control-center.html ===== -->
 <div id="controls">

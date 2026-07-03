@@ -8,7 +8,9 @@ let playing = true, simSpeed = 5, simElapsed = 0, warningCount = 0, simTickCount
 let currentSpeedMult = 1.0;
 
 function _lerpSpeedMult(target) {
-  currentSpeedMult += (target - currentSpeedMult) * 0.015;
+  // Punchy transition: a weapon fire produces a visible fleet-wide lurch in
+  // under a second (was 0.015 — a slow ~3s creep that read as "nothing changed").
+  currentSpeedMult += (target - currentSpeedMult) * 0.07;
   return currentSpeedMult;
 }
 
@@ -227,6 +229,18 @@ function updateStats() {
     document.getElementById('avgSpeed').textContent = '0 KN';
   }
   document.getElementById('warnings').textContent = warningCount;
+
+  // Strait status banner — big headline of current condition
+  if (typeof straitStatus === 'function') {
+    const probNow = (typeof marketState !== 'undefined') ? marketState.prob : 50;
+    const st = straitStatus(probNow);
+    const banner = document.getElementById('straitBanner');
+    if (banner) {
+      banner.className = 'tone-' + st.tone;
+      document.getElementById('sbHeadline').textContent = st.headline;
+      document.getElementById('sbFlowPct').textContent = 'FLOW ' + st.flowPct + '%';
+    }
+  }
   // Status bar update
   var sbTick = document.getElementById('sbTick');
   var sbVessels = document.getElementById('sbVessels');

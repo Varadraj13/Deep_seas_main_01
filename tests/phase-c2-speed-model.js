@@ -6,7 +6,7 @@
 //   spawnFactor = min(1.0, speedFactor)      → no thinning at/below prob50
 //   flowState   = OPEN / NOMINAL / SLOWING / BLOCKADE bands
 
-const { speedFactorFromProb, spawnFactorFromProb, flowState } = require('../js/speed-model.js');
+const { speedFactorFromProb, spawnFactorFromProb, flowState, straitStatus } = require('../js/speed-model.js');
 
 let passed = 0, failed = 0;
 function assert(label, cond, detail = '') {
@@ -47,6 +47,17 @@ assert('prob 10  → OPEN',     flowState(10) === 'OPEN',     flowState(10));
 assert('prob 40  → NOMINAL',  flowState(40) === 'NOMINAL',  flowState(40));
 assert('prob 65  → SLOWING',  flowState(65) === 'SLOWING',  flowState(65));
 assert('prob 85  → BLOCKADE', flowState(85) === 'BLOCKADE', flowState(85));
+
+// ── 6. straitStatus: headline banner from prob ───────────────────
+console.log('\n6. straitStatus banner');
+assert('prob 10 → OPEN headline',      straitStatus(10).headline === 'STRAIT OPEN',       straitStatus(10).headline);
+assert('prob 10 → tone open',          straitStatus(10).tone === 'open');
+assert('prob 40 → NOMINAL headline',   straitStatus(40).headline === 'TRAFFIC NOMINAL',   straitStatus(40).headline);
+assert('prob 65 → SLOWING headline',   straitStatus(65).headline === 'TRAFFIC SLOWING',   straitStatus(65).headline);
+assert('prob 85 → BLOCKADED headline', straitStatus(85).headline === 'STRAIT BLOCKADED',  straitStatus(85).headline);
+assert('prob 85 → tone blockade',      straitStatus(85).tone === 'blockade');
+assert('flowPct = 100 − prob',         straitStatus(38).flowPct === 62,                   straitStatus(38).flowPct);
+assert('flowPct floored at 5',         straitStatus(100).flowPct === 5,                   straitStatus(100).flowPct);
 
 console.log(`\n── Results: ${passed} passed, ${failed} failed ──\n`);
 process.exit(failed > 0 ? 1 : 0);

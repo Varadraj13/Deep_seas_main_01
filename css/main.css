@@ -55,11 +55,11 @@ body { font-family: Helvetica, Arial, sans-serif; overflow: hidden; height: 100v
 
 /* ===== CONTROL PANEL ===== */
 #controls {
-  position: absolute; top: 12px; right: 12px; z-index: 1000;
+  position: absolute; top: 56px; right: 12px; z-index: 1000;
   background: #0a0a0a; color: #888888;
   border-radius: 0; padding: 14px 16px; width: 220px;
   border: 1px solid #1a1a1a;
-  font-size: 10px; max-height: calc(100vh - 24px); overflow-y: auto;
+  font-size: 10px; max-height: calc(100vh - 68px); overflow-y: auto;
   scrollbar-width: thin; scrollbar-color: #222222 transparent;
 }
 #controls::-webkit-scrollbar { width: 3px; }

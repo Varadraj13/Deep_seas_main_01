@@ -32,6 +32,20 @@ function flowState(prob) {
   return 'BLOCKADE';
 }
 
+// Headline banner state for the strait, driven by prob. Returns the display
+// string, the color tone, and the flow % (=100−prob, floored at 5).
+function straitStatus(prob) {
+  const state = flowState(prob);
+  const flowPct = Math.max(5, Math.round(100 - prob));
+  const MAP = {
+    OPEN:     { headline: 'STRAIT OPEN',      tone: 'open'     },
+    NOMINAL:  { headline: 'TRAFFIC NOMINAL',  tone: 'nominal'  },
+    SLOWING:  { headline: 'TRAFFIC SLOWING',  tone: 'slowing'  },
+    BLOCKADE: { headline: 'STRAIT BLOCKADED', tone: 'blockade' },
+  };
+  return { state, flowPct, ...MAP[state] };
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { speedFactorFromProb, spawnFactorFromProb, flowState };
+  module.exports = { speedFactorFromProb, spawnFactorFromProb, flowState, straitStatus };
 }
