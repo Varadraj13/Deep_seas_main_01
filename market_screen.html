@@ -25,7 +25,7 @@
   /* ── HEADER ──────────────────────────────────────────────────── */
   header {
     padding: 18px 28px 14px;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid var(--border);
     display: flex;
     align-items: baseline;
     justify-content: space-between;
@@ -134,7 +134,7 @@
   /* ── LEADERBOARD ─────────────────────────────────────────────── */
   .leaderboard {
     margin-top: 10px;
-    border-top: 1px solid #e0e0e0;
+    border-top: 1px solid var(--border);
     padding-top: 8px;
   }
   .lb-row {
@@ -145,7 +145,7 @@
     font-size: 9px;
     letter-spacing: 0.06em;
     color: var(--muted);
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--border);
   }
   .lb-row:last-child { border-bottom: none; }
   .lb-name { color: var(--fg); }
@@ -154,7 +154,7 @@
   /* ── FOOTER ───────────────────────────────────────────────────── */
   footer {
     padding: 10px 28px;
-    border-top: 1px solid #ddd;
+    border-top: 1px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -176,7 +176,7 @@
   #txFeed .tx-closed { color: #ef4444; }
   .footer-right {
     font-size: 9px;
-    color: #aaa;
+    color: var(--faint);
     letter-spacing: 0.1em;
     white-space: nowrap;
   }
@@ -286,8 +286,8 @@
 
   // ── TRADINGVIEW CHARTS ────────────────────────────────────────────
   const TV_OPTIONS_BASE = {
-    layout:      { background: { color: '#ffffff' }, textColor: '#aaa' },
-    grid:        { vertLines: { color: '#f0f0f0' }, horzLines: { color: '#f0f0f0' } },
+    layout:      { background: { color: '#0a0a0a' }, textColor: '#888' },
+    grid:        { vertLines: { color: '#1a1a1a' }, horzLines: { color: '#1a1a1a' } },
     crosshair:   { mode: 0 },
     rightPriceScale: { visible: false },
     leftPriceScale:  { visible: false },

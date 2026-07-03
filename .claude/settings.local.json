@@ -34,7 +34,8 @@
       "Bash(curl -s -X POST http://localhost:3000/reset -H \"Content-Type: application/json\" -d '{}')",
       "Bash(node -e ' *)",
       "Bash(node tests/phase-f-bloomberg.js)",
-      "Bash(command -v magick convert ffmpeg)"
+      "Bash(command -v magick convert ffmpeg)",
+      "Bash(grep -nE \"#[0-9a-fA-F]{3,6}\" audience.html)"
     ]
   }
 }

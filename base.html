@@ -6,12 +6,13 @@
 <title>Object Reference — Deep Seas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    background: #ffffff;
-    font-family: 'IBM Plex Mono', monospace;
+    background: var(--bg);
+    font-family: var(--font-ui);
     overflow: hidden;
     zoom: 0.75;
   }
@@ -96,30 +97,9 @@
   }
 </style>
 </head>
-<body>
+<body class="surface-light">
 
 <div class="layout">
-
-  <div class="row">
-    <div class="entry disruptor">
-      <div class="entry-text">
-        <div class="entry-object">Wooden Chair</div>
-        <div class="entry-weapon-id">D01</div>
-        <div class="entry-weapon-name">Strait closure / naval blockade</div>
-        <div class="entry-consequence">Closes the Strait of Hormuz and halts all Defender ships in the lane.</div>
-      </div>
-      <img class="entry-img" src="Images/Wooden_chair.png" alt="Wooden Chair">
-    </div>
-    <div class="entry defender">
-      <img class="entry-img" src="Images/Bench.png" alt="Long Table">
-      <div class="entry-text">
-        <div class="entry-object">Long Table</div>
-        <div class="entry-weapon-id">R01</div>
-        <div class="entry-weapon-name">Naval escort / freedom of navigation</div>
-        <div class="entry-consequence">Restores Defender transit through the Strait by deploying a naval escort.</div>
-      </div>
-    </div>
-  </div>
 
   <div class="row">
     <div class="entry disruptor">
@@ -132,12 +112,12 @@
       <img class="entry-img" src="Images/Stool.png" alt="Stool">
     </div>
     <div class="entry defender">
-      <img class="entry-img" src="Images/Trolley.png" alt="Trolley">
+      <img class="entry-img" src="Images/Bench.png" alt="Long Table">
       <div class="entry-text">
-        <div class="entry-object">Trolley</div>
-        <div class="entry-weapon-id">R02</div>
-        <div class="entry-weapon-name">Emergency re-flagging</div>
-        <div class="entry-consequence">Returns seized tankers to service by re-registering them under a neutral flag.</div>
+        <div class="entry-object">Long Table</div>
+        <div class="entry-weapon-id">R01</div>
+        <div class="entry-weapon-name">Naval escort / freedom of navigation</div>
+        <div class="entry-consequence">Restores Defender transit through the Strait by deploying a naval escort.</div>
       </div>
     </div>
   </div>

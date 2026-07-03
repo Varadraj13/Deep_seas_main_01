@@ -3,19 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#0a0a0a">
+<meta name="theme-color" content="var(--fg)">
 <title>Deep Seas — Bet</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
 <script src="js/config.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    background: #0a0a0a;
-    color: #ffffff;
-    font-family: 'IBM Plex Mono', monospace;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-ui);
     height: 100dvh;
     display: flex;
     flex-direction: column;
@@ -33,7 +34,7 @@
   /* ── Page 1 — Signup ─────────────────────── */
   .signup-title {
     font-size: 11px;
-    color: #555;
+    color: var(--muted);
     letter-spacing: 0.18em;
     text-transform: uppercase;
     text-align: center;
@@ -50,7 +51,7 @@
 
   .signup-form label {
     font-size: 9px;
-    color: #444;
+    color: var(--muted);
     letter-spacing: 0.2em;
     text-transform: uppercase;
   }
@@ -59,8 +60,8 @@
     width: 100%;
     background: transparent;
     border: none;
-    border-bottom: 1px solid #333;
-    color: #fff;
+    border-bottom: 1px solid var(--border);
+    color: var(--fg);
     font-family: inherit;
     font-size: 22px;
     font-weight: 300;
@@ -69,9 +70,9 @@
     letter-spacing: 0.04em;
   }
 
-  .signup-form input::placeholder { color: #333; }
+  .signup-form input::placeholder { color: var(--faint); }
 
-  .signup-form input:focus { border-bottom-color: #666; }
+  .signup-form input:focus { border-bottom-color: var(--muted); }
 
   #btnSignup {
     width: 100%;
@@ -83,18 +84,18 @@
     letter-spacing: 0.2em;
     text-transform: uppercase;
     background: transparent;
-    border: 1px solid #333;
-    color: #fff;
+    border: 1px solid var(--border);
+    color: var(--fg);
     cursor: pointer;
     transition: border-color 0.15s, color 0.15s;
     -webkit-tap-highlight-color: transparent;
   }
 
-  #btnSignup:hover, #btnSignup:active { border-color: #fff; }
+  #btnSignup:hover, #btnSignup:active { border-color: var(--fg); }
 
   .signup-hint {
     font-size: 9px;
-    color: #2a2a2a;
+    color: var(--faint);
     letter-spacing: 0.1em;
     text-align: center;
   }
@@ -102,7 +103,7 @@
   /* ── Page 2 — Bet ────────────────────────── */
   .question {
     font-size: 11px;
-    color: #444;
+    color: var(--muted);
     letter-spacing: 0.12em;
     text-transform: uppercase;
     text-align: center;
@@ -114,7 +115,7 @@
 
   .price-label {
     font-size: 9px;
-    color: #333;
+    color: var(--faint);
     letter-spacing: 0.2em;
     text-transform: uppercase;
     margin-bottom: 10px;
@@ -124,17 +125,17 @@
     font-size: 72px;
     font-weight: 300;
     letter-spacing: -0.03em;
-    color: #ffffff;
+    color: var(--fg);
     line-height: 1;
     transition: color 0.25s;
   }
 
-  #price.up   { color: #4ade80; }
-  #price.down { color: #f87171; }
+  #price.up   { color: var(--green); }
+  #price.down { color: var(--red); }
 
   .contract-line {
     font-size: 9px;
-    color: #2a2a2a;
+    color: var(--faint);
     letter-spacing: 0.08em;
     text-align: center;
     margin-top: 10px;
@@ -165,18 +166,18 @@
     position: relative;
   }
 
-  #btnOpen   { color: #4ade80; border-color: #4ade80; }
-  #btnClosed { color: #f87171; border-color: #f87171; }
+  #btnOpen   { color: var(--green); border-color: var(--green); }
+  #btnClosed { color: var(--red); border-color: var(--red); }
 
-  #btnOpen.flash   { background: #4ade80; color: #0a0a0a; }
-  #btnClosed.flash { background: #f87171; color: #0a0a0a; }
+  #btnOpen.flash   { background: var(--green); color: var(--bg); }
+  #btnClosed.flash { background: var(--red); color: var(--bg); }
 
   #btnOpen.cooling, #btnClosed.cooling { opacity: 0.4; pointer-events: none; }
 
   /* ── Status / toast ──────────────────────── */
   #status {
     font-size: 9px;
-    color: #2a2a2a;
+    color: var(--faint);
     letter-spacing: 0.1em;
     text-transform: uppercase;
     text-align: center;
@@ -184,17 +185,17 @@
     transition: color 0.3s;
   }
 
-  #status.warn  { color: #888; }
-  #status.error { color: #f87171; }
+  #status.warn  { color: var(--muted); }
+  #status.error { color: var(--red); }
 
   #toast {
     position: fixed;
     bottom: 80px;
     left: 50%;
     transform: translateX(-50%) translateY(20px);
-    background: #1a1a1a;
-    border: 1px solid #333;
-    color: #aaa;
+    background: var(--fg);
+    border: 1px solid var(--border);
+    color: var(--bg);
     font-size: 10px;
     letter-spacing: 0.1em;
     padding: 10px 18px;
@@ -210,7 +211,7 @@
   }
 </style>
 </head>
-<body>
+<body class="surface-light">
 
 <!-- Page 1: Signup -->
 <div class="screen active" id="screenSignup">
