@@ -288,7 +288,15 @@
     if (ws && ws.readyState < 2) return; // already open or connecting
     ws = new WebSocket(WS_URL);
 
+    // Watchdog: a hung handshake (CONNECTING that never opens or errors — seen on
+    // flaky Wi-Fi and some desktop browsers) would sit on "connecting…" forever.
+    // Force-close after 6s so onclose triggers a backoff retry instead of stalling.
+    const watchdog = setTimeout(() => {
+      if (ws && ws.readyState !== 1) { try { ws.close(); } catch (e) {} }
+    }, 6000);
+
     ws.onopen = () => {
+      clearTimeout(watchdog);
       backoffMs = 1000;
       statusEl.textContent = 'connected';
       statusEl.className = '';
@@ -308,6 +316,7 @@
     };
 
     ws.onclose = () => {
+      clearTimeout(watchdog);
       statusEl.textContent = 'reconnecting in ' + (backoffMs / 1000).toFixed(0) + 's…';
       statusEl.className = 'warn';
       clearTimeout(reconnectTimer);
