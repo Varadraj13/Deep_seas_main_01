@@ -24,67 +24,74 @@
     overflow: hidden;
   }
 
-  /* ── NAV AREA (top) ── */
-  #navArea {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 24px;
-    padding: 32px 0 24px;
+  /* ── TOP NAV STRIP (shared, compact) ── */
+  #navBar {
+    display: flex; align-items: center; gap: 16px;
+    padding: 8px 16px; flex: none;
+    border-bottom: 1px solid #1a1a1a;
+    flex-wrap: wrap;
   }
-
-  .title {
-    font-size: 10px;
-    letter-spacing: 0.28em;
-    text-transform: uppercase;
-    color: #444;
+  #navBar .brand {
+    font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: #cc0000; white-space: nowrap; font-weight: 500;
   }
-
-  .nav {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    width: 320px;
+  #navBar .nav-links { display: flex; gap: 5px; flex-wrap: wrap; }
+  #navBar .nav-links a {
+    padding: 6px 12px; border: 1px solid #222; color: #ccc;
+    text-decoration: none; font-size: 9px; letter-spacing: 0.16em;
+    text-transform: uppercase; transition: border-color 0.15s, color 0.15s;
   }
-
-  .nav a {
-    display: block;
-    padding: 16px 24px;
-    border: 1px solid #222;
-    color: #ccc;
-    text-decoration: none;
-    font-size: 11px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    font-weight: 400;
-    transition: border-color 0.15s, color 0.15s;
-  }
-
-  .nav a:hover { border-color: #888; color: #fff; }
-  .nav a .page-label { display: block; }
-
-  .sub-group {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding-left: 20px;
-    border-left: 1px solid #222;
-  }
-
+  #navBar .nav-links a:hover { border-color: #888; color: #fff; }
+  #navBar .mode-btns { display: flex; gap: 4px; margin-left: auto; }
   .sub-btn {
-    background: transparent;
-    border: 1px solid #1a1a1a;
-    color: #555;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 9px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    padding: 10px 16px;
-    cursor: pointer;
-    text-align: left;
+    background: transparent; border: 1px solid #1a1a1a; color: #666;
+    font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    padding: 6px 12px; cursor: pointer;
     transition: border-color 0.15s, color 0.15s;
   }
   .sub-btn:hover { border-color: #666; color: #ccc; }
+  .sub-btn.active { border-color: #22c55e; color: #22c55e; }
+
+  /* ── SHOW-OPS PANEL (right column) ── */
+  #showOpsPanel {
+    width: 232px; flex: none;
+    background: #0a0a0a; border: 1px solid #1a1a1a;
+    padding: 12px 14px; font-size: 9px;
+    max-height: 100%; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 14px;
+    scrollbar-width: thin; scrollbar-color: #222 transparent;
+  }
+  #showOpsPanel::-webkit-scrollbar { width: 3px; }
+  #showOpsPanel::-webkit-scrollbar-thumb { background: #222; }
+  .ops-title { font-size: 8px; color: #cc0000; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 6px; }
+  .ops-metric {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 3px 0; border-bottom: 1px solid #111;
+    font-size: 9px; letter-spacing: 1px;
+  }
+  .ops-metric > span:first-child { color: #444; text-transform: uppercase; font-size: 8px; }
+  .ops-metric .ops-val { color: #fff; }
+  #opsPrice { color: #f59e0b; font-size: 13px; }
+  .ops-btn {
+    width: 100%; margin-top: 8px;
+    background: transparent; font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+    padding: 9px 0; cursor: pointer; transition: all 0.15s;
+  }
+  .ops-btn.reset { border: 1px solid #f59e0b; color: #f59e0b; }
+  .ops-btn.reset:hover { background: #f59e0b; color: #0a0a0a; }
+  .ops-btn.panic {
+    border: 1px solid #cc0000; color: #fff; background: #7f1d1d;
+    font-size: 13px; font-weight: 600; letter-spacing: 4px; padding: 16px 0;
+  }
+  .ops-btn.panic:hover { background: #cc0000; }
+  .ops-btn.panic.clear { border-color: #22c55e; background: #14532d; }
+  .ops-btn.panic.clear:hover { background: #22c55e; color: #0a0a0a; }
+  .conn-dot { font-size: 8px; letter-spacing: 1px; }
+  .conn-dot.online  { color: #22c55e; }
+  .conn-dot.offline { color: #cc0000; }
+  .conn-dot.unknown { color: #666; }
 
   /* ── DETECTION ENGINE AREA (below nav) ── */
   #detectionArea {
@@ -221,21 +228,19 @@
 </head>
 <body>
 
-<div id="navArea">
-  <div class="title">Deep Seas · Control Center</div>
-  <nav class="nav">
-    <a href="simulator.html" target="_blank" onclick="broadcastMode('video_playback')">
-      <span class="page-label">Index</span>
-    </a>
-    <div class="sub-group">
-      <button class="sub-btn" onclick="broadcastMode('video_playback')">Mode 01 — Video Playback</button>
-      <button class="sub-btn" onclick="broadcastMode('simulation')">Mode 02 — Simulation</button>
-    </div>
-    <a href="market_screen.html" target="_blank"><span class="page-label">Market Screen</span></a>
-    <a href="audience.html" target="_blank"><span class="page-label">Audience</span></a>
-    <a href="detector.html" target="_blank"><span class="page-label">Detector</span></a>
-    <a href="base.html" target="_blank"><span class="page-label">Base</span></a>
-  </nav>
+<div id="navBar">
+  <div class="brand">Deep Seas · Control</div>
+  <div class="nav-links">
+    <a href="simulator.html" target="_blank">Simulator</a>
+    <a href="market_screen.html" target="_blank">Market</a>
+    <a href="audience.html" target="_blank">Audience</a>
+    <a href="detector.html" target="_blank">Detector</a>
+    <a href="base.html" target="_blank">Base</a>
+  </div>
+  <div class="mode-btns">
+    <button class="sub-btn" id="modeBtn01" onclick="setMode('video_playback')">Mode 01 · Video</button>
+    <button class="sub-btn active" id="modeBtn02" onclick="setMode('simulation')">Mode 02 · Sim</button>
+  </div>
 </div>
 
 <!-- ── DETECTION ENGINE ── -->
@@ -426,8 +431,34 @@
     </div>
   </div>
 
+  <!-- SHOW-OPS — audience market, connections, panic -->
+  <div id="showOpsPanel">
+    <div>
+      <div class="ops-title">Audience Market</div>
+      <div class="ops-metric"><span>Price</span><span class="ops-val" id="opsPrice">$50</span></div>
+      <div class="ops-metric"><span>Open $</span><span class="ops-val" id="opsOpen">$50</span></div>
+      <div class="ops-metric"><span>Closed $</span><span class="ops-val" id="opsClosed">$50</span></div>
+      <div class="ops-metric"><span>Online</span><span class="ops-val" id="opsOnline">0</span></div>
+      <button class="ops-btn reset" onclick="resetMarket()">Reset Market</button>
+    </div>
+
+    <div>
+      <div class="ops-title">Connections</div>
+      <div class="ops-metric"><span>Render</span><span class="conn-dot unknown" id="connRender">— checking</span></div>
+      <div class="ops-metric"><span>Simulator</span><span class="conn-dot unknown" id="connSim">— unseen</span></div>
+      <div class="ops-metric"><span>Detector</span><span class="conn-dot unknown" id="connDet">— unseen</span></div>
+      <div class="ops-metric"><span>Market</span><span class="conn-dot unknown" id="connMkt">— unseen</span></div>
+    </div>
+
+    <div>
+      <div class="ops-title">Emergency</div>
+      <button class="ops-btn panic" id="panicBtn" onclick="togglePanic()">PANIC</button>
+    </div>
+  </div>
+
 </div>
 
+<script src="js/config.js"></script>
 <script src="js/weapons-config.js"></script>
 <script>
 // ================================================================
@@ -702,9 +733,17 @@ document.addEventListener('keydown', e => {
 // ================================================================
 //  MODE BROADCAST
 // ================================================================
-function broadcastMode(mode) {
-  new BroadcastChannel('hormuz-mode').postMessage({ mode });
+const _modeCh = new BroadcastChannel('hormuz-mode');
+function broadcastMode(mode) { _modeCh.postMessage({ mode }); }
+
+function setMode(mode) {
+  broadcastMode(mode);
+  document.getElementById('modeBtn01').classList.toggle('active', mode === 'video_playback');
+  document.getElementById('modeBtn02').classList.toggle('active', mode === 'simulation');
 }
+
+// Default the whole show to Simulation (Mode 02) on load.
+broadcastMode('simulation');
 
 // ================================================================
 //  SIM CONTROLS — hormuz-controls BroadcastChannel
@@ -786,6 +825,87 @@ function sendFilters() {
     }
   };
 })();
+
+// ================================================================
+//  SHOW-OPS — audience market, connections, panic
+// ================================================================
+const SERVER = (typeof SERVER_URL !== 'undefined') ? SERVER_URL : '';
+
+// ── Audience market over WS ──────────────────────────────────────
+(function connectAudience() {
+  if (!SERVER) return;
+  let ws;
+  function connect() {
+    ws = new WebSocket(SERVER.replace(/^http/, 'ws'));
+    ws.onmessage = function(e) {
+      const m = JSON.parse(e.data);
+      const cents = Math.round(m.marketPrice * 100);
+      document.getElementById('opsPrice').textContent  = '$' + cents;
+      document.getElementById('opsOpen').textContent   = '$' + (m['betsOpen$']   ?? 0);
+      document.getElementById('opsClosed').textContent = '$' + (m['betsClosed$'] ?? 0);
+      document.getElementById('opsOnline').textContent = m.connectedCount ?? 0;
+      setConn('connRender', true, 'live');
+    };
+    ws.onclose = function() { setTimeout(connect, 3000); };
+    ws.onerror = function() { try { ws.close(); } catch(_){} };
+  }
+  connect();
+})();
+
+function resetMarket() {
+  if (!SERVER) return;
+  fetch(SERVER + '/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+    .catch(function() { alert('Reset failed — check Render connection'); });
+}
+
+// ── Render health ping ───────────────────────────────────────────
+function pingRender() {
+  if (!SERVER) { setConn('connRender', false, 'no url'); return; }
+  fetch(SERVER + '/healthz', { cache: 'no-store' })
+    .then(function(r) { setConn('connRender', r.ok, r.ok ? 'ok' : 'err'); })
+    .catch(function() { setConn('connRender', false, 'down'); });
+}
+setInterval(pingRender, 5000);
+pingRender();
+
+// ── Page presence via heartbeat ──────────────────────────────────
+const _hbCh = new BroadcastChannel('hormuz-heartbeat');
+const _lastSeen = { simulator: 0, detector: 0, market: 0 };
+_hbCh.onmessage = function(e) {
+  const d = e.data;
+  if (d && d.pong && _lastSeen[d.pong] !== undefined) _lastSeen[d.pong] = Date.now();
+};
+setInterval(function() { _hbCh.postMessage({ ping: true }); }, 2000);
+setInterval(function() {
+  const now = Date.now();
+  setConn('connSim', now - _lastSeen.simulator < 5000, _lastSeen.simulator ? 'open' : 'unseen');
+  setConn('connDet', now - _lastSeen.detector < 5000, _lastSeen.detector ? 'open' : 'unseen');
+  setConn('connMkt', now - _lastSeen.market    < 5000, _lastSeen.market    ? 'open' : 'unseen');
+}, 1500);
+
+function setConn(id, online, label) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'conn-dot ' + (online ? 'online' : (label === 'unseen' || label === 'checking' ? 'unknown' : 'offline'));
+  el.textContent = (online ? '● ' : '○ ') + label;
+}
+
+// ── PANIC / ALL-CLEAR ────────────────────────────────────────────
+let panicOn = false;
+function togglePanic() {
+  const btn = document.getElementById('panicBtn');
+  panicOn = !panicOn;
+  if (panicOn) {
+    // Freeze the show: reset the game round, reset the audience market.
+    ctrl('RESET_GAME');
+    resetMarket();
+    btn.textContent = 'ALL-CLEAR';
+    btn.classList.add('clear');
+  } else {
+    btn.textContent = 'PANIC';
+    btn.classList.remove('clear');
+  }
+}
 
 // ================================================================
 //  BOOT

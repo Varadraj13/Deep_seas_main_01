@@ -71,12 +71,12 @@
     out.innerHTML += '<h2>SLICE 3 · DEFAULT STATE</h2>';
 
     const simHidden = /id="sim-mode"[^>]*display\s*:\s*none/i.test(html);
-    if (simHidden) pass('ms3a', '#sim-mode starts hidden (display:none)');
-    else fail('ms3a', '#sim-mode does not start hidden');
+    if (!simHidden) pass('ms3a', '#sim-mode starts visible (simulation default)');
+    else fail('ms3a', '#sim-mode starts hidden — should default to simulation');
 
-    const videoVisible = !/id="video-mode"[^>]*display\s*:\s*none/i.test(html);
-    if (videoVisible) pass('ms3b', '#video-mode starts visible (no display:none)');
-    else fail('ms3b', '#video-mode starts hidden — should be default visible');
+    const videoHidden = /id="video-mode"[^>]*display\s*:\s*none/i.test(html);
+    if (videoHidden) pass('ms3b', '#video-mode starts hidden (display:none)');
+    else fail('ms3b', '#video-mode starts visible — should default to simulation');
 
     // ── SLICE 4: BroadcastChannel listener ───────────────────────────
     out.innerHTML += '<h2>SLICE 4 · BROADCASTCHANNEL LISTENER</h2>';

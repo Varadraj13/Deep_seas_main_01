@@ -102,14 +102,14 @@
 </head>
 <body>
 
-<!-- ── VIDEO PLAYBACK MODE (default) ───────────────────────────────── -->
-<div id="video-mode" style="position:fixed;inset:0;background:#ffffff;z-index:9999;">
+<!-- ── VIDEO PLAYBACK MODE ──────────────────────────────────────────── -->
+<div id="video-mode" style="position:fixed;inset:0;background:#ffffff;z-index:9999;display:none;">
   <video id="bgVideo" autoplay loop muted playsinline
     style="width:100vw;height:100vh;object-fit:cover;display:block;"></video>
 </div>
 
-<!-- ── SIMULATION MODE ─────────────────────────────────────────────── -->
-<div id="sim-mode" style="display:none;">
+<!-- ── SIMULATION MODE (default) ───────────────────────────────────── -->
+<div id="sim-mode" style="display:block;">
 
 <div id="map"></div>
 
@@ -598,6 +598,14 @@ function showFlash(text, ms) {
       case 'LOAD_STATE':   if (typeof loadState === 'function') loadState(); break;
     }
   };
+})();
+</script>
+
+<!-- Heartbeat responder — lets control-center detect this tab is open -->
+<script>
+(function(){
+  var hb = new BroadcastChannel('hormuz-heartbeat');
+  hb.onmessage = function(e){ if (e.data && e.data.ping) hb.postMessage({ pong: 'simulator' }); };
 })();
 </script>
 

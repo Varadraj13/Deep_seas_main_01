@@ -255,14 +255,14 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
 </head>
 <body>
 
-<!-- ── VIDEO PLAYBACK MODE (default) ───────────────────────────────── -->
-<div id="video-mode" style="position:fixed;inset:0;background:#ffffff;z-index:9999;">
+<!-- ── VIDEO PLAYBACK MODE ──────────────────────────────────────────── -->
+<div id="video-mode" style="position:fixed;inset:0;background:#ffffff;z-index:9999;display:none;">
   <video id="bgVideo" autoplay loop muted playsinline
     style="width:100vw;height:100vh;object-fit:cover;display:block;"></video>
 </div>
 
-<!-- ── SIMULATION MODE — Broadcast Console ────────────────────────── -->
-<div id="sim-mode" style="display:none;position:fixed;inset:0;">
+<!-- ── SIMULATION MODE — Broadcast Console (default) ──────────────── -->
+<div id="sim-mode" style="display:block;position:fixed;inset:0;">
 <div id="bc-root">
 
   <!-- TICKER -->
@@ -658,6 +658,14 @@ setInterval(tickLiveColumn, 2200);
       }
     };
   })();
+</script>
+
+<!-- Heartbeat responder — lets control-center detect this tab is open -->
+<script>
+(function(){
+  var hb = new BroadcastChannel('hormuz-heartbeat');
+  hb.onmessage = function(e){ if (e.data && e.data.ping) hb.postMessage({ pong: 'detector' }); };
+})();
 </script>
 
 </body>

@@ -184,7 +184,7 @@
 <body>
 
 <!-- ── VIDEO PLAYBACK MODE ────────────────────────────────────────── -->
-<div id="video-mode" style="position:fixed;inset:0;background:#ffffff;z-index:9999;">
+<div id="video-mode" style="position:fixed;inset:0;background:#ffffff;z-index:9999;display:none;">
   <video id="bgVideo" autoplay loop muted playsinline
     style="width:100vw;height:100vh;object-fit:cover;display:block;"></video>
 </div>
@@ -435,6 +435,14 @@
       return `<span class="tx-item"><span class="${cls}">+ ${tx.name} $${tx.amount} ${label}</span></span>`;
     }).join('');
   }
+</script>
+
+<!-- Heartbeat responder — lets control-center detect this tab is open -->
+<script>
+(function(){
+  var hb = new BroadcastChannel('hormuz-heartbeat');
+  hb.onmessage = function(e){ if (e.data && e.data.ping) hb.postMessage({ pong: 'market' }); };
+})();
 </script>
 
 </body>

@@ -67,18 +67,18 @@
     if (/playsinline/i.test(html)) pass('m2f', 'video has playsinline');
     else fail('m2f', 'video missing playsinline');
 
-    // ── SLICE 3: Default state — video visible, sim hidden ───────────
-    out.innerHTML += '<h2>SLICE 3 · DEFAULT STATE</h2>';
+    // ── SLICE 3: Default state — SIMULATION is default (Mode 02) ─────
+    out.innerHTML += '<h2>SLICE 3 · DEFAULT STATE (SIM)</h2>';
 
-    // sim-mode must start hidden (display:none inline or via default CSS)
-    const simHidden = /id="sim-mode"[^>]*display\s*:\s*none|id="sim-mode"[^>]*style="[^"]*display\s*:\s*none/i.test(html);
-    if (simHidden) pass('m3a', '#sim-mode starts hidden (display:none)');
-    else fail('m3a', '#sim-mode does not start hidden');
+    // sim-mode must NOT start hidden — simulation is the default view now
+    const simHidden = /id="sim-mode"[^>]*display\s*:\s*none/i.test(html);
+    if (!simHidden) pass('m3a', '#sim-mode starts visible (simulation default)');
+    else fail('m3a', '#sim-mode starts hidden — should default to simulation');
 
-    // video-mode must NOT have display:none on it by default
-    const videoVisible = !/id="video-mode"[^>]*display\s*:\s*none/i.test(html);
-    if (videoVisible) pass('m3b', '#video-mode starts visible (no display:none)');
-    else fail('m3b', '#video-mode starts hidden — should be default visible');
+    // video-mode must start hidden (display:none) by default
+    const videoHidden = /id="video-mode"[^>]*display\s*:\s*none/i.test(html);
+    if (videoHidden) pass('m3b', '#video-mode starts hidden (display:none)');
+    else fail('m3b', '#video-mode starts visible — should default to simulation');
 
     // ── SLICE 4: BroadcastChannel on hormuz-mode ─────────────────────
     out.innerHTML += '<h2>SLICE 4 · BROADCASTCHANNEL LISTENER</h2>';
