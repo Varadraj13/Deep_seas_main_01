@@ -239,8 +239,15 @@
     <a href="base.html" target="_blank">Base</a>
   </div>
   <div class="mode-btns">
-    <button class="sub-btn" id="modeBtn01" onclick="setMode('video_playback')">Mode 01 · Video</button>
+    <button class="sub-btn" id="modeBtn01" onclick="setMode('preshow')">Mode 01 · Pre-Show</button>
     <button class="sub-btn active" id="modeBtn02" onclick="setMode('simulation')">Mode 02 · Sim</button>
+    <span id="preshowControls" style="display:inline-flex;gap:4px;margin-left:8px;padding-left:8px;border-left:1px solid #262626;">
+      <button class="sub-btn" onclick="preshowCmd('start')">▶ Start</button>
+      <button class="sub-btn" onclick="preshowCmd('pause')">⏸ Pause</button>
+      <button class="sub-btn" onclick="preshowCmd('resume')">Resume</button>
+      <button class="sub-btn" onclick="preshowCmd('reset')">Reset</button>
+      <button class="sub-btn" onclick="preshowCmd('skip')">Skip ⏭</button>
+    </span>
   </div>
 </div>
 
@@ -766,10 +773,42 @@ document.addEventListener('keydown', e => {
 const _modeCh = new BroadcastChannel('hormuz-mode');
 function broadcastMode(mode) { _modeCh.postMessage({ mode }); }
 
+// ── Pre-show remote — drives the initial0X projector pages ────────
+// index.html is a thin remote: it sends commands; the center projector
+// (initial02.html) owns the clock and executes them.
+const _seqCh = new BroadcastChannel('deep-seas-sequence');
+let _preshowLaunching = false;
+function preshowCmd(action) { _seqCh.postMessage({ type: 'command', action: action, ts: Date.now() }); }
+
+_seqCh.onmessage = (e) => {
+  const d = e.data; if (!d) return;
+  // Auto-start once the MASTER projector (center) reports it has loaded.
+  if (d.type === 'ready' && d.role === 'center' && _preshowLaunching) {
+    _preshowLaunching = false;
+    preshowCmd('start');
+  }
+  // Pre-show finished on its own → reflect Mode 02 in the button state.
+  if (d.type === 'complete') {
+    document.getElementById('modeBtn01').classList.remove('active');
+    document.getElementById('modeBtn02').classList.add('active');
+  }
+};
+
 function setMode(mode) {
-  broadcastMode(mode);
-  document.getElementById('modeBtn01').classList.toggle('active', mode === 'video_playback');
+  document.getElementById('modeBtn01').classList.toggle('active', mode === 'preshow');
   document.getElementById('modeBtn02').classList.toggle('active', mode === 'simulation');
+  if (mode === 'preshow') {
+    // Mode 01 — live pages navigate to their initial0X page, then auto-start.
+    _preshowLaunching = true;
+    broadcastMode('preshow');
+    // Fallback if the master's ready ping is missed (e.g. already on a pre-show page).
+    setTimeout(() => { if (_preshowLaunching) { _preshowLaunching = false; preshowCmd('start'); } }, 2000);
+  } else if (mode === 'simulation') {
+    // Mode 02 — jump straight to live: any running pre-show hands off now.
+    _preshowLaunching = false;
+    _seqCh.postMessage({ type: 'complete', ts: Date.now() });
+    broadcastMode('simulation');
+  }
 }
 
 // Default the whole show to Simulation (Mode 02) on load.

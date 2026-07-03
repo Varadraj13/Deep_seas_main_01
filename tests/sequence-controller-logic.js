@@ -4,7 +4,7 @@
 
 const {
   resolvePagePath, handoffTargetForRole, activeSequenceForElapsed,
-  resolveAssetPath, mediaKindForFile, nextAssetOnError
+  resolveAssetPath, mediaKindForFile, nextAssetOnError, preshowPageForLivePath
 } = require('../js/sequenceController.js');
 
 const fs = require('fs');
@@ -84,6 +84,23 @@ assert('from fallback → null (give up)',
   nextAssetOnError(entry, 'Slide1.PNG') === null);
 assert('no fallback defined → null',
   nextAssetOnError({ preferred_file: 'X.PNG' }, 'X.PNG') === null);
+
+// ── 7. preshowPageForLivePath (live page → its pre-show page) ─────
+console.log('\n7. preshowPageForLivePath (Mode 01 entry)');
+assert('simulator.html → initial01.html',
+  preshowPageForLivePath('/simulator.html') === 'initial01.html');
+assert('detector.html → initial02.html',
+  preshowPageForLivePath('/x/detector.html') === 'initial02.html');
+assert('market_screen.html → initial03.html',
+  preshowPageForLivePath('market_screen.html') === 'initial03.html');
+assert('unknown page → null',
+  preshowPageForLivePath('/index.html') === null);
+// inverse-symmetry: preshow entry then handoff returns to the same live page
+['initial01.html', 'initial02.html', 'initial03.html'].forEach(pre => {
+  const live = handoffTargetForRole(resolvePagePath(pre));
+  assert(pre + ' ↔ ' + live + ' round-trips',
+    preshowPageForLivePath(live) === pre);
+});
 
 console.log(`\n── Results: ${passed} passed, ${failed} failed ──\n`);
 process.exit(failed > 0 ? 1 : 0);

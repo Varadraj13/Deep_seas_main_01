@@ -46,7 +46,10 @@
       "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('models/manifest.json'\\)\\); JSON.parse\\(require\\('fs'\\).readFileSync\\('models/lab_final/label-map.json'\\)\\); console.log\\('both JSON valid'\\)\")",
       "Bash(grep -rnE \"getElementById\\\\\\('\\(avgSpeed|avgSpeedCond|sbTick|sbRound|sbProb|sbVessels|sbFlow|gdProb'|gdLog\\)'\\\\\\)|id=\\\\\"\\(gameDashboard|statusBar|gdProb|gdLog|avgSpeed\\)\\\\\"\" simulator.html js/simulation.js js/game-dashboard.js)",
       "Bash(node --check js/game-dashboard.js)",
-      "Bash(node --check js/map-setup.js)"
+      "Bash(node --check js/map-setup.js)",
+      "Bash(node tests/sequence-controller-logic.js)",
+      "Bash(node --check js/sequenceController.js)",
+      "Bash(read f *)"
     ]
   }
 }

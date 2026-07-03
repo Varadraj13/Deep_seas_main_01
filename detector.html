@@ -634,6 +634,8 @@ enableCam();
 
 </div><!-- /#sim-mode -->
 
+<!-- pre-show mapping helper (sequenceController glue is inert on this page) -->
+<script src="js/sequenceController.js"></script>
 <!-- ── MODE SWITCHING via BroadcastChannel ─────────────────────────── -->
 <script>
   (function() {
@@ -646,6 +648,8 @@ enableCam();
       } else if (mode === 'simulation') {
         document.getElementById('video-mode').style.display = 'none';
         document.getElementById('sim-mode').style.display = 'block';
+      } else if (mode === 'preshow') {
+        location.href = preshowPageForLivePath(location.pathname);
       }
     };
   })();

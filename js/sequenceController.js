@@ -25,6 +25,16 @@ function handoffTargetForRole(role) {
   }[role] || null;
 }
 
+// Inverse of handoff: the pre-show page a live page should navigate to when
+// Mode 01 launches. simulator→initial01, detector→initial02, market→initial03.
+function preshowPageForLivePath(pathname) {
+  const p = String(pathname || '');
+  if (p.indexOf('simulator.html') !== -1)    return 'initial01.html';
+  if (p.indexOf('detector.html') !== -1)     return 'initial02.html';
+  if (p.indexOf('market_screen.html') !== -1) return 'initial03.html';
+  return null;
+}
+
 // The sequence whose window contains `elapsed` (seconds). Windows are
 // [start, end): start-inclusive, end-exclusive — EXCEPT the final sequence's
 // end is inclusive (so 263 still resolves). null if elapsed<0 or past final end.
@@ -65,8 +75,8 @@ function nextAssetOnError(screenEntry, currentFile) {
 // ── Node export guard (same pattern as js/trigger-gate.js) ──────
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    resolvePagePath, handoffTargetForRole, activeSequenceForElapsed,
-    resolveAssetPath, mediaKindForFile, nextAssetOnError
+    resolvePagePath, handoffTargetForRole, preshowPageForLivePath,
+    activeSequenceForElapsed, resolveAssetPath, mediaKindForFile, nextAssetOnError
   };
 }
 
@@ -80,7 +90,10 @@ if (typeof document !== 'undefined') {
   const TICK_MS = 250;
   const FADE_MS = 400;
 
-  const role = resolvePagePath(location.pathname) || 'center';
+  // Inert on any page that isn't a pre-show page (live pages / index.html can
+  // safely include this file just for the pure functions — no rogue clock).
+  const role = resolvePagePath(location.pathname);
+  if (!role) return;
   const isMaster = role === 'center';
 
   let timeline = null, sequences = [], TOTAL = 263;
@@ -176,6 +189,15 @@ if (typeof document !== 'undefined') {
   function handleMessage(payload) {
     if (!payload) return;
     if (payload.type === 'complete') { doHandoff(); return; }
+    // Remote commands from index.html — only the master acts on them.
+    if (payload.type === 'command') {
+      if (isMaster) {
+        const fn = { start: ctrlStart, pause: ctrlPause, resume: ctrlResume,
+                     reset: ctrlReset, skip: ctrlSkip }[payload.action];
+        if (fn) fn();
+      }
+      return;
+    }
     if (typeof payload.sequence === 'number') applyCue(payload.sequence);
     if (payload.type === 'reset') { accumulated = 0; running = false; }
     updateDebug();
@@ -268,8 +290,18 @@ if (typeof document !== 'undefined') {
       timeline = data;
       sequences = data.sequences;
       TOTAL = data.total_duration_seconds || 263;
-      if (isMaster) wireControls();
       renderSequence(1);      // prime sequence 1 on every page for pre-show framing
+      // Re-sync to the current cue if a show is already in progress (e.g. this
+      // projector reloaded mid-show); the master then waits for the next start.
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+        if (saved && typeof saved.sequence === 'number' && saved.type !== 'complete') {
+          applyCue(saved.sequence);
+        }
+      } catch (e) {}
+      // Tell the remote (index.html) this projector is loaded and ready to start.
+      // Channel-only (not localStorage) — it's a transient handshake, not cue state.
+      if (bc) bc.postMessage({ type: 'ready', role: role, ts: Date.now() });
       updateDebug();
     })
     .catch(err => { console.error('[sequence] failed to load timeline:', err); });

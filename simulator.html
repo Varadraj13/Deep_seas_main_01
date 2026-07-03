@@ -502,6 +502,8 @@ function showFlash(text, ms) {
 
 </div><!-- /#sim-mode -->
 
+<!-- pre-show mapping helper (sequenceController glue is inert on this page) -->
+<script src="js/sequenceController.js"></script>
 <!-- ── MODE SWITCHING via BroadcastChannel ─────────────────────────── -->
 <script>
   (function() {
@@ -517,6 +519,9 @@ function showFlash(text, ms) {
         // Leaflet calculates tile grid against container dimensions at init time.
         // Container was hidden (0×0) so we must invalidate after it becomes visible.
         requestAnimationFrame(function() { map.invalidateSize(); });
+      } else if (mode === 'preshow') {
+        // Mode 01 — navigate this projector to its pre-show page.
+        location.href = preshowPageForLivePath(location.pathname);
       }
     };
   })();
