@@ -74,5 +74,15 @@ console.log('\n7. Background name variants');
   assert('"none"',       evaluateCommit([P('none', 0.99)], cfg).reason === 'background');
 }
 
+// 8. Real Lab Final model labels
+console.log('\n8. Lab Final model labels');
+{
+  assert('"0_blank" is background', evaluateCommit([P('0_blank', 0.98)], cfg).reason === 'background');
+  const r = evaluateCommit([P('03_Broom', 0.95), P('02_stool', 0.02)], cfg);
+  assert('clear "03_Broom" fires',  r.fire === true);
+  assert('returns "03_Broom"',      r.className === '03_Broom');
+  assert('"12_extension cord" fires', evaluateCommit([P('12_extension cord', 0.93), P('x', 0.01)], cfg).className === '12_extension cord');
+}
+
 console.log(`\n── Results: ${passed} passed, ${failed} failed ──\n`);
 process.exit(failed > 0 ? 1 : 0);

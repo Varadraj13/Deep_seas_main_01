@@ -567,8 +567,8 @@ async function loadManifest() {
     stopCamera(); barsBuilt = false; LABEL_MAP = {};
     await loadModel(sel.value);
   });
-  const defaultEntry = manifest.find(m => m.id === 'final_model')
-                    || manifest.find(m => m.id === 'tm_model_02')
+  const defaultEntry = manifest.find(m => m.id === 'lab_final')
+                    || manifest.find(m => m.id === 'final_model')
                     || manifest[0];
   if (defaultEntry !== manifest[0]) sel.value = defaultEntry.path;
   await loadModel(defaultEntry.path);

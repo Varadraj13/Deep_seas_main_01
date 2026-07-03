@@ -11,7 +11,8 @@ const TRIGGER_DEFAULTS = {
   threshold: 0.85,   // min confidence for the top class
   margin:    0.30,   // top must beat the runner-up by at least this
   // Any class whose name matches this is "nothing here" — never fires.
-  backgroundRe: /background|empty|none|nothing|idle/i,
+  // (Lab Final model names its empty class "0_blank".)
+  backgroundRe: /background|empty|none|nothing|idle|blank/i,
 };
 
 // predictions: [{ className, probability }] from the TM model.
