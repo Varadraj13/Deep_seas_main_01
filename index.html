@@ -16,9 +16,9 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    background: #0a0a0a;
-    color: #cccccc;
-    font-family: 'IBM Plex Mono', monospace;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-data);
     height: 100vh;
     display: flex;
     flex-direction: column;
@@ -46,7 +46,7 @@
   #navBar .mode-btns { display: flex; gap: 4px; margin-left: auto; }
   .sub-btn {
     background: transparent; border: 1px solid #1a1a1a; color: #666;
-    font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+    font-family: var(--font-data); font-size: 9px;
     letter-spacing: 0.16em; text-transform: uppercase;
     padding: 6px 12px; cursor: pointer;
     transition: border-color 0.15s, color 0.15s;
@@ -76,7 +76,7 @@
   #opsPrice { color: #f59e0b; font-size: 13px; }
   .ops-btn {
     width: 100%; margin-top: 8px;
-    background: transparent; font-family: 'IBM Plex Mono', monospace;
+    background: transparent; font-family: var(--font-data);
     font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
     padding: 9px 0; cursor: pointer; transition: all 0.15s;
   }
@@ -162,7 +162,7 @@
     background: transparent; border: 1px solid #222;
     color: #666; padding: 7px 0;
     font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
-    cursor: pointer; font-family: 'IBM Plex Mono', monospace;
+    cursor: pointer; font-family: var(--font-data);
     transition: all 0.15s;
   }
   #retryBtn:hover { border-color: var(--red); color: #fff; }
@@ -189,7 +189,7 @@
   .sc-btn {
     flex: 1; min-width: 30px;
     background: transparent; border: 1px solid #222; color: #888;
-    font-family: 'IBM Plex Mono', monospace; font-size: 8px;
+    font-family: var(--font-data); font-size: 8px;
     letter-spacing: 1px; text-transform: uppercase;
     padding: 5px 4px; cursor: pointer; text-align: center;
     transition: all 0.12s; white-space: nowrap;
@@ -205,7 +205,7 @@
   /* tabs */
   .sc-tab-bar { display: flex; gap: 2px; margin-bottom: 4px; }
   .sc-tab { flex:1; background:transparent; border:1px solid #1a1a1a; color:#555;
-    font-family:'IBM Plex Mono',monospace; font-size:7px; letter-spacing:1px;
+    font-family:var(--font-data); font-size:7px; letter-spacing:1px;
     text-transform:uppercase; padding:4px 2px; cursor:pointer; text-align:center; }
   .sc-tab.active { border-color:#333; color:#ccc; }
   .sc-content { display:none; }
@@ -309,7 +309,7 @@
         <button class="sc-tab" onclick="switchScTab('data',this)">DATA</button>
       </div>
       <div class="sc-content active" id="scTab-filter">
-        <select id="scFilterType" style="width:100%;background:#111;border:1px solid #1a1a1a;color:#888;font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px;margin-bottom:2px;" onchange="sendFilters()">
+        <select id="scFilterType" style="width:100%;background:#111;border:1px solid #1a1a1a;color:#888;font-family:var(--font-data);font-size:8px;padding:3px;margin-bottom:2px;" onchange="sendFilters()">
           <option value="">All Types</option>
           <option value="tanker">Tanker</option>
           <option value="container">Container</option>
@@ -317,10 +317,10 @@
           <option value="bulk">Bulk</option>
           <option value="lng">LNG</option>
         </select>
-        <select id="scFilterFlag" style="width:100%;background:#111;border:1px solid #1a1a1a;color:#888;font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px;margin-bottom:2px;" onchange="sendFilters()">
+        <select id="scFilterFlag" style="width:100%;background:#111;border:1px solid #1a1a1a;color:#888;font-family:var(--font-data);font-size:8px;padding:3px;margin-bottom:2px;" onchange="sendFilters()">
           <option value="">All Flags</option>
         </select>
-        <input id="scSearchVessel" placeholder="Search name/IMO..." style="width:100%;background:#111;border:1px solid #1a1a1a;color:#888;font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px;" oninput="sendFilters()">
+        <input id="scSearchVessel" placeholder="Search name/IMO..." style="width:100%;background:#111;border:1px solid #1a1a1a;color:#888;font-family:var(--font-data);font-size:8px;padding:3px;" oninput="sendFilters()">
       </div>
       <div class="sc-content" id="scTab-env">
         <div id="scEnvStats" style="font-size:8px;color:#444;line-height:1.8">— awaiting data —</div>
@@ -376,7 +376,7 @@
 
     <div class="tp-row" style="margin-bottom:8px">
       <span class="tp-label">Model</span>
-      <select id="modelSelect" style="background:#111;border:1px solid #222;color:#ccc;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:1px;padding:2px 4px;max-width:150px;cursor:pointer;"></select>
+      <select id="modelSelect" style="background:#111;border:1px solid #222;color:#ccc;font-family:var(--font-data);font-size:9px;letter-spacing:1px;padding:2px 4px;max-width:150px;cursor:pointer;"></select>
     </div>
 
     <div class="tp-row">

@@ -5,15 +5,23 @@
    Accents and fonts are identical across both surfaces — only
    background / foreground / border flip. Change a value here and it
    updates show-wide.
+
+   ── TO CHANGE A FONT SHOW-WIDE ──────────────────────────────
+   Edit the @import below (load the family) AND the matching
+   --font-* var. Nothing else in the codebase names a font family;
+   every page references var(--font-text) / var(--font-data) only.
    ================================================================ */
+
+/* Font loading is centralized here so a family swap is a one-file edit. */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:wght@400;500;600;700&display=swap');
 
 :root {
   /* ── Type ────────────────────────────────────────────────── */
   /* Two roles: editorial serif for text/labels/headings, mono for data/numbers. */
-  --font-text:      'Playfair Display', Georgia, serif;        /* labels, headings, prose */
-  --font-data:      'JetBrains Mono', ui-monospace, monospace; /* numbers, stats, tables  */
-  --font-ui:        'IBM Plex Mono', ui-monospace, monospace;  /* legacy alias (pre-rollout) */
-  --font-editorial: 'Playfair Display', Georgia, serif;
+  --font-text:      'Playfair Display', Georgia, serif;        /* labels, headings, prose  */
+  --font-data:      'JetBrains Mono', ui-monospace, monospace; /* numbers, stats, tables   */
+  --font-ui:        var(--font-data);                          /* alias: legacy refs = data/mono */
+  --font-editorial: var(--font-text);
 
   /* Type scale (chrome atoms) */
   --fs-label: 8px;    /* uppercase micro-labels           */
@@ -30,9 +38,9 @@
   /* ── Surface: DARK (default) ─────────────────────────────── */
   --bg:        #0a0a0a;   /* canonical black (was #080808 / #0a0a0a mix) */
   --panel:     #111111;
-  --fg:        #eaeaea;
-  --muted:     #888888;
-  --faint:     #555555;
+  --fg:        #ffffff;
+  --muted:     #ffffff;   /* secondary text is white on dark for projection legibility */
+  --faint:     #cfcfcf;   /* least-important text: near-white */
   --border:    #1a1a1a;
   --border-2:  #262626;
 }
