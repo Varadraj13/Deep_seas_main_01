@@ -18,7 +18,7 @@
 :root {
   /* ── Type ────────────────────────────────────────────────── */
   /* Two roles: editorial serif for text/labels/headings, mono for data/numbers. */
-  --font-text:      'Playfair Display', Georgia, serif;        /* labels, headings, prose  */
+  --font-text:      Helvetica, Arial, sans-serif;              /* labels, headings, prose  */
   --font-data:      'JetBrains Mono', ui-monospace, monospace; /* numbers, stats, tables   */
   --font-ui:        var(--font-data);                          /* alias: legacy refs = data/mono */
   --font-editorial: var(--font-text);
