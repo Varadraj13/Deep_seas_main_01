@@ -213,30 +213,26 @@ function updateStats() {
   document.getElementById('vesselCount').textContent = vessels.length;
   const hrs = Math.floor(simElapsed / 3600), mins = Math.floor((simElapsed % 3600) / 60);
   document.getElementById('simTime').textContent = String(hrs).padStart(2,'0')+':'+String(mins).padStart(2,'0');
-  if (vessels.length) {
-    const avg = vessels.reduce((s,v) => s + v.speed, 0) / vessels.length * currentSpeedMult;
-    document.getElementById('avgSpeed').textContent = avg.toFixed(1) + ' KN';
-    const prob = (typeof marketState !== 'undefined') ? marketState.prob : 50;
-    const condEl = document.getElementById('avgSpeedCond');
-    if (condEl && typeof flowState === 'function') {
-      // % of open-water max (=100−prob) and how far below full it has dropped
-      const pct = Math.max(5, Math.round(100 - prob));
-      condEl.textContent = flowState(prob) + ' · ' + pct + '% (▼' + (100 - pct) + '%)';
-    }
-    const transitEl = document.getElementById('inTransit');
-    if (transitEl) {
-      const totalVal = vessels.reduce((s,v) => s + (v.cargo ? v.cargo.value : 0), 0);
-      transitEl.textContent = '$' + (totalVal / 1e9).toFixed(1) + 'B';
-    }
-  } else {
-    document.getElementById('avgSpeed').textContent = '0 KN';
+
+  const prob = (typeof marketState !== 'undefined') ? marketState.prob : 50;
+
+  // Nominal flow % (strait openness) — replaces the raw Avg-Kn readout
+  const flowEl = document.getElementById('flowPct');
+  if (flowEl && typeof straitStatus === 'function') {
+    flowEl.textContent = straitStatus(prob).flowPct + '%';
   }
+
+  const transitEl = document.getElementById('inTransit');
+  if (transitEl) {
+    const totalVal = vessels.reduce((s,v) => s + (v.cargo ? v.cargo.value : 0), 0);
+    transitEl.textContent = '$' + (totalVal / 1e9).toFixed(1) + 'B';
+  }
+
   document.getElementById('warnings').textContent = warningCount;
 
-  // Strait status banner — big headline of current condition
+  // Strait status banner (now a footer) — big headline of current condition
   if (typeof straitStatus === 'function') {
-    const probNow = (typeof marketState !== 'undefined') ? marketState.prob : 50;
-    const st = straitStatus(probNow);
+    const st = straitStatus(prob);
     const banner = document.getElementById('straitBanner');
     if (banner) {
       banner.className = 'tone-' + st.tone;
@@ -244,37 +240,16 @@ function updateStats() {
       document.getElementById('sbFlowPct').textContent = 'FLOW ' + st.flowPct + '%';
     }
   }
-  // Status bar update
-  var sbTick = document.getElementById('sbTick');
-  var sbVessels = document.getElementById('sbVessels');
-  var sbFlow = document.getElementById('sbFlow');
-  if (sbTick) sbTick.textContent = 'SIM TICK ' + String(simTickCount).padStart(4, '0');
-  if (sbVessels) sbVessels.textContent = 'VESSELS ' + vessels.length;
-  var avgRawSpeed = vessels.length ? vessels.reduce(function(s,v){return s+v.speed;},0) / vessels.length : 0;
-  var flowPct = vessels.length ? _calcFlowPct(avgRawSpeed, currentSpeedMult) : 0;
-  if (sbFlow) sbFlow.textContent = '// HORMUZ FLOW ' + flowPct + '%';
-  var sbProb = document.getElementById('sbProb');
-  if (sbProb && typeof marketState !== 'undefined') {
-    var activeNames = marketState.activeWeapons.map(function(e){ return e.weaponId; }).join(' ');
-    sbProb.textContent = '// PROB ' + Math.round(marketState.prob) + '%' + (activeNames ? ' // ' + activeNames : '');
-  }
-  var sbRound = document.getElementById('sbRound');
-  if (sbRound && typeof marketState !== 'undefined') {
+
+  // Round timer end (status-bar readout removed; keep the end trigger)
+  if (typeof marketState !== 'undefined') {
     var r = marketState.round;
     if (r.phase === 'playing' && r.roundStartedAt !== null) {
       var elapsed = Date.now() - r.roundStartedAt - r.totalPausedMs;
-      var remainMs = Math.max(0, 600000 - elapsed);
-      var remSec = Math.floor(remainMs / 1000);
-      var mm = String(Math.floor(remSec / 60)).padStart(2, '0');
-      var ss = String(remSec % 60).padStart(2, '0');
-      sbRound.textContent = '// R' + r.number + ' · ' + mm + ':' + ss + ' · A' + r.scores[0] + '-B' + r.scores[1];
-      if (remainMs === 0 && typeof endRound === 'function') endRound();
-    } else if (r.phase === 'roundEnd' || r.phase === 'over') {
-      sbRound.textContent = '// R' + r.number + ' END · A' + r.scores[0] + '-B' + r.scores[1];
-    } else {
-      sbRound.textContent = '// R0 · --:-- · A' + r.scores[0] + '-B' + r.scores[1];
+      if (Math.max(0, 600000 - elapsed) === 0 && typeof endRound === 'function') endRound();
     }
   }
+
   if (typeof updateDashboard === 'function') updateDashboard();
 }
 

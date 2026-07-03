@@ -60,7 +60,7 @@ function createVessel(opts = {}) {
   const _pulseDelay = vesselId * 137;
   const icon = L.divIcon({
     className: '',
-    html: `<div class="vessel-cross" id="ship-icon-${vesselId}" style="animation-delay:${_pulseDelay}ms"><div class="cross-h" style="animation-delay:${_pulseDelay}ms"></div><div class="cross-v" style="animation-delay:${_pulseDelay}ms"></div><div class="vessel-datacard"><div class="vdc-name">${name}</div><div class="vdc-type">${cfg.label} // ${typeof flag === 'object' ? flag.code : flag}</div><div class="vdc-speed">${speed.toFixed(1)} KN // ${Math.round(pos.bearing)}°</div><div class="vdc-imo">IMO: ${imo}</div></div></div>`,
+    html: `<div class="vessel-cross" id="ship-icon-${vesselId}" style="animation-delay:${_pulseDelay}ms"><div class="cross-h" style="animation-delay:${_pulseDelay}ms"></div><div class="cross-v" style="animation-delay:${_pulseDelay}ms"></div><div class="vessel-datacard"><div class="vdc-name">${name}</div><div class="vdc-speed">${speed.toFixed(1)} KN // ${Math.round(pos.bearing)}°</div></div></div>`,
     iconSize: [12, 12], iconAnchor: [6, 6]
   });
 

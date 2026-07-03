@@ -12,46 +12,15 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
-/* ── Game Dashboard ─────────────────────────────────────── */
-#gameDashboard {
-  position: fixed; top: 56px; right: 244px;
-  width: 260px; max-height: calc(100vh - 104px);
-  background: rgba(10,10,10,0.92);
-  border: 1px solid rgba(255,255,255,0.08);
-  font-family: var(--font-ui); font-size: 11px; color: #ccc;
-  z-index: 900; overflow-y: auto;
-  display: flex; flex-direction: column;
-  scrollbar-width: thin; scrollbar-color: #222 transparent;
-}
-#gameDashboard section {
-  padding: 10px 14px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-#gameDashboard section::before {
-  display: block; font-size: 8px; letter-spacing: 2px;
-  color: rgba(255,255,255,0.25); margin-bottom: 6px;
-}
-#gdProb::before       { content: 'PROBABILITY'; }
-#gdLastAction::before { content: 'LAST ACTION'; }
-#gdActive::before     { content: 'ACTIVE WEAPONS'; }
-#gdLog::before        { content: 'EVENT LOG'; }
-.gd-prob-value {
-  font-size: 28px; font-weight: bold;
-  letter-spacing: 3px; line-height: 1; margin-bottom: 4px;
-}
-.gd-prob-bar { font-size: 13px; letter-spacing: 1px; }
-.prob-red   .gd-prob-value, .prob-red   .gd-prob-bar { color: #ef4444; }
-.prob-amber .gd-prob-value, .prob-amber .gd-prob-bar { color: #f59e0b; }
-.prob-green .gd-prob-value, .prob-green .gd-prob-bar { color: #4ade80; }
-.gd-weapon-id {
-  color: #fff; font-size: 11px; margin-bottom: 4px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.gd-cause  { color: #f59e0b; margin-bottom: 3px; }
-.gd-effect { color: rgba(255,255,255,0.45); font-size: 10px; padding-left: 8px; margin: 1px 0; }
-.gd-active-row { color: #4ade80; margin: 2px 0; }
-.gd-log-row { color: rgba(255,255,255,0.35); font-size: 10px; margin: 2px 0; }
-.gd-empty  { color: rgba(255,255,255,0.18); font-style: italic; }
+/* ── Merged dashboard (inside #controls) ─────────────────── */
+.dash-grid { display:grid; grid-template-columns:1fr auto; gap:5px 12px; align-items:baseline; padding:6px 0; }
+.dg-label { font-family:var(--font-data); font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); }
+.dg-val   { font-family:var(--font-data); font-size:13px; letter-spacing:.5px; text-align:right; color:#ffffff; font-weight:500; white-space:nowrap; }
+.dg-val-text { font-size:10px; font-weight:400; color:#dddddd; max-width:150px; overflow:hidden; text-overflow:ellipsis; }
+.dash-div { height:1px; background:#1a1a1a; margin:4px 0; }
+#gdProbValue { font-size:20px; font-weight:700; letter-spacing:1px; }
+.gd-prob-bar-wrap { height:4px; background:#1a1a1a; margin:1px 0 4px; overflow:hidden; }
+#gdProbBar { height:100%; width:50%; background:#f59e0b; transition:width .4s ease, background .4s ease; }
 
 /* ── Game Flash ─────────────────────────────────────────────── */
 #gameFlash {
@@ -79,14 +48,14 @@
 
 /* ── Strait status banner ───────────────────────────────────── */
 #straitBanner {
-  position: fixed; top: 0; left: 0; right: 0;
+  position: fixed; bottom: 0; left: 0; right: 0;
   z-index: 950; pointer-events: none;
   display: flex; align-items: center; justify-content: center; gap: 18px;
   padding: 9px 20px;
   font-family: var(--font-data);
   font-size: 15px; font-weight: 600; letter-spacing: 5px;
   text-transform: uppercase;
-  border-bottom: 1px solid rgba(255,255,255,0.12);
+  border-top: 1px solid rgba(255,255,255,0.12);
   background: rgba(10,10,10,0.72);
   color: #cbd5e1;
   transition: background 0.5s, color 0.5s, box-shadow 0.5s;
@@ -125,12 +94,25 @@
 <div id="controls">
   <h2>STRAIT OF HORMUZ</h2>
   <div class="ctrl-subtitle">TRAFFIC CONTROL SYS</div>
-  <div class="stats">
-    <div class="stat-item"><div class="stat-val" id="vesselCount">0</div><div class="stat-lbl">Vessels</div></div>
-    <div class="stat-item"><div class="stat-val" id="simTime">00:00</div><div class="stat-lbl">Sim Time</div></div>
-    <div class="stat-item"><div class="stat-val" id="avgSpeed">0</div><div class="stat-lbl" id="avgSpeedCond">Avg Kn</div></div>
-    <div class="stat-item"><div class="stat-val" id="inTransit">$—</div><div class="stat-lbl">In Transit</div></div>
-    <div class="stat-item"><div class="stat-val" id="warnings">0</div><div class="stat-lbl">Alerts</div></div>
+
+  <div class="dash-grid">
+    <div class="dg-label">Vessels Simulated</div><div class="dg-val" id="vesselCount">0</div>
+    <div class="dg-label">Sim Time</div><div class="dg-val" id="simTime">00:00</div>
+    <div class="dg-label">Nominal Flow</div><div class="dg-val" id="flowPct">—</div>
+    <div class="dg-label">Transit Value</div><div class="dg-val" id="inTransit">$—</div>
+  </div>
+
+  <div class="dash-div"></div>
+
+  <div class="dash-grid" style="padding-bottom:0">
+    <div class="dg-label">Probability</div><div class="dg-val" id="gdProbValue">50%</div>
+  </div>
+  <div class="gd-prob-bar-wrap"><div id="gdProbBar"></div></div>
+
+  <div class="dash-grid" style="padding-top:0">
+    <div class="dg-label">Last Action</div><div class="dg-val dg-val-text" id="gdLastAction">— none yet —</div>
+    <div class="dg-label">Active Weapons</div><div class="dg-val dg-val-text" id="gdActive">— none —</div>
+    <div class="dg-label">Alerts</div><div class="dg-val" id="warnings">0</div>
   </div>
 
   <!-- GFW Vessel Results (populated on map click when GFW active) -->
@@ -456,22 +438,7 @@ function showFlash(text, ms) {
 }
 </script>
 
-<!-- Game Dashboard -->
-<div id="gameDashboard">
-  <section id="gdProb"></section>
-  <section id="gdLastAction"></section>
-  <section id="gdActive"></section>
-  <section id="gdLog"></section>
-</div>
-
-<!-- Status bar -->
-<div id="statusBar">
-  <span id="sbTick">SIM TICK 0000</span>
-  <span id="sbRound">// R0 · --:-- · A0-B0</span>
-  <span id="sbProb">// PROB 50%</span>
-  <span id="sbVessels">VESSELS 0</span>
-  <span id="sbFlow">// HORMUZ FLOW 0%</span>
-</div>
+<!-- Game dashboard merged into #controls; debug status bar removed (Phase I) -->
 
 <!-- Hand tracking elements -->
 <video id="handVideo" autoplay playsinline style="display:none;"></video>
@@ -527,7 +494,7 @@ function showFlash(text, ms) {
 </script>
 
 <!-- Bottom-left map attribution caption -->
-<div id="mapCaption" style="position:absolute;bottom:24px;left:16px;z-index:999;font-family:var(--font-data);font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.55);pointer-events:none;line-height:1.6">
+<div id="mapCaption" style="position:absolute;bottom:52px;left:16px;z-index:999;font-family:var(--font-data);font-size:11px;letter-spacing:0.4px;color:rgba(255,255,255,0.82);pointer-events:none;line-height:1.7">
   STRAIT OF HORMUZ &mdash; VESSEL TRAFFIC SIMULATION<br>
   ROUTES DERIVED FROM 2023&ndash;2024 AIS PATTERNS &bull; GLOBAL FISHING WATCH<br>
   EACH MARKER REPRESENTS ONE VESSEL TRANSITING THE STRAIT

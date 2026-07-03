@@ -1,5 +1,12 @@
-const map = L.map('map', { center: [26.0, 57.0], zoom: 7, minZoom: 5, maxZoom: 14, zoomControl: false });
-L.control.zoom({ position: 'bottomright' }).addTo(map);
+// Framing is hard-locked to the reviewed projection (Phase I): fixed zoom 7,
+// center [26,57]; no zoom buttons and all zoom/pan interactions disabled so the
+// boot view can never drift during the show.
+const map = L.map('map', {
+  center: [26.0, 57.0], zoom: 7, minZoom: 7, maxZoom: 7,
+  zoomControl: false,
+  dragging: false, scrollWheelZoom: false, doubleClickZoom: false,
+  boxZoom: false, touchZoom: false, keyboard: false
+});
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(map);
 map.createPane('labelsPane');
 map.getPane('labelsPane').style.zIndex = 650;
