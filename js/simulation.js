@@ -72,8 +72,11 @@ function updateSim(dtReal) {
   simElapsed += dtSim;
   simTickCount++;
 
-  // Lerp currentSpeedMult toward the weapon-driven target each frame
-  const targetMult = (typeof marketState !== 'undefined') ? (marketState.simMultipliers.speed_mult || 1.0) : 1.0;
+  // Speed is driven directly by marketState.prob (inverse relation), NOT by
+  // per-weapon speed_mult — so every weapon that moves prob moves speed
+  // proportionally. See js/speed-model.js. Lerp for a smooth (~3s) transition.
+  const prob = (typeof marketState !== 'undefined') ? marketState.prob : 50;
+  const targetMult = (typeof speedFactorFromProb === 'function') ? speedFactorFromProb(prob) : 1.0;
   _lerpSpeedMult(targetMult);
 
   let activeWarnings = 0;
@@ -118,8 +121,9 @@ function updateSim(dtReal) {
         portProcessed[key].cargo[v.cargo.type] = (portProcessed[key].cargo[v.cargo.type] || 0) + v.cargo.qty;
       }
 
-      // Spawn gate: when blockade active, arriving ships have a chance of being removed
-      const spawnMult = (typeof marketState !== 'undefined' && marketState.simMultipliers.spawn_rate_mult) || 1.0;
+      // Spawn gate: arriving ships thin proportionally with prob (same factor
+      // as speed, capped so no thinning happens at/below the neutral prob 50).
+      const spawnMult = (typeof spawnFactorFromProb === 'function') ? spawnFactorFromProb(prob) : 1.0;
       if (spawnMult < 1.0 && Math.random() > spawnMult) {
         vessels.splice(i, 1);
         map.removeLayer(v.marker);
@@ -206,11 +210,13 @@ function updateStats() {
   document.getElementById('simTime').textContent = String(hrs).padStart(2,'0')+':'+String(mins).padStart(2,'0');
   if (vessels.length) {
     const avg = vessels.reduce((s,v) => s + v.speed, 0) / vessels.length * currentSpeedMult;
-    document.getElementById('avgSpeed').textContent = avg.toFixed(1);
+    document.getElementById('avgSpeed').textContent = avg.toFixed(1) + ' KN';
+    const prob = (typeof marketState !== 'undefined') ? marketState.prob : 50;
     const condEl = document.getElementById('avgSpeedCond');
-    if (condEl) {
-      const dev = avg - 15;
-      condEl.textContent = dev >= -0.8 ? 'NOMINAL' : dev < -6 ? '▼ BLOCKADE' : '▼ SLOWING';
+    if (condEl && typeof flowState === 'function') {
+      // % of open-water max (=100−prob) and how far below full it has dropped
+      const pct = Math.max(5, Math.round(100 - prob));
+      condEl.textContent = flowState(prob) + ' · ' + pct + '% (▼' + (100 - pct) + '%)';
     }
     const transitEl = document.getElementById('inTransit');
     if (transitEl) {
@@ -218,7 +224,7 @@ function updateStats() {
       transitEl.textContent = '$' + (totalVal / 1e9).toFixed(1) + 'B';
     }
   } else {
-    document.getElementById('avgSpeed').textContent = '0';
+    document.getElementById('avgSpeed').textContent = '0 KN';
   }
   document.getElementById('warnings').textContent = warningCount;
   // Status bar update
