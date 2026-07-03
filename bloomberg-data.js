@@ -162,4 +162,8 @@ const bloombergData = {
 // animateColumn() should count from the previous week's value up/down to the
 // current week's value over ~800ms, so it reads as a live tick rather than a snap.
 
-export { bloombergData, weekEndingDates };
+// Browser: `bloombergData` and `weekEndingDates` are globals (classic script).
+// Node (tests): also expose via module.exports.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { bloombergData, weekEndingDates };
+}

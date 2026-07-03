@@ -161,7 +161,6 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
   position: absolute; bottom: 0; left: 0; right: 0;
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 14px;
-  border-top: 1px solid rgba(255,255,255,.25);
   background: rgba(8,8,8,.86); z-index: 3;
 }
 #breakingBadge {
@@ -227,6 +226,8 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
 .bb-cells { flex: 1; display: flex; }
 .bb-cell { flex: 1; text-align: right; padding: 1px 6px; }
 .bb-header-cell { flex: 1; text-align: right; padding: 0 6px; font-size: 8px; letter-spacing: .5px; text-transform: uppercase; }
+/* live (reacting) column — extra margin so it reads as the current week, not flush */
+.bb-cell.live-col, .bb-header-cell.live-col { padding-left: 16px; padding-right: 12px; }
 #bbMedianRow {
   display: flex; align-items: center;
   padding: 5px 14px; border-bottom: 1px solid #161616; background: #0c0c0c;
@@ -234,23 +235,12 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
 .bb-median-label {
   font-size: 10px; color: #c8c8c8; letter-spacing: .3px;
 }
-#bbDataRows { }
 .bb-data-row {
   display: flex; align-items: center;
   padding: 4px 14px; border-bottom: 1px solid #111;
 }
 .bb-company-name { font-size: 10px; letter-spacing: .3px; }
 .bb-ticker { font-size: 8px; color: #777; margin-left: 7px; }
-#bbFooter {
-  flex: none; display: flex; align-items: center;
-  border-top: 1px solid #1a1a1a; background: #0a0a0a;
-}
-.bb-fkey {
-  flex: 1; display: flex; align-items: baseline; gap: 3px;
-  padding: 3px 5px; border-right: 1px solid #141414;
-}
-.bb-fkey-k { font-size: 8px; font-weight: 600; letter-spacing: .3px; flex: none; }
-.bb-fkey-l { font-size: 7px; letter-spacing: .2px; opacity: .6; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
 </style>
 </head>
 <body>
@@ -340,7 +330,6 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
         </div>
         <div id="bbDataRows"></div>
       </div>
-      <div id="bbFooter" id="bbFooter"></div>
     </div>
 
   </div>
@@ -349,26 +338,26 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
 
 <script src="js/weapons-config.js"></script>
 <script src="js/broadcast-news.js"></script>
+<script src="bloomberg-data.js"></script>
 <script>
 // ================================================================
 //  CONFIG
 // ================================================================
 const IMAGE_BASE = 'Images/broadcast/';
-const COLS = ['16 Apr','23 Apr','30 Apr','07 May','14 May','21 May','28 May','04 Jun'];
-const COMPANIES = [
-  {name:'Frontline Ltd',     tk:'FRO'},
-  {name:'Scorpio Tankers',   tk:'STNG'},
-  {name:'DHT Holdings',      tk:'DHT'},
-  {name:'Intl Seaways',      tk:'INSW'},
-  {name:'Teekay Tankers',    tk:'TNK'},
-  {name:'Star Bulk Carriers',tk:'SBLK'},
-];
-const FKEYS = [
-  {key:'F1',label:'HELP'},{key:'F2',label:'LOGIN'},{key:'F3',label:'MENU'},
-  {key:'F4',label:'MSG'}, {key:'F5',label:'NEWS'}, {key:'F6',label:'GOVT'},
-  {key:'F7',label:'CORP'},{key:'F8',label:'MTGE'},{key:'F9',label:'M-MKT'},
-  {key:'F10',label:'MUNI'},{key:'F11',label:'EQUITY'},{key:'F12',label:'CMDTY'},
-];
+// Columns come from bloomberg-data.js (weekEndingDates). Live column = last.
+const COLS = (typeof weekEndingDates !== 'undefined') ? weekEndingDates : ['16-Apr'];
+const BB_LIVE = COLS.length - 1;
+
+// Neutral table shown when idle / no weapon-specific data.
+const IDLE_TABLE = {
+  title: 'Observed Equity Move — Tanker & Energy',
+  companies: [
+    { name: 'Global Shipping Median',   base: [4.8, -0.6, -5.1, -6.2, 12.8, 2.1, 0.5, 0.2, 1.1] },
+    { name: 'Vantage Tankers Intl',     base: [3.1, -4.8, -7.9, -1.2, 18.3, 6.4, 6.9, 0.7, 0.9] },
+    { name: 'Meridian Bulk Carriers',   base: [10.4, 0.9, -1.1, -5.5, 16.7, 4.2, 4.5, 6.9, 1.4] },
+    { name: 'Coastal Freight Holdings', base: [6.5, 1.4, -2.8, -7.4, 9.2, 0.1, -3.1, -0.4, 0.6] },
+  ],
+};
 
 // ================================================================
 //  STATE
@@ -381,92 +370,87 @@ let prevActive = [];
 // ================================================================
 //  BLOOMBERG TABLE
 // ================================================================
-function mkCell(raw, isLive) {
-  const v = +raw.toFixed(2);
+// Derive a short ticker from a company name ("Vantage Tankers Intl" → "VTI").
+function bbTicker(name) {
+  return name.split(/\s+/).map(w => w[0]).join('').replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase();
+}
+
+// One cell. Handles numbers, the "ERR" string (D06 cyber), and 0.0 (D05 freeze).
+function cellFromValue(raw, isLive) {
+  if (raw === 'ERR' || raw === null || raw === undefined) {
+    return { val: 'ERR', color: '#ef4444', bg: isLive ? 'rgba(239,68,68,.14)' : 'transparent', live: isLive };
+  }
+  const v = +(+raw).toFixed(1);
   return {
-    val: (v > 0 ? '+' : '') + v.toFixed(2),
-    color: v > 0.3 ? '#22c55e' : v < -0.3 ? '#ef4444' : '#666',
-    bg: isLive ? 'rgba(255,255,255,.045)' : 'transparent',
+    val: (v > 0 ? '+' : '') + v.toFixed(1),
+    color: v > 0.3 ? '#22c55e' : v < -0.3 ? '#ef4444' : '#888',
+    bg: isLive ? 'rgba(255,255,255,.05)' : 'transparent',
+    live: isLive,
   };
 }
 
-function genTable() {
-  const last = COLS.length - 1;
-  const rows = COMPANIES.map((c, ri) => {
-    const cells = COLS.map((col, ci) => {
-      const base = Math.sin((ri + 1) * 1.7 + ci * 0.9) * 8 + Math.cos(ci * 1.3 + ri * 0.6) * 5;
-      return mkCell(base, ci === last);
-    });
-    return { name: c.name, tk: c.tk, cells };
-  });
-  const medianCells = COLS.map((col, ci) => mkCell(Math.sin(ci * 0.8) * 4 + 1.2, ci === last));
-  return { rows, medianCells };
+// Build the render model from a bloomberg-data entry (or IDLE_TABLE).
+// First company is the median row; the rest are data rows.
+function buildTableData(dataObj, weaponId) {
+  const comps = dataObj.companies;
+  const median = comps[0];
+  return {
+    title: dataObj.title,
+    source: median.name,
+    frozen: weaponId === 'D05',   // all-zero freeze — no live flicker
+    medianCells: median.base.map((raw, ci) => cellFromValue(raw, ci === BB_LIVE)),
+    rows: comps.slice(1).map(c => ({
+      name: c.name,
+      tk: bbTicker(c.name),
+      cells: c.base.map((raw, ci) => cellFromValue(raw, ci === BB_LIVE)),
+    })),
+  };
 }
 
-function joltTable(isDis) {
-  const last = COLS.length - 1;
-  const t = tableData;
-  const shock = () => isDis ? -(7 + Math.random() * 11) : (3 + Math.random() * 8);
-  const rows = t.rows.map(r => {
-    const cells = r.cells.slice();
-    cells[last] = mkCell(shock(), true);
-    return { ...r, cells };
-  });
-  const medianCells = t.medianCells.slice();
-  medianCells[last] = mkCell(shock(), true);
-  return { rows, medianCells };
-}
-
+// Gentle live flicker on the reacting column so it reads as a running feed.
+// Skips frozen tables (D05) and ERR cells (D06).
 function tickLiveColumn() {
-  if (!tableData) return;
-  const last = COLS.length - 1;
+  if (!tableData || tableData.frozen) return;
   const jit = (cell) => {
+    if (!cell || !cell.live || cell.val === 'ERR') return cell;
     const raw = parseFloat(cell.val);
-    return mkCell(raw + (Math.random() - 0.5) * 2.2, true);
+    if (isNaN(raw)) return cell;
+    return cellFromValue(raw + (Math.random() - 0.5) * 1.2, true);
   };
-  const rows = tableData.rows.map(r => {
-    const cells = r.cells.slice();
-    cells[last] = jit(cells[last]);
-    return { ...r, cells };
-  });
-  const medianCells = tableData.medianCells.slice();
-  medianCells[last] = jit(medianCells[last]);
-  tableData = { rows, medianCells };
+  tableData.rows.forEach(r => { r.cells[BB_LIVE] = jit(r.cells[BB_LIVE]); });
+  tableData.medianCells[BB_LIVE] = jit(tableData.medianCells[BB_LIVE]);
   renderTableBody();
 }
 
 function renderTableHeader() {
   const hCells = document.getElementById('bbHeaderCells');
   hCells.innerHTML = COLS.map((label, ci) => {
-    const isLast = ci === COLS.length - 1;
+    const isLast = ci === BB_LIVE;
     const color = isLast ? '#f4f4f4' : '#888';
     const bg = isLast ? 'rgba(255,255,255,.05)' : 'transparent';
-    return `<span class="bb-header-cell" style="color:${color};background:${bg};">${label}</span>`;
+    return `<span class="bb-header-cell${isLast ? ' live-col' : ''}" style="color:${color};background:${bg};">${label}</span>`;
   }).join('');
-
-  const footer = document.getElementById('bbFooter');
-  footer.innerHTML = FKEYS.map(fk =>
-    `<div class="bb-fkey"><span class="bb-fkey-k bb-amber">${fk.key}</span><span class="bb-fkey-l bb-amber">${fk.label}</span></div>`
-  ).join('');
 }
 
 function renderTableBody() {
   if (!tableData) return;
-  const median = document.getElementById('bbMedianCells');
-  median.innerHTML = tableData.medianCells.map(cell =>
-    `<span class="bb-cell" style="font-size:10px;color:${cell.color};background:${cell.bg};">${cell.val}</span>`
-  ).join('');
 
-  const dataRows = document.getElementById('bbDataRows');
-  dataRows.innerHTML = tableData.rows.map(row =>
+  if (tableData.title) document.getElementById('bbSubTitle').textContent = tableData.title;
+  const medLabel = document.querySelector('#bbMedianRow .bb-median-label');
+  if (medLabel && tableData.source) medLabel.textContent = tableData.source;
+
+  const cellHtml = (cell) =>
+    `<span class="bb-cell${cell.live ? ' live-col' : ''}" style="font-size:10px;color:${cell.color};background:${cell.bg};">${cell.val}</span>`;
+
+  document.getElementById('bbMedianCells').innerHTML = tableData.medianCells.map(cellHtml).join('');
+
+  document.getElementById('bbDataRows').innerHTML = tableData.rows.map(row =>
     `<div class="bb-data-row">
       <div class="bb-row-name" style="display:flex;align-items:baseline;">
         <span class="bb-company-name" style="color:#c8c8c8;">${row.name}</span>
         <span class="bb-ticker">${row.tk}</span>
       </div>
-      <div class="bb-cells">${row.cells.map(cell =>
-        `<span class="bb-cell" style="font-size:10px;color:${cell.color};background:${cell.bg};">${cell.val}</span>`
-      ).join('')}</div>
+      <div class="bb-cells">${row.cells.map(cellHtml).join('')}</div>
     </div>`
   ).join('');
 }
@@ -528,8 +512,9 @@ function applyFire(id) {
     document.getElementById('oddsValue').textContent = Math.round(prob) + '%';
   }
 
-  // Bloomberg jolt
-  tableData = joltTable(isDis);
+  // Bloomberg — weapon-specific reaction from bloomberg-data.js
+  const bd = (typeof bloombergData !== 'undefined') ? bloombergData[id] : null;
+  tableData = buildTableData(bd || IDLE_TABLE, bd ? id : null);
   renderTableBody();
 }
 
@@ -546,7 +531,7 @@ function resetIdle() {
   document.getElementById('satHint').textContent = 'Awaiting weapon trigger';
   prob = 50;
   document.getElementById('oddsValue').textContent = '50%';
-  tableData = genTable();
+  tableData = buildTableData(IDLE_TABLE, null);
   renderTableBody();
 }
 
@@ -632,13 +617,18 @@ oddsCh.onmessage = e => {
 // ================================================================
 //  BOOT
 // ================================================================
-tableData = genTable();
+tableData = buildTableData(IDLE_TABLE, null);
 renderTableHeader();
 renderTableBody();
 setTicker(BROADCAST_IDLE_ITEMS);
 tickClock();
 setInterval(tickClock, 1000);
-setInterval(tickLiveColumn, 2200);
+setInterval(tickLiveColumn, 800);   // ~800ms live-column tick
+
+// Autostart the display-only camera mirror. Works only if the browser
+// already holds a permission grant for this origin (pre-grant on show
+// setup); otherwise the click-to-enable panel remains as fallback.
+enableCam();
 </script>
 
 </div><!-- /#sim-mode -->
