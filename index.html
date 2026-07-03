@@ -407,8 +407,17 @@
       <span class="tp-value" id="tpConf">—</span>
     </div>
     <div class="tp-row">
-      <span class="tp-label">Threshold</span>
-      <span class="tp-value" style="color:#444">50%</span>
+      <span class="tp-label">Commit gate</span>
+      <span class="tp-value" style="color:var(--muted)">85% · margin 30%</span>
+    </div>
+
+    <hr class="tp-divider">
+
+    <!-- HOLD / commit-to-fire control -->
+    <div id="fireControl" style="border:1px solid var(--border-2);padding:8px;margin-bottom:8px">
+      <div id="fireStatus" style="font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--amber);margin-bottom:6px">◉ HOLD — safe to swap objects</div>
+      <button id="fireBtn" onclick="commitFire()" style="width:100%;padding:10px;background:var(--green);color:#0a0a0a;border:none;font-family:var(--font-data);font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer">▶ COMMIT FIRE · SPACE</button>
+      <div id="fireResult" style="font-size:9px;letter-spacing:0.06em;text-align:center;margin-top:6px;min-height:12px"> </div>
     </div>
 
     <hr class="tp-divider">
@@ -461,6 +470,7 @@
 
 <script src="js/config.js"></script>
 <script src="js/weapons-config.js"></script>
+<script src="js/trigger-gate.js"></script>
 <script>
 // ================================================================
 //  CONFIG
@@ -665,7 +675,7 @@ async function loop() {
   fpsSmoothed += (1 / dt - fpsSmoothed) * 0.1;
   const fps = Math.round(fpsSmoothed);
   updateTechPanel(predictions, fps);
-  updateFiring(predictions);
+  latestPredictions = predictions;   // stored for the operator's commit; no auto-fire
 }
 
 function updateTechPanel(predictions, fps) {
@@ -685,23 +695,41 @@ function updateTechPanel(predictions, fps) {
   });
 }
 
-function updateFiring(predictions) {
-  const sorted = [...predictions].sort((a, b) => b.probability - a.probability);
-  const top = sorted[0];
-  const map = LABEL_MAP[top.className];
-  const conf = top.probability;
-  if (!map || conf < CONFIDENCE_THRESHOLD) { currentAction = null; return; }
-  const actionKey = map.player + '|' + map.action;
-  if (currentAction !== actionKey) {
-    currentAction = actionKey;
-    const now = Date.now();
-    if (map.weaponIds && map.weaponIds.length && (now - lastFiredAt) > FIRE_DEBOUNCE_MS) {
-      lastFiredAt = now;
-      map.weaponIds.forEach(id => gameChannel.postMessage({ type: 'FIRE_WEAPON', weaponId: id }));
-      const firedBy = map.weaponIds[0].startsWith('D') ? 'disruptor' : 'defender';
-      gameChannel.postMessage({ type: 'CURRENT_PLAYER', player: firedBy === 'disruptor' ? 'defender' : 'disruptor' });
-    }
+// ── COMMIT-TO-FIRE ─────────────────────────────────────────────
+// The engine rests in HOLD and never auto-fires. The operator commits
+// (COMMIT button or Spacebar); we then fire the weapon for the single
+// clearly-detected object, or refuse and say why. Tunable via TRIGGER_DEFAULTS
+// in js/trigger-gate.js (threshold / margin / background name).
+let latestPredictions = null;
+
+function commitFire() {
+  const res = evaluateCommit(latestPredictions, TRIGGER_DEFAULTS);
+  if (!res.fire) {
+    const why = { background: 'EMPTY — no object in zone',
+                  ambiguous: 'NO CLEAR OBJECT — two detected',
+                  'low-confidence': 'NO CLEAR OBJECT — low confidence',
+                  'no-input': 'NO CAMERA / NO INPUT' }[res.reason] || 'BLOCKED';
+    flashFireResult('✕ ' + why, 'var(--red)');
+    return;
   }
+  const map = LABEL_MAP[res.className];
+  if (!map || !map.weaponIds || !map.weaponIds.length) {
+    flashFireResult('✕ "' + res.className + '" has no weapon mapping', 'var(--red)');
+    return;
+  }
+  map.weaponIds.forEach(id => gameChannel.postMessage({ type: 'FIRE_WEAPON', weaponId: id }));
+  const firedBy = map.weaponIds[0].startsWith('D') ? 'disruptor' : 'defender';
+  gameChannel.postMessage({ type: 'CURRENT_PLAYER', player: firedBy === 'disruptor' ? 'defender' : 'disruptor' });
+  flashFireResult('✓ FIRED  ' + res.className + '  →  ' + map.weaponIds.join(', '), 'var(--green)');
+}
+
+function flashFireResult(text, color) {
+  const el = document.getElementById('fireResult');
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = color;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.textContent = ' '; }, 2600);
 }
 
 function stopCamera() {
@@ -723,6 +751,7 @@ const KEY_MAP_CC = {
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); commitFire(); return; }
   const id = KEY_MAP_CC[e.key];
   if (id) {
     gameChannel.postMessage({ type: 'FIRE_WEAPON', weaponId: id });
