@@ -41,11 +41,18 @@ function recomputeSimMultipliers() {
 
   for (const entry of marketState.activeWeapons) {
     const keys = entry.weapon.sim_trigger_keys;
+    const isDefender = entry.weapon.player === 'defender';
     for (const [key, val] of Object.entries(keys)) {
       if (typeof val === 'number') {
-        fresh[key] = (key in fresh) ? Math.min(fresh[key], val) : val;
+        // Defenders restore numeric keys (e.g. speed_mult back to 1.0).
+        // Disruptors take Math.min so the worst active disruptor wins.
+        if (isDefender) {
+          fresh[key] = val;
+        } else {
+          fresh[key] = (key in fresh) ? Math.min(fresh[key], val) : val;
+        }
       } else {
-        if (entry.weapon.player === 'defender') {
+        if (isDefender) {
           fresh[key] = val;
         } else if (!(key in fresh) || fresh[key] === SIM_DEFAULTS[key]) {
           fresh[key] = val;

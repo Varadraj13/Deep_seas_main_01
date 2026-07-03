@@ -57,11 +57,13 @@ function createVessel(opts = {}) {
   const pos = positionOnRoute(route, progress);
   const markerSize = Math.max(8, Math.min(14, sizeMeter / 25));
 
-  const _pulseDelay = vesselId * 137;
   const icon = L.divIcon({
     className: '',
-    html: `<div class="vessel-cross" id="ship-icon-${vesselId}" style="animation-delay:${_pulseDelay}ms"><div class="cross-h" style="animation-delay:${_pulseDelay}ms"></div><div class="cross-v" style="animation-delay:${_pulseDelay}ms"></div><div class="vessel-datacard"><div class="vdc-name">${name}</div><div class="vdc-type">${cfg.label} // ${typeof flag === 'object' ? flag.code : flag}</div><div class="vdc-speed">${speed.toFixed(1)} KN // ${Math.round(pos.bearing)}°</div><div class="vdc-imo">IMO: ${imo}</div></div></div>`,
-    iconSize: [12, 12], iconAnchor: [6, 6]
+    html: `<svg id="ship-icon-${vesselId}" viewBox="0 0 12 16" width="12" height="16"
+      style="transform:rotate(${Math.round(pos.bearing)}deg);overflow:visible;display:block;filter:drop-shadow(0 0 1.5px rgba(255,255,255,0.9))">
+      <path d="M6,1 L11,15 L6,11 L1,15 Z" fill="${cfg.color}" stroke="rgba(255,255,255,0.8)" stroke-width="1" stroke-linejoin="round"/>
+    </svg>`,
+    iconSize: [12, 16], iconAnchor: [6, 8]
   });
 
   const marker = L.marker([pos.lat, pos.lng], { icon, zIndexOffset: 500 }).addTo(map);

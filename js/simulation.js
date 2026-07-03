@@ -152,10 +152,7 @@ function updateSim(dtReal) {
     heatPoints.push([pos.lat, pos.lng, 0.6]);
 
     const el = document.getElementById('ship-icon-' + v.id);
-    if (el) {
-      const spdEl = el.querySelector('.vdc-speed');
-      if (spdEl) spdEl.textContent = v.speed.toFixed(1) + ' KN // ' + Math.round(pos.bearing) + '\u00B0';
-    }
+    if (el) el.style.transform = `rotate(${Math.round(pos.bearing)}deg)`;
 
     if (showTrails) {
       v.trail.push([pos.lat, pos.lng]);
@@ -207,9 +204,22 @@ function updateStats() {
   document.getElementById('vesselCount').textContent = vessels.length;
   const hrs = Math.floor(simElapsed / 3600), mins = Math.floor((simElapsed % 3600) / 60);
   document.getElementById('simTime').textContent = String(hrs).padStart(2,'0')+':'+String(mins).padStart(2,'0');
-  if(vessels.length) {
-    document.getElementById('avgSpeed').textContent = (vessels.reduce((s,v)=>s+v.speed,0)/vessels.length * currentSpeedMult).toFixed(1);
-  } else document.getElementById('avgSpeed').textContent = '0';
+  if (vessels.length) {
+    const avg = vessels.reduce((s,v) => s + v.speed, 0) / vessels.length * currentSpeedMult;
+    document.getElementById('avgSpeed').textContent = avg.toFixed(1);
+    const condEl = document.getElementById('avgSpeedCond');
+    if (condEl) {
+      const dev = avg - 15;
+      condEl.textContent = dev >= -0.8 ? 'NOMINAL' : dev < -6 ? '▼ BLOCKADE' : '▼ SLOWING';
+    }
+    const transitEl = document.getElementById('inTransit');
+    if (transitEl) {
+      const totalVal = vessels.reduce((s,v) => s + (v.cargo ? v.cargo.value : 0), 0);
+      transitEl.textContent = '$' + (totalVal / 1e9).toFixed(1) + 'B';
+    }
+  } else {
+    document.getElementById('avgSpeed').textContent = '0';
+  }
   document.getElementById('warnings').textContent = warningCount;
   // Status bar update
   var sbTick = document.getElementById('sbTick');
