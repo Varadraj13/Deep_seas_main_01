@@ -1,0 +1,695 @@
+{
+  "project": "Deep Seas / Systems / Strategy / Interaction",
+  "mode": "combined_17_sequence_pre_show_variable_timing",
+  "total_duration_seconds": 263,
+  "duration_policy": "variable_per_sequence",
+  "asset_folder": "assets/sequence_media/",
+  "audio_policy": "audio optional; attach later using sequence IDs and audio_file fields",
+  "screens": {
+    "left": {
+      "html": "simulator.html",
+      "component": "simulator"
+    },
+    "center": {
+      "html": "detector.html",
+      "component": "detector",
+      "is_master_controller": true
+    },
+    "right": {
+      "html": "marketstate.html",
+      "component": "marketstate"
+    }
+  },
+  "implementation_rules": [
+    "Do not hardcode 20 seconds.",
+    "Read duration from this JSON.",
+    "Compute start/end by accumulating duration, or use provided start/end.",
+    "Use detector.html as master controller and BroadcastChannel/localStorage for sync.",
+    "All assets are read from assets/sequence_media/ using Slide#.PNG or Slide#.gif."
+  ],
+  "sequences": [
+    {
+      "sequence": 1,
+      "phase": "Phase 01 \u2014 argument / narrative intro",
+      "start": 0,
+      "end": 8,
+      "timecode": "00:00\u201300:08",
+      "duration": 8,
+      "sequence_type": "Title / atmosphere",
+      "timing_rationale": "Short title hit; do not slow down before the argument begins.",
+      "audio_file": "assets/audio/seq_01_vo.mp3",
+      "script_file": "assets/scripts/seq_01_vo.txt",
+      "voiceover_text": "Deep seas. Systems. Strategy. Interaction. Systems dramaturgy.",
+      "screens": {
+        "left": {
+          "html": "simulator.html",
+          "slide_no": 1,
+          "preferred_file": "Slide1.gif",
+          "path": "assets/sequence_media/Slide1.gif",
+          "fallback_file": "Slide1.PNG",
+          "media_type": "gif"
+        },
+        "center": {
+          "html": "detector.html",
+          "slide_no": 2,
+          "preferred_file": "Slide2.PNG",
+          "path": "assets/sequence_media/Slide2.PNG",
+          "fallback_file": "Slide2.gif",
+          "media_type": "png"
+        },
+        "right": {
+          "html": "marketstate.html",
+          "slide_no": 3,
+          "preferred_file": "Slide3.gif",
+          "path": "assets/sequence_media/Slide3.gif",
+          "fallback_file": "Slide3.PNG",
+          "media_type": "gif"
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "phase": "Phase 01 \u2014 argument / narrative intro",
+      "start": 8,
+      "end": 22,
+      "timecode": "00:08\u201300:22",
+      "duration": 14,
+      "sequence_type": "Stakes / Hormuz scale",
+      "timing_rationale": "Simple but important scale-setting line; enough time to read the three screens.",
+      "audio_file": "assets/audio/seq_02_vo.mp3",
+      "script_file": "assets/scripts/seq_02_vo.txt",
+      "voiceover_text": "In the Strait of Hormuz, ships move through corridors only thirty-three kilometers wide. Twenty percent of the world's oil passes through this pressure point every day.",
+      "screens": {
+        "left": {
+          "html": "simulator.html",
+          "slide_no": 4,
+          "preferred_file": "Slide4.PNG",
+          "path": "assets/sequence_media/Slide4.PNG",
+          "fallback_file": "Slide4.gif",
+          "media_type": "png"
+        },
+        "center": {
+          "html": "detector.html",
+          "slide_no": 5,
+          "preferred_file": "Slide5.PNG",
+          "path": "assets/sequence_media/Slide5.PNG",
+          "fallback_file": "Slide5.gif",
+          "media_type": "png"
+        },
+        "right": {
+          "html": "marketstate.html",
+          "slide_no": 6,
+          "preferred_file": "Slide6.PNG",
+          "path": "assets/sequence_media/Slide6.PNG",
+          "fallback_file": "Slide6.gif",
+          "media_type": "png"
+        }
+      }
+    },
+    {
+      "sequence": 3,
+      "phase": "Phase 01 \u2014 argument / narrative intro",
+      "start": 22,
+      "end": 38,
+      "timecode": "00:22\u201300:38",
+      "duration": 16,
+      "sequence_type": "Simulation premise",
+      "timing_rationale": "Needs breathing room because it introduces dataset/simulation purpose.",
+      "audio_file": "assets/audio/seq_03_vo.mp3",
+      "script_file": "assets/scripts/seq_03_vo.txt",
+      "voiceover_text": "We tried to simulate this flow of oil through datasets, vessels, and chokepoints. The question was not only where oil moves, but how that movement reaches everyday life.",
+      "screens": {
+        "left": {
+          "html": "simulator.html",
+          "slide_no": 7,
+          "preferred_file": "Slide7.PNG",
+          "path": "assets/sequence_media/Slide7.PNG",
+          "fallback_file": "Slide7.gif",
+          "media_type": "png"
+        },
+        "center": {
+          "html": "detector.html",
+          "slide_no": 8,
+          "preferred_file": "Slide8.PNG",
+          "path": "assets/sequence_media/Slide8.PNG",
+          "fallback_file": "Slide8.gif",
+          "media_type": "png"
+        },
+        "right": {
+          "html": "marketstate.html",
+          "slide_no": 9,
+          "preferred_file": "Slide9.PNG",
+          "path": "assets/sequence_media/Slide9.PNG",
+          "fallback_file": "Slide9.gif",
+          "media_type": "png"
+        }
+      }
+    },
+    {
+      "sequence": 4,
+      "phase": "Phase 01 \u2014 argument / narrative intro",
+      "start": 38,
+      "end": 48,
+      "timecode": "00:38\u201300:48",
+      "duration": 10,
+      "sequence_type": "Conceptual pivot",
+      "timing_rationale": "Brief pivot from trade to power.",
+      "audio_file": "assets/audio/seq_04_vo.mp3",
+      "script_file": "assets/scripts/seq_04_vo.txt",
+      "voiceover_text": "The datasets were built to understand trade. They ended up showing power.",
+      "screens": {
+        "left": {
+          "html": "simulator.html",
+          "slide_no": 10,
+          "preferred_file": "Slide10.PNG",
+          "path": "assets/sequence_media/Slide10.PNG",
+          "fallback_file": "Slide10.gif",
+          "media_type": "png"
+        },
+        "center": {
+          "html": "detector.html",
+          "slide_no": 11,
+          "preferred_file": "Slide11.PNG",
+          "path": "assets/sequence_media/Slide11.PNG",
+          "fallback_file": "Slide11.gif",
+          "media_type": "png"
+        },
+        "right": {
+          "html": "marketstate.html",
+          "slide_no": 12,
+          "preferred_file": "Slide12.gif",
+          "path": "assets/sequence_media/Slide12.gif",
+          "fallback_file": "Slide12.PNG",
+          "media_type": "gif"
+        }
+      }
+    },
+    {
+      "sequence": 5,
+      "phase": "Phase 01 \u2014 argument / narrative intro",
+      "start": 48,
+      "end": 62,
+      "timecode": "00:48\u201301:02",
+      "duration": 14,
+      "sequence_type": "Event setup",
+      "timing_rationale": "Sets up Iran / prediction market evidence.",
+      "audio_file": "assets/audio/seq_05_vo.mp3",
+      "script_file": "assets/scripts/seq_05_vo.txt",
+      "voiceover_text": "April twenty twenty-four. Iran attacks Israel. One hundred and fifty-five million dollars had already been bet on whether it would happen.",
+      "screens": {
+        "left": {
+          "html": "simulator.html",
+          "slide_no": 13,
+          "preferred_file": "Slide13.PNG",
+          "path": "assets/sequence_media/Slide13.PNG",
+          "fallback_file": "Slide13.gif",
+          "media_type": "png"
+        },
+        "center": {
+          "html": "detector.html",
+          "slide_no": 14,
+          "preferred_file": "Slide14.PNG",
+          "path": "assets/sequence_media/Slide14.PNG",
+          "fallback_file": "Slide14.gif",
+          "media_type": "png"
+        },
+        "right": {
+          "html": "marketstate.html",
+          "slide_no": 15,
+          "preferred_file": "Slide15.PNG",
+          "path": "assets/sequence_media/Slide15.PNG",
+          "fallback_file": "Slide15.gif",
+          "media_type": "png"
+        }
+      }
+    },
+    {
+      "sequence": 6,
+      "phase": "Phase 01 \u2014 argument / narrative intro",
+      "start": 62,
+      "end": 74,
+      "timecode": "01:02\u201301:14",
+      "duration": 12,
+      "sequence_type": "Market-before-event punchline",
+      "timing_rationale": "Short punchline should land quickly.",
+      "audio_file": "assets/audio/seq_06_vo.mp3",
+      "script_file": "assets/scripts/seq_06_vo.txt",
+      "voiceover_text": "The market knew before the missiles launched. By the time the physical event arrived, the event had already become a financial position.",
+      "screens": {
+        "left": {
+          "html": "simulator.html",
+          "slide_no": 16,
+          "preferred_file": "Slide16.PNG",
+          "path": "assets/sequence_media/Slide16.PNG",
+          "fallback_file": "Slide16.gif",
+          "media_type": "png"
+        },
+        "center": {
+          "html": "detector.html",
+          "slide_no": 17,
+          "preferred_file": "Slide17.PNG",
+          "path": "assets/sequence_media/Slide17.PNG",
+          "fallback_file": "Slide17.gif",
+          "media_type": "png"
+        },
+        "right": {
+          "html": "marketstate.html",
+          "slide_no": 18,
+          "preferred_file": "Slide18.PNG",
+          "path": "assets/sequence_media/Slide18.PNG",
+          "fallback_file": "Slide18.gif",
+          "media_type": "png"
+        }
+      }
+    },
+    {
+      "sequence": 7,
+      "phase": "Phase 01 \u2014 argument / narrative intro",
+      "start": 74,
+      "end": 92,
+      "timecode": "01:14\u201301:32",
+      "duration": 18,
+      "sequence_type": "Information asymmetry",
+      "timing_rationale": "Needs more time because 72-hour window is central to asymmetry.",
+      "audio_file": "assets/audio/seq_07_vo.mp3",
+      "script_file": "assets/scripts/seq_07_vo.txt",
+      "voiceover_text": "Information did not arrive evenly. Some people had a seventy-two-hour window. Others had only headlines.",
+      "screens": {
+        "left": {
+          "html": "simulator.html",
+          "slide_no": 19,
+          "preferred_file": "Slide19.PNG",
+          "path": "assets/sequence_media/Slide19.PNG",
+          "fallback_file": "Slide19.gif",
+          "media_type": "png"
+        },
+        "center": {
+          "html": "detector.html",
+          "slide_no": 20,
+          "preferred_file": "Slide20.PNG",
+          "path": "assets/sequence_media/Slide20.PNG",
+          "fallback_file": "Slide20.gif",
+          "media_type": "png"
+        },
+        "right": {
+          "html": "marketstate.html",
+          "slide_no": 21,
+          "preferred_file": "Slide21.PNG",
+          "path": "assets/sequence_media/Slide21.PNG",
+          "fallback_file": "Slide21.gif",
+          "media_type": "png"
+        }
+      }
+    },
+    {
+      "sequence": 8,
+      "phase": "Phase 01 \u2014 argument / narrative intro",
+      "start": 92,
+      "end": 114,
+      "timecode": "01:32\u201301:54",
+      "duration": 22,
+      "sequence_type": "Dense evidence / mismatch",
+      "timing_rationale": "Densest evidence moment; give audience time to scan timeline/VIX/media material.",
+      "audio_file": "assets/audio/seq_08_vo.mp3",
+      "script_file": "assets/scripts/seq_08_vo.txt",
+      "voiceover_text": "The mismatch is right there in the numbers: who has information, and who bears the consequence. Nobody hid it. They assumed you would not look.",
+      "screens": {
+        "left": {
+          "html": "simulator.html",
+          "slide_no": 22,
+          "preferred_file": "Slide22.PNG",
+          "path": "assets/sequence_media/Slide22.PNG",
+          "fallback_file": "Slide22.gif",
+          "media_type": "png"
+        },
+        "center": {
+          "html": "detector.html",
+          "slide_no": 23,
+          "preferred_file": "Slide23.PNG",
+          "path": "assets/sequence_media/Slide23.PNG",
+          "fallback_file": "Slide23.gif",
+          "media_type": "png"
+        },
+        "right": {
+          "html": "marketstate.html",
+          "slide_no": 24,
+          "preferred_file": "Slide24.PNG",
+          "path": "assets/sequence_media/Slide24.PNG",
+          "fallback_file": "Slide24.gif",
+          "media_type": "png"
+        }
+      }
+    },
+    {
+      "sequence": 9,
+      "phase": "Phase 01 \u2014 argument / narrative intro",
+      "start": 114,
+      "end": 130,
+      "timecode": "01:54\u201302:10",
+      "duration": 16,
+      "sequence_type": "Invisibility argument",
+      "timing_rationale": "Argumentative text, medium pause.",
+      "audio_file": "assets/audio/seq_09_vo.mp3",
+      "script_file": "assets/scripts/seq_09_vo.txt",
+      "voiceover_text": "I did not invent this. I looked at it long enough to see the shape. Invisibility is not a bug. It is part of the system.",
+      "screens": {
+        "left": {
+          "html": "simulator.html",
+          "slide_no": 25,
+          "preferred_file": "Slide25.PNG",
+          "path": "assets/sequence_media/Slide25.PNG",
+          "fallback_file": "Slide25.gif",
+          "media_type": "png"
+        },
+        "center": {
+          "html": "detector.html",
+          "slide_no": 26,
+          "preferred_file": "Slide26.PNG",
+          "path": "assets/sequence_media/Slide26.PNG",
+          "fallback_file": "Slide26.gif",
+          "media_type": "png"
+        },
+        "right": {
+          "html": "marketstate.html",
+          "slide_no": 27,
+          "preferred_file": "Slide27.PNG",
+          "path": "assets/sequence_media/Slide27.PNG",
+          "fallback_file": "Slide27.gif",
+          "media_type": "png"
+        }
+      }
+    },
+    {
+      "sequence": 10,
+      "phase": "Phase 01 \u2014 argument / narrative intro",
+      "start": 130,
+      "end": 142,
+      "timecode": "02:10\u201302:22",
+      "duration": 12,
+      "sequence_type": "Graph explanation \u2014 timeline",
+      "timing_rationale": "Single graph explanation; keep direct.",
+      "audio_file": "assets/audio/seq_10_vo.mp3",
+      "script_file": "assets/scripts/seq_10_vo.txt",
+      "voiceover_text": "The graph on the left shows the attack as a diplomatic, financial, and physical timeline. The market starts moving before most people understand what happened.",
+      "screens": {
+        "left": {
+          "html": "simulator.html",
+          "slide_no": 28,
+          "preferred_file": "Slide28.PNG",
+          "path": "assets/sequence_media/Slide28.PNG",
+          "fallback_file": "Slide28.gif",
+          "media_type": "png"
+        },
+        "center": {
+          "html": "detector.html",
+          "slide_no": 29,
+          "preferred_file": "Slide29.PNG",
+          "path": "assets/sequence_media/Slide29.PNG",
+          "fallback_file": "Slide29.gif",
+          "media_type": "png"
+        },
+        "right": {
+          "html": "marketstate.html",
+          "slide_no": 30,
+          "preferred_file": "Slide30.PNG",
+          "path": "assets/sequence_media/Slide30.PNG",
+          "fallback_file": "Slide30.gif",
+          "media_type": "png"
+        }
+      }
+    },
+    {
+      "sequence": 11,
+      "phase": "Phase 01 \u2014 argument / narrative intro",
+      "start": 142,
+      "end": 154,
+      "timecode": "02:22\u201302:34",
+      "duration": 12,
+      "sequence_type": "Graph explanation \u2014 fear / volume",
+      "timing_rationale": "Single graph explanation; keep direct.",
+      "audio_file": "assets/audio/seq_11_vo.mp3",
+      "script_file": "assets/scripts/seq_11_vo.txt",
+      "voiceover_text": "The graph on the right shows fear against trade volume. More fear does not only describe the market. It produces action inside it.",
+      "screens": {
+        "left": {
+          "html": "simulator.html",
+          "slide_no": 31,
+          "preferred_file": "Slide31.PNG",
+          "path": "assets/sequence_media/Slide31.PNG",
+          "fallback_file": "Slide31.gif",
+          "media_type": "png"
+        },
+        "center": {
+          "html": "detector.html",
+          "slide_no": 32,
+          "preferred_file": "Slide32.PNG",
+          "path": "assets/sequence_media/Slide32.PNG",
+          "fallback_file": "Slide32.gif",
+          "media_type": "png"
+        },
+        "right": {
+          "html": "marketstate.html",
+          "slide_no": 33,
+          "preferred_file": "Slide33.PNG",
+          "path": "assets/sequence_media/Slide33.PNG",
+          "fallback_file": "Slide33.gif",
+          "media_type": "png"
+        }
+      }
+    },
+    {
+      "sequence": 12,
+      "phase": "Phase 01 \u2014 argument / narrative intro",
+      "start": 154,
+      "end": 172,
+      "timecode": "02:34\u201302:52",
+      "duration": 18,
+      "sequence_type": "Speculation argument",
+      "timing_rationale": "Important conceptual synthesis; let it sit.",
+      "audio_file": "assets/audio/seq_12_vo.mp3",
+      "script_file": "assets/scripts/seq_12_vo.txt",
+      "voiceover_text": "Same event. Two experiences. One group is figuring out what happened. The other already knows what comes next. Speculation from the inside feels exactly like knowledge.",
+      "screens": {
+        "left": {
+          "html": "simulator.html",
+          "slide_no": 34,
+          "preferred_file": "Slide34.PNG",
+          "path": "assets/sequence_media/Slide34.PNG",
+          "fallback_file": "Slide34.gif",
+          "media_type": "png"
+        },
+        "center": {
+          "html": "detector.html",
+          "slide_no": 35,
+          "preferred_file": "Slide35.PNG",
+          "path": "assets/sequence_media/Slide35.PNG",
+          "fallback_file": "Slide35.gif",
+          "media_type": "png"
+        },
+        "right": {
+          "html": "marketstate.html",
+          "slide_no": 36,
+          "preferred_file": "Slide36.PNG",
+          "path": "assets/sequence_media/Slide36.PNG",
+          "fallback_file": "Slide36.gif",
+          "media_type": "png"
+        }
+      }
+    },
+    {
+      "sequence": 13,
+      "phase": "Phase 01 \u2014 argument / narrative intro",
+      "start": 172,
+      "end": 182,
+      "timecode": "02:52\u201303:02",
+      "duration": 10,
+      "sequence_type": "Question pause",
+      "timing_rationale": "Pause on the three questions.",
+      "audio_file": "assets/audio/seq_13_vo.mp3",
+      "script_file": "assets/scripts/seq_13_vo.txt",
+      "voiceover_text": "What if the system showed you the room? What if you were the one who knew first? What would you do with that?",
+      "screens": {
+        "left": {
+          "html": "simulator.html",
+          "slide_no": 37,
+          "preferred_file": "Slide37.PNG",
+          "path": "assets/sequence_media/Slide37.PNG",
+          "fallback_file": "Slide37.gif",
+          "media_type": "png"
+        },
+        "center": {
+          "html": "detector.html",
+          "slide_no": 38,
+          "preferred_file": "Slide38.PNG",
+          "path": "assets/sequence_media/Slide38.PNG",
+          "fallback_file": "Slide38.gif",
+          "media_type": "png"
+        },
+        "right": {
+          "html": "marketstate.html",
+          "slide_no": 39,
+          "preferred_file": "Slide39.PNG",
+          "path": "assets/sequence_media/Slide39.PNG",
+          "fallback_file": "Slide39.gif",
+          "media_type": "png"
+        }
+      }
+    },
+    {
+      "sequence": 14,
+      "phase": "Phase 01 \u2014 argument / narrative intro",
+      "start": 182,
+      "end": 200,
+      "timecode": "03:02\u201303:20",
+      "duration": 18,
+      "sequence_type": "Systems dramaturgy / research frame",
+      "timing_rationale": "Defines systems dramaturgy and the research question.",
+      "audio_file": "assets/audio/seq_14_vo.mp3",
+      "script_file": "assets/scripts/seq_14_vo.txt",
+      "voiceover_text": "Systems dramaturgy is the practice of designing a system whose structure of experience is the argument. You do not explain it first. You make them feel it.",
+      "screens": {
+        "left": {
+          "html": "simulator.html",
+          "slide_no": 40,
+          "preferred_file": "Slide40.PNG",
+          "path": "assets/sequence_media/Slide40.PNG",
+          "fallback_file": "Slide40.gif",
+          "media_type": "png"
+        },
+        "center": {
+          "html": "detector.html",
+          "slide_no": 41,
+          "preferred_file": "Slide41.PNG",
+          "path": "assets/sequence_media/Slide41.PNG",
+          "fallback_file": "Slide41.gif",
+          "media_type": "png"
+        },
+        "right": {
+          "html": "marketstate.html",
+          "slide_no": 42,
+          "preferred_file": "Slide42.PNG",
+          "path": "assets/sequence_media/Slide42.PNG",
+          "fallback_file": "Slide42.gif",
+          "media_type": "png"
+        }
+      }
+    },
+    {
+      "sequence": 15,
+      "phase": "Phase 02 \u2014 instruction / onboarding",
+      "start": 200,
+      "end": 206,
+      "timecode": "03:20\u201303:26",
+      "duration": 6,
+      "sequence_type": "Instruction transition",
+      "timing_rationale": "Fast transition card.",
+      "audio_file": "assets/audio/seq_15_vo.mp3",
+      "script_file": "assets/scripts/seq_15_vo.txt",
+      "voiceover_text": "How does this work?",
+      "screens": {
+        "left": {
+          "html": "simulator.html",
+          "slide_no": 43,
+          "preferred_file": "Slide43.PNG",
+          "path": "assets/sequence_media/Slide43.PNG",
+          "fallback_file": "Slide43.gif",
+          "media_type": "png"
+        },
+        "center": {
+          "html": "detector.html",
+          "slide_no": 44,
+          "preferred_file": "Slide44.PNG",
+          "path": "assets/sequence_media/Slide44.PNG",
+          "fallback_file": "Slide44.gif",
+          "media_type": "png"
+        },
+        "right": {
+          "html": "marketstate.html",
+          "slide_no": 45,
+          "preferred_file": "Slide45.PNG",
+          "path": "assets/sequence_media/Slide45.PNG",
+          "fallback_file": "Slide45.gif",
+          "media_type": "png"
+        }
+      }
+    },
+    {
+      "sequence": 16,
+      "phase": "Phase 02 \u2014 instruction / onboarding",
+      "start": 206,
+      "end": 228,
+      "timecode": "03:26\u201303:48",
+      "duration": 22,
+      "sequence_type": "Gameplay rules",
+      "timing_rationale": "Rule explanation needs full attention.",
+      "audio_file": "assets/audio/seq_16_vo.mp3",
+      "script_file": "assets/scripts/seq_16_vo.txt",
+      "voiceover_text": "Two players enter the space. One is the Disruptor. One is the Defender. The audience predicts whether the Strait remains open or closes. Objects trigger actions. The simulation and market move together.",
+      "screens": {
+        "left": {
+          "html": "simulator.html",
+          "slide_no": 46,
+          "preferred_file": "Slide46.PNG",
+          "path": "assets/sequence_media/Slide46.PNG",
+          "fallback_file": "Slide46.gif",
+          "media_type": "png"
+        },
+        "center": {
+          "html": "detector.html",
+          "slide_no": 47,
+          "preferred_file": "Slide47.PNG",
+          "path": "assets/sequence_media/Slide47.PNG",
+          "fallback_file": "Slide47.gif",
+          "media_type": "png"
+        },
+        "right": {
+          "html": "marketstate.html",
+          "slide_no": 48,
+          "preferred_file": "Slide48.PNG",
+          "path": "assets/sequence_media/Slide48.PNG",
+          "fallback_file": "Slide48.gif",
+          "media_type": "png"
+        }
+      }
+    },
+    {
+      "sequence": 17,
+      "phase": "Phase 02 \u2014 instruction / onboarding",
+      "start": 228,
+      "end": 263,
+      "timecode": "03:48\u201304:23",
+      "duration": 35,
+      "sequence_type": "Audience onboarding / QR / start",
+      "timing_rationale": "Onboarding needs extra time for QR/phone/login and first comprehension.",
+      "audio_file": "assets/audio/seq_17_vo.mp3",
+      "script_file": "assets/scripts/seq_17_vo.txt",
+      "voiceover_text": "Two volunteers choose a side. The audience joins the local prediction market. Each object represents a commodity weapon. Place it in the conflict zone to trigger an action. Bet on what happens next. The highest investment wins.",
+      "screens": {
+        "left": {
+          "html": "simulator.html",
+          "slide_no": 49,
+          "preferred_file": "Slide49.gif",
+          "path": "assets/sequence_media/Slide49.gif",
+          "fallback_file": "Slide49.PNG",
+          "media_type": "gif"
+        },
+        "center": {
+          "html": "detector.html",
+          "slide_no": 50,
+          "preferred_file": "Slide50.PNG",
+          "path": "assets/sequence_media/Slide50.PNG",
+          "fallback_file": "Slide50.gif",
+          "media_type": "png"
+        },
+        "right": {
+          "html": "marketstate.html",
+          "slide_no": 51,
+          "preferred_file": "Slide51.gif",
+          "path": "assets/sequence_media/Slide51.gif",
+          "fallback_file": "Slide51.PNG",
+          "media_type": "gif"
+        }
+      }
+    }
+  ]
+}

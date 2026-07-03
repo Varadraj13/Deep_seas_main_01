@@ -1,0 +1,1 @@
+Two players enter the space. One is the Disruptor. One is the Defender. The audience predicts whether the Strait remains open or closes. Objects trigger actions. The simulation and market move together.
