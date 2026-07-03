@@ -6,14 +6,15 @@
 <title>Market Screen</title>
 <script src="js/config.js"></script>
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<link rel="stylesheet" href="css/tokens.css">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&display=swap');
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    background: #ffffff;
-    color: #111111;
+    background: var(--bg);
+    color: var(--fg);
     font-family: 'IBM Plex Mono', monospace;
     height: 100vh;
     overflow: hidden;
@@ -31,13 +32,13 @@
   }
   .contract-q {
     font-size: 11px;
-    color: #888;
+    color: var(--muted);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     max-width: 420px;
     line-height: 1.6;
   }
-  .contract-q span { color: #111; }
+  .contract-q span { color: var(--fg); }
   .header-layers {
     display: flex;
     gap: 36px;
@@ -52,16 +53,16 @@
     font-size: 8px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: #999;
+    color: var(--muted);
     margin-bottom: 3px;
   }
   .layer-val {
     font-size: 22px;
     font-weight: 300;
     letter-spacing: -0.02em;
-    color: #111;
+    color: var(--fg);
   }
-  #gapBox .layer-val { color: #888; }
+  #gapBox .layer-val { color: var(--muted); }
   #gapBox.wide .layer-val { color: #ef4444; font-weight: 500; }
 
   /* ── MAIN GRID ────────────────────────────────────────────────── */
@@ -69,12 +70,12 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1px;
-    background: #e0e0e0;
+    background: var(--border);
     overflow: hidden;
   }
 
   .side {
-    background: #ffffff;
+    background: var(--bg);
     display: grid;
     grid-template-rows: auto 1fr auto;
     padding: 20px 24px 14px;
@@ -113,11 +114,11 @@
     display: flex;
     gap: 16px;
     font-size: 9px;
-    color: #777;
+    color: var(--muted);
     letter-spacing: 0.08em;
   }
 
-  .side-payout { color: #111; font-weight: 500; }
+  .side-payout { color: var(--fg); font-weight: 500; }
 
   /* ── CHART ────────────────────────────────────────────────────── */
   .chart-wrap {
@@ -143,12 +144,12 @@
     padding: 3px 0;
     font-size: 9px;
     letter-spacing: 0.06em;
-    color: #555;
+    color: var(--muted);
     border-bottom: 1px solid #f0f0f0;
   }
   .lb-row:last-child { border-bottom: none; }
-  .lb-name { color: #222; }
-  .lb-amt  { text-align: right; color: #888; }
+  .lb-name { color: var(--fg); }
+  .lb-amt  { text-align: right; color: var(--muted); }
 
   /* ── FOOTER ───────────────────────────────────────────────────── */
   footer {
@@ -162,7 +163,7 @@
   }
   #txFeed {
     font-size: 9px;
-    color: #555;
+    color: var(--muted);
     letter-spacing: 0.1em;
     text-transform: uppercase;
     white-space: nowrap;

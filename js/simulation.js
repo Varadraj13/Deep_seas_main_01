@@ -158,7 +158,10 @@ function updateSim(dtReal) {
     heatPoints.push([pos.lat, pos.lng, 0.6]);
 
     const el = document.getElementById('ship-icon-' + v.id);
-    if (el) el.style.transform = `rotate(${Math.round(pos.bearing)}deg)`;
+    if (el) {
+      const spdEl = el.querySelector('.vdc-speed');
+      if (spdEl) spdEl.textContent = v.speed.toFixed(1) + ' KN // ' + Math.round(pos.bearing) + '°';
+    }
 
     if (showTrails) {
       v.trail.push([pos.lat, pos.lng]);

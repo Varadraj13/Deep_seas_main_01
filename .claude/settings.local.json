@@ -19,7 +19,22 @@
       "WebFetch(domain:maritime-executive.com)",
       "WebFetch(domain:asmr.education)",
       "WebFetch(domain:interactive.aljazeera.com)",
-      "WebFetch(domain:mapcarta.com)"
+      "WebFetch(domain:mapcarta.com)",
+      "Bash(node server.js)",
+      "Bash(node tests/phase-a-server.js)",
+      "Bash(kill %1)",
+      "Bash(npm install *)",
+      "Bash(npx kill-port *)",
+      "Bash(git commit -m ' *)",
+      "Bash(node tests/phase-c2-speed-model.js)",
+      "Bash(node --check js/simulation.js)",
+      "Bash(node --check js/speed-model.js)",
+      "Bash(node --check js/vessel-creation.js)",
+      "Bash(curl -s http://localhost:3000/healthz)",
+      "Bash(curl -s -X POST http://localhost:3000/reset -H \"Content-Type: application/json\" -d '{}')",
+      "Bash(node -e ' *)",
+      "Bash(node tests/phase-f-bloomberg.js)",
+      "Bash(command -v magick convert ffmpeg)"
     ]
   }
 }

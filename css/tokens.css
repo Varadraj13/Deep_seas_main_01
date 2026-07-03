@@ -1,0 +1,90 @@
+/* ================================================================
+   DEEP SEAS — DESIGN TOKENS (single source of truth)
+   Every page links this file. Dark is the default surface; light
+   pages add class="surface-light" on <html> or <body>.
+   Accents and fonts are identical across both surfaces — only
+   background / foreground / border flip. Change a value here and it
+   updates show-wide.
+   ================================================================ */
+
+:root {
+  /* ── Type ────────────────────────────────────────────────── */
+  --font-ui:        'IBM Plex Mono', ui-monospace, monospace;
+  --font-editorial: 'Playfair Display', Georgia, serif;
+
+  /* Type scale (chrome atoms) */
+  --fs-label: 8px;    /* uppercase micro-labels           */
+  --fs-sub:   9px;    /* secondary text                   */
+  --fs-body:  11px;   /* default body / field values      */
+  --fs-val:   18px;   /* stat values                      */
+  --track:    0.14em; /* label letter-spacing             */
+
+  /* ── Accent grammar (same on every surface) ──────────────── */
+  --red:   #ef4444;   /* disruptor / negative / danger     */
+  --green: #22c55e;   /* defender / positive / restore     */
+  --amber: #f59e0b;   /* market / bloomberg / caution      */
+
+  /* ── Surface: DARK (default) ─────────────────────────────── */
+  --bg:        #0a0a0a;   /* canonical black (was #080808 / #0a0a0a mix) */
+  --panel:     #111111;
+  --fg:        #eaeaea;
+  --muted:     #888888;
+  --faint:     #555555;
+  --border:    #1a1a1a;
+  --border-2:  #262626;
+}
+
+/* ── Surface: LIGHT (audience, base) ───────────────────────── */
+.surface-light {
+  --bg:        #ffffff;
+  --panel:     #ffffff;
+  --fg:        #111111;
+  --muted:     #777777;
+  --faint:     #aaaaaa;
+  --border:    #e0e0e0;
+  --border-2:  #cccccc;
+}
+
+/* ================================================================
+   Shared chrome atoms — opt-in utility classes. Pages use these
+   where they map cleanly; they are not force-fit onto every element.
+   ================================================================ */
+
+.ds-label {
+  font-family: var(--font-ui);
+  font-size: var(--fs-label);
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ds-val {
+  font-family: var(--font-ui);
+  font-size: var(--fs-val);
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+}
+
+.ds-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+}
+
+.ds-btn {
+  font-family: var(--font-ui);
+  font-size: var(--fs-sub);
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--border-2);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.ds-btn:hover { border-color: var(--fg); }
+
+/* Semantic accent helpers */
+.ds-red   { color: var(--red); }
+.ds-green { color: var(--green); }
+.ds-amber { color: var(--amber); }

@@ -252,3 +252,91 @@ center [26.0, 57.0]`, matching the screenshot. No change needed.
    every weapon; KN + word state visible.* Skip → speed stays weapon-only (the bug).
 4. `simulator.html` — load `speed-model.js` before `simulation.js`. *Screen: none.* Skip →
    `speedFactorFromProb is not defined`, speed falls back to 1.0.
+
+---
+
+## Grill report — Phase G: visual cohesion / design system (2026-07-02)
+
+**Context:** Pages felt "visually super disconnected." Root cause diagnosed as a design-system
+gap, not just fonts: backgrounds split light/dark (market_screen + base white, four pages black),
+even the blacks differ (`#080808` vs `#0a0a0a`), reds differ (`#cc0000` vs `#ef4444`), and three
+font systems run at once (Helvetica in simulator, JetBrains+Playfair in detector, Plex elsewhere).
+Shared nav was explicitly ruled OUT of scope (deemed no value).
+
+### Q1: Resolve the light/dark split
+**Options:** (a) dark world / light finance (market_screen light); (b) everything dark;
+(c) everything light.
+**Decision:** Custom — DARK: simulator, control-center, detector, market_screen, index (default);
+LIGHT: audience, base.
+**Rationale:** The projected + operator + market screens share the dark installation aesthetic; the
+in-hand phone (audience) and the lit floor manifest (base) read better light.
+**Consequence:** market_screen flips white→dark (reworks the verified Phase B page); audience flips
+dark→light (reworks the verified Phase A page). Both share the same tokens so they still rhyme.
+
+### Q2: Type system
+**Options:** (a) Plex Mono + Playfair; (b) Plex Mono only; (c) keep per-page fonts.
+**Decision:** Option (a) — IBM Plex Mono for all UI/data, Playfair for detector headlines only.
+**Rationale:** Kills the off-brand Helvetica simulator while keeping the detector's editorial serif.
+**Consequence:** Simulator `css/main.css` Helvetica → Plex is the biggest single cohesion win.
+Overridden for detector by Q6 (see below): detector is left untouched, so it keeps JetBrains Mono —
+an accepted, deliberate exception to the two-family goal.
+
+### Q3: Canonical accent hexes
+**Options:** (a) Tailwind set #ef4444/#22c55e/#f59e0b; (b) punchier #dc2626/#16a34a/#d97706.
+**Decision:** Option (a) — already dominant, least churn.
+**Rationale:** Only simulator's `#cc0000` and stray `#4ade80` greens need replacing.
+**Consequence:** red = disruptor/negative, green = defender/positive, amber = market — one hex each,
+show-wide. Red stops being used decoratively.
+
+### Q4: Token mechanism
+**Options:** (a) one `css/tokens.css` with `.surface-light` override; (b) two token files;
+(c) inline vars per page.
+**Decision:** Option (a).
+**Rationale:** Single source of truth; accents/fonts defined once, only bg/fg/border flip per mode.
+**Consequence:** Every page adds one `<link>`; light pages add a `surface-light` class. Future drift
+is structurally prevented.
+
+### Q5: Component-chrome depth
+**Options:** (a) shared atoms via tokens (labels, stat values, borders, buttons); (b) tokens only;
+(c) full component redesign.
+**Decision:** Option (a).
+**Rationale:** Panels/labels rhyme across pages without the regression risk of a full redesign.
+**Consequence:** A small utility layer in `tokens.css` (label/value/border/button); applied where it
+maps cleanly, not force-fit.
+
+### Q6: Rollout order + protected pages
+**Options:** (a) foundational-first, verify per step; (b) one big commit; (c) tokens+fonts now,
+defer flips.
+**Decision:** Option (a), with explicit carve-outs:
+- **detector.html — DO NOT TOUCH** (declared "perfect"); keeps its fonts/chrome/surface as-is.
+- **base.html — font token only, PLUS remove the "Wooden Chair" (D01) and "Trolley" (R02) manifest
+  entries and reflow** the rows to accommodate the remainder. Stays light. No other restyle.
+- **simulator.html — REVERT ship markers** from the Phase C hull sprites back to the original red
+  crosses + datacard (name/type/speed/IMO above). This reverses the Phase C board request after
+  seeing it live.
+**Rationale:** Isolates risk to one revertable commit per page; protects the two pages the user is
+happy with; honors a live design reversal.
+**Consequence:** Each step commits + re-verifies. detector staying on JetBrains is the one cohesion
+compromise. Removing D01/R02 from the manifest is display-only — both weapons remain fireable via
+keyboard/detector; they simply won't be listed on the floor board.
+
+### Implementation plan (ordered, per Q6)
+1. `css/tokens.css` (new) — `:root` dark defaults + accents + fonts + label/value/border/button
+   utilities; `.surface-light` override block. *Screen: none until adopted.* Skip → no shared source.
+2. `simulator.html` + `css/main.css` — `<link>` tokens; Helvetica→`var(--font-ui)`; `#cc0000`→
+   `var(--red)`; **revert vessel marker to red-cross divIcon + datacard** in `js/vessel-creation.js`
+   and restore the `.vdc-speed` text update in `js/simulation.js` (drop the sprite rotation).
+   *Screen: simulator in Plex Mono, unified red, red crosses back.* Skip → simulator stays off-brand.
+3. `control-center.html` — adopt tokens; normalize blacks/reds to vars. *Screen: unchanged palette,
+   now tokenized.* Skip → drifts again later.
+4. `market_screen.html` — add tokens, `surface` stays dark: flip bg white→`var(--bg)`, text→
+   `var(--fg)`, grid/borders→vars, **switch TradingView charts to dark theme**. *Screen: market goes
+   dark, matches control-center; retest charts + leaderboard.* Skip → market stays the odd white page.
+5. `audience.html` — add tokens + `surface-light` class: flip bg dark→white, text→dark, keep accent
+   buttons. *Screen: phone page goes light; retest signup + bet flow.* Skip → phone stays dark.
+6. `base.html` — swap font `<link>`/family to token; **delete D01 Wooden Chair + R02 Trolley entries,
+   reflow rows**; keep light. *Screen: manifest minus two objects, balanced.* Skip → stale objects on
+   the floor board.
+7. `index.html` — adopt tokens (already Plex/dark). *Screen: negligible.* Skip → minor drift.
+
+**Untouched by decision:** detector.html.
