@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blank Screen</title>
+<style>
+  html,
+  body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    background: #fff;
+    overflow: hidden;
+    cursor: none;
+  }
+
+  body.black {
+    background: #000;
+  }
+</style>
+</head>
+<body>
+<script>
+  document.addEventListener('click', function () {
+    document.body.classList.toggle('black');
+  });
+</script>
+</body>
+</html>
