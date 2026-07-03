@@ -1,16 +1,11 @@
 // Boot framing = the reviewed projection. Drag + zoom stay enabled so the
 // operator can nudge the view; the +/- buttons are removed per the review.
 // Set BOOT_CENTER / BOOT_ZOOM below to whatever framing you settle on.
-const BOOT_CENTER = [26.0, 57.0];
-const BOOT_ZOOM = 7;
+const BOOT_CENTER = [25.560, 57.374];
+const BOOT_ZOOM = 8;
 const map = L.map('map', {
   center: BOOT_CENTER, zoom: BOOT_ZOOM, minZoom: 5, maxZoom: 12,
   zoomControl: false
-});
-// Temporary helper — logs the current framing so it can be baked in as default.
-map.on('moveend zoomend', function () {
-  var c = map.getCenter();
-  console.log('[VIEW] BOOT_CENTER = [' + c.lat.toFixed(3) + ', ' + c.lng.toFixed(3) + '], BOOT_ZOOM = ' + map.getZoom());
 });
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(map);
 map.createPane('labelsPane');
